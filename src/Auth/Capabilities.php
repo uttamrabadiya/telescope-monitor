@@ -11,8 +11,19 @@ final class Capabilities
 
     public function allows(string $capability, ?Actor $actor = null): bool
     {
-        $actor ??= $this->actors->current();
+        if (! in_array($capability, ['view', 'operate', 'manage'], true)) {
+            return false;
+        }
+        $current = $this->actors->current();
+        $actor ??= $current;
         if (! $actor || ! ($user = $this->actors->resolve($actor))) {
+            return false;
+        }
+        $driver = config('exception-monitor.authorization.driver', 'telescope');
+        if ($driver === 'telescope') {
+            return app(TelescopeAccess::class)->allows($user, $actor->key === TelescopeAccess::SHARED_KEY, $current?->key === $actor->key);
+        }
+        if ($driver !== 'gates') {
             return false;
         }
         $gate = config('exception-monitor.capabilities.'.$capability);

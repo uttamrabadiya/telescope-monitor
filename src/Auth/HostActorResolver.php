@@ -2,6 +2,7 @@
 
 namespace TelescopeMonitor\Auth;
 
+use Illuminate\Auth\GenericUser;
 use Illuminate\Contracts\Auth\Authenticatable;
 use Illuminate\Support\Facades\Auth;
 use TelescopeMonitor\Data\Actor;
@@ -12,14 +13,21 @@ final class HostActorResolver implements ActorResolver
     {
         $user = Auth::guard(config('exception-monitor.guard'))->user();
         if (! $user) {
-            return null;
+            return app(TelescopeAccess::class)->sharedAvailable()
+                ? new Actor(TelescopeAccess::SHARED_KEY, TelescopeAccess::SHARED_LABEL)
+                : null;
         }
 
-        return new Actor($this->provider().':'.(string) $user->getAuthIdentifier(), (string) ($user->name ?? 'Authenticated user'));
+        return new Actor($this->provider().':'.(string) $user->getAuthIdentifier(), (string) ($user->name ?? $user->fullName ?? 'Authenticated user'));
     }
 
     public function resolve(Actor $actor): ?Authenticatable
     {
+        if ($actor->key === TelescopeAccess::SHARED_KEY) {
+            return app(TelescopeAccess::class)->sharedAvailable()
+                ? new GenericUser(['id' => TelescopeAccess::SHARED_KEY, 'name' => TelescopeAccess::SHARED_LABEL])
+                : null;
+        }
         $prefix = $this->provider().':';
         if (! str_starts_with($actor->key, $prefix)) {
             return null;

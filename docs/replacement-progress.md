@@ -376,3 +376,12 @@ Implemented `exception-monitor:backfill` with required original environment, bou
 Historical occurrences and history-only groups are labeled in the UI. Reportability is explicitly unavailable, current deployment source/release metadata is not invented, and original event timestamps/retention are preserved. Repeated/concurrent imports and replay after evidence expiry deduplicate by source epoch/UUID. Existing lifecycle state is preserved; no historical alert event, delivery or automatic GitHub issue is planned. Historical imports are excluded from subsequent live frequency counts.
 
 Verification: full SQLite suite 224 tests / 1,312 assertions with 13 engine-specific skips. MariaDB 11.7.2 backfill/capture concurrency scope passed 15 tests / 109 assertions; final malformed/timezone edge checks passed 2 tests / 8 assertions. Three real backfill processes imported the same 12 UUIDs with exactly 12 occurrences and no alert intent. Static analysis, Pint and the Vue/TypeScript build pass. An isolated workbench command imported a fixture without source changes or new delivery intent; desktop and phone historical labels render without overflow or console errors. The sealed rc.1 archive remains unchanged.
+
+
+## Native Telescope route authorization
+
+At the user's request, the default monitoring authorization driver is now `telescope`, delegating HTTP access to Laravel Telescope's built-in Authorize middleware and Telescope::check. Fresh middleware uses web without the separate Laravel session-auth requirement. Separate capability gates remain opt-in via driver=gates. Authenticated users retain their host identity; authorized anonymous visits use an explicitly shared operator identity without creating/signing in a host User. CSRF protection remains active.
+
+Queued real-user actions re-resolve the user and check viewTelescope; local shared actions recheck Telescope access. Deployed guest-only queued work fails closed unless the host explicitly grants allow_guest_jobs. An approved HTTP visitor cannot authorize a different saved actor. Documentation explains shared notes/view ownership and worker policy.
+
+Verification: full SQLite suite 232 tests / 1,351 assertions with 13 engine-specific skips before adding two extra authorization regressions; the final 10-test authorization scope passes. Static analysis passes. An anonymous Laravel HTTP-kernel dashboard request returned 200 with assets and no signed-in user. No extra login route or user-account mutation was introduced.

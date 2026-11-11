@@ -39,6 +39,9 @@ abstract class TestCase extends Orchestra
         }
         $app['config']->set('telescope.storage.database.connection', $driver);
         $app['config']->set('exception-monitor.middleware', ['web']);
+        // Existing capability-specific domain tests exercise the opt-in gate mode.
+        // TelescopeAuthorizationTest covers the default native Telescope policy.
+        $app['config']->set('exception-monitor.authorization.driver', 'gates');
         $app['config']->set('app.key', 'base64:'.base64_encode(str_repeat('t', 32)));
         $app['config']->set('app.url', 'https://example.test');
         $app['config']->set('mail.default', 'array');

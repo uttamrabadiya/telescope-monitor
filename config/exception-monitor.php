@@ -5,7 +5,11 @@ return [
     // Null inherits Telescope's storage connection, then Laravel's default.
     'database' => ['connection' => env('EXCEPTION_MONITOR_DB_CONNECTION')],
     'path' => env('EXCEPTION_MONITOR_PATH', 'exception-monitor'),
-    'middleware' => ['web', 'auth'],
+    'middleware' => ['web'],
+    'authorization' => [
+        'driver' => 'telescope', // Use 'gates' for separate view/operate/manage gates.
+        'allow_guest_jobs' => false, // Deployed guest-only access needs explicit queued-work permission.
+    ],
     'guard' => null,
     'capture' => [
         'enabled' => true,

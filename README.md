@@ -49,7 +49,23 @@ php artisan exception-monitor:migrate
 
 The installer preserves existing configuration and skips a migration already published under its stable filename suffix. It does not migrate automatically. A database containing the old prototype tables without the replacement installation marker is rejected explicitly. Back up that host and review a conversion or choose a fresh database; the installer never drops those tables.
 
-In the host application's provider, define gates for the capabilities you intend to grant:
+By default, monitoring routes use Laravel Telescope's own `Authorize` middleware and `Telescope::check($request)`. The package does not add Laravel's session-login `auth` middleware. With Laravel's default Telescope application provider, local access is allowed and other environments use `viewTelescope`. A custom `Telescope::auth(...)` callback is honored, including a callback that denies local access. Configure Telescope's existing access policy; no separate monitor login route is required.
+
+```php
+'middleware' => ['web'],
+'authorization' => [
+    'driver' => 'telescope',
+    'allow_guest_jobs' => false,
+],
+```
+
+All Telescope-authorized visitors have view, operate and manage capabilities in this default mode. Web sessions and CSRF protection remain enabled. Existing published configurations are preserved: remove `auth` from the monitoring middleware array to adopt this mode, then clear/rebuild configuration and route caches. Open `/exception-monitor/setup` directly.
+
+Signed-in users retain their provider-backed identity. Authorized visits without a user use a stable **Telescope operator (shared)** identity; no host user record is created and nobody is signed in automatically. Guest notes and personal saved views belong to that shared identity, so authorized guests share their ownership. Existing account-owned private views remain with their original account.
+
+Queued manual work re-resolves authenticated users and checks the current `viewTelescope` gate outside local. Local shared work rechecks Telescope access. A deployed request-only guest policy cannot be replayed inside a worker, so guest-initiated queued work is denied there by default. If the deployment deliberately trusts a shared operator for queued work, it can explicitly set `authorization.allow_guest_jobs` to true; disabling it revokes that shared worker grant. Custom HTTP callbacks for signed-in users should also supply an equivalent `viewTelescope` worker gate or a host actor/authorization adapter. Restart long-lived workers after deployment policy changes.
+
+For applications needing separate viewer/operator/admin roles, opt into `authorization.driver = 'gates'` and define the existing capability gates:
 
 ```php
 use Illuminate\Support\Facades\Gate;
@@ -59,9 +75,7 @@ Gate::define('operateExceptionMonitor', fn ($user) => $user->can('operate-monito
 Gate::define('manageExceptionMonitor', fn ($user) => $user->can('manage-monitoring'));
 ```
 
-Replace these predicates with your actual permissions. Every capability also requires view access. Access is denied until the gate and authenticated identity allow it. There is no production guest bypass. The package uses host authentication provider contracts and does not depend on a particular User model; a custom host can bind `TelescopeMonitor\Auth\ActorResolver`.
-
-Open `/exception-monitor/setup`. Keep the default `web` and `auth` middleware so host sessions and request-forgery protection apply. The package does not provide a login page.
+Replace the predicates with actual host permissions. Gate mode requires a resolvable authenticated actor, and each capability also requires view access. Add the host's login middleware if desired. Custom hosts can bind `TelescopeMonitor\Auth\ActorResolver`; the package does not require a particular User model. Unknown authorization drivers deny access.
 
 ## Database storage
 
