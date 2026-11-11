@@ -1,0 +1,15 @@
+providers:
+  - Laravel\Telescope\TelescopeServiceProvider
+  - TelescopeMonitor\ExceptionMonitorServiceProvider
+  - Workbench\App\Providers\WorkbenchServiceProvider
+migrations:
+  - database/migrations
+  - vendor/laravel/telescope/database/migrations
+workbench:
+  start: '/exception-monitor/setup'
+  install: true
+  discovers:
+    web: true
+    api: false
+    commands: false
+    views: false

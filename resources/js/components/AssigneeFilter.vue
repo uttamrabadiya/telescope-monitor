@@ -1,0 +1,10 @@
+<script setup lang="ts">
+import { computed,ref } from 'vue'
+import { api } from '../composables/api'
+const props=defineProps<{modelValue?:string}>(),emit=defineEmits<{'update:modelValue':[value:string]}>(),open=ref(false),query=ref(''),people=ref<{key:string;label:string}[]>([]),loading=ref(false),error=ref('')
+const current=computed(()=>people.value.find(p=>'actor:'+p.key===props.modelValue||p.key===props.modelValue))
+async function search(){loading.value=true;people.value=[];error.value='';try{people.value=(await api<{items:{key:string;label:string}[]}>('/assignment-directory?q='+encodeURIComponent(query.value))).items}catch(e){error.value=e instanceof Error?e.message:'The host directory is unavailable.'}finally{loading.value=false}}
+function choose(key:string){emit('update:modelValue','actor:'+key);open.value=false}
+function toggle(){open.value=!open.value;if(open.value)search()}
+</script>
+<template><div class="assignee-filter"><label class="field">Assignee<select :value="modelValue??''" @change="emit('update:modelValue',($event.target as HTMLSelectElement).value)"><option value="">Any assignee</option><option value="me">Assigned to me</option><option value="unassigned">Unassigned</option><option v-if="modelValue&&!['me','unassigned'].includes(modelValue)" :value="modelValue">{{current?.label??'Current host reference'}}</option></select></label><button class="text-link" type="button" :aria-expanded="open" @click="toggle">Choose a host user</button><div v-if="open" class="filter-directory"><label class="field">Find eligible assignee<input v-model="query" maxlength="100"></label><button class="button" type="button" :disabled="loading" @click="search">{{loading?'Searching…':'Search directory'}}</button><p v-if="error" class="field-error" role="alert">{{error}}</p><ul class="candidate-list"><li v-for="person in people" :key="person.key"><button type="button" class="button" @click="choose(person.key)">{{person.label}}</button></li></ul><p v-if="!loading&&!people.length" class="help">No eligible users returned.</p></div></div></template>

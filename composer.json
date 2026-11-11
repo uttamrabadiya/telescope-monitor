@@ -1,0 +1,91 @@
+{
+    "name": "telescope-monitor/telescope-monitor",
+    "description": "Complete error investigation and operations for Laravel Telescope.",
+    "type": "library",
+    "license": "MIT",
+    "require": {
+        "ext-curl": "*",
+        "laravel/framework": "^13.0",
+        "laravel/telescope": "^5.27.0",
+        "php": "^8.3"
+    },
+    "require-dev": {
+        "larastan/larastan": "^3.0",
+        "laravel/pint": "^1.0",
+        "orchestra/testbench": "^11.0",
+        "phpunit/phpunit": "^12.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "TelescopeMonitor\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "TelescopeMonitor\\Tests\\": "tests/",
+            "Workbench\\App\\": "workbench/app/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "TelescopeMonitor\\ExceptionMonitorServiceProvider"
+            ]
+        }
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "php-http/discovery": true
+        },
+        "platform": {
+            "php": "8.3.0"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "format": "pint",
+        "analyse": "phpstan analyse --memory-limit=512M",
+        "prepare": "@php vendor/bin/testbench package:discover",
+        "serve": "@php vendor/bin/testbench serve",
+        "workbench:build": [
+            "@php workbench/build.php",
+            "@php vendor/bin/testbench migrate"
+        ]
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true,
+    "archive": {
+        "exclude": [
+            "/.archive",
+            "/releases",
+            "/.idea",
+            "/.impeccable",
+            "/.playwright-mcp",
+            "/node_modules",
+            "/docs/*",
+            "!/docs/operations-guide-v1.md",
+            "!/docs/webhook-contract-v1.md",
+            "!/docs/release-notes-v1.0.0-rc.1.md",
+            "!/docs/release-verification-v1.0.0-rc.1.md",
+            "/tests",
+            "/workbench",
+            "/scripts",
+            "/.github",
+            "/PRODUCT.md",
+            "/DESIGN.md",
+            "/package.json",
+            "/package-lock.json",
+            "/vite.config.ts",
+            "/tsconfig.json",
+            "/testbench.yaml",
+            "/phpunit.xml",
+            "/phpstan.neon",
+            "/phpstan-bootstrap.php",
+            "/.phpunit.cache",
+            "/.phpstan-cache",
+            "/vendor",
+            "/composer.lock"
+        ]
+    }
+}

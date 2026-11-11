@@ -1,0 +1,58 @@
+name: Release verification
+on: [push, pull_request]
+jobs:
+  sqlite:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        php: ['8.3', '8.4', '8.5']
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: curl, pdo_sqlite, mbstring, pcntl
+          coverage: none
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: composer install --no-interaction --prefer-dist
+      - run: npm ci
+      - run: npm run build
+      - run: npm run test:unit
+      - run: php workbench/build.php
+      - run: composer test
+      - run: composer analyse
+      - run: vendor/bin/pint --test
+      - run: git diff --exit-code -- dist
+  database:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        image: ['mysql:8.4', 'mariadb:11.4']
+    services:
+      database:
+        image: ${{ matrix.image }}
+        env:
+          MYSQL_ROOT_PASSWORD: testing
+          MYSQL_DATABASE: telescope_monitor_test
+        ports: ['3306:3306']
+        options: >-
+          --health-cmd="mysqladmin ping -h localhost -ptesting || mariadb-admin ping -h localhost -ptesting"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    env:
+      MONITOR_DB: mysql
+      DB_HOST: 127.0.0.1
+      DB_DATABASE: telescope_monitor_test
+      DB_USERNAME: root
+      DB_PASSWORD: testing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          extensions: curl, pdo_mysql, mbstring, pcntl
+          coverage: none
+      - run: composer install --no-interaction --prefer-dist
+      - run: composer test

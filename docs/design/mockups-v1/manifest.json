@@ -1,0 +1,57 @@
+{
+  "status": "main-screen visual direction accepted by the user",
+  "date": "2026-11-10",
+  "generation_mode": "built-in image generation",
+  "target_viewport": {
+    "width": 1440,
+    "height": 1024
+  },
+  "screens": [
+    {
+      "screen": "onboarding",
+      "file": "onboarding.png",
+      "width": 1487,
+      "height": 1058,
+      "sha256": "a801790b94414b1ba279b995b6209b8af815702c591809874d6804b4ecb68211"
+    },
+    {
+      "screen": "overview",
+      "file": "overview.png",
+      "width": 1487,
+      "height": 1058,
+      "sha256": "d5a8005b9d0a68697c341a95eb53138ea1bb3128e2d8037c7975bf0e3ecd08bf"
+    },
+    {
+      "screen": "details",
+      "file": "details.png",
+      "width": 1487,
+      "height": 1058,
+      "sha256": "e1ffe0e530c3e3a483bba06759f7c69a431c6a0b088a162de638179b3c1d139c"
+    },
+    {
+      "screen": "rules",
+      "file": "rules-v2.png",
+      "width": 1487,
+      "height": 1058,
+      "sha256": "fc55b02eca51571c0fee84729b8132c33c6519f422c1c0e2872ac13b43d2de68"
+    },
+    {
+      "screen": "integrations",
+      "file": "integrations.png",
+      "width": 1487,
+      "height": 1058,
+      "sha256": "ab691f73f485262b0e523355e6d1bf28df3540b9d13d7cef5e2a4096010dcdaa"
+    },
+    {
+      "screen": "settings",
+      "file": "settings.png",
+      "width": 1487,
+      "height": 1058,
+      "sha256": "605ba5c6838ab2531ababb482e8827964e4021358bccd9183c02584dcc7b0a30"
+    }
+  ],
+  "superseded": [
+    "rules.png"
+  ],
+  "implementation_changes": false
+}

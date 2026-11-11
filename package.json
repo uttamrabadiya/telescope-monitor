@@ -1,0 +1,27 @@
+{
+  "name": "telescope-monitor-dashboard",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vue-tsc --noEmit && vite build && node scripts/copy-licenses.mjs",
+    "typecheck": "vue-tsc --noEmit",
+    "test:unit": "node --test tests/Frontend/*.test.mjs"
+  },
+  "dependencies": {
+    "@fontsource/figtree": "^5.3.0",
+    "@heroicons/vue": "^2.2.0",
+    "vue": "^3.5.45",
+    "vue-router": "^4.6.4"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@vitejs/plugin-vue": "^6.0.10",
+    "typescript": "^6.0.3",
+    "vite": "^8.3.7",
+    "vue-tsc": "^3.3.14"
+  },
+  "engines": {
+    "node": ">=22.12.0"
+  }
+}

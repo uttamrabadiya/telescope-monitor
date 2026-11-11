@@ -1,0 +1,46 @@
+<?php
+
+namespace TelescopeMonitor\Console\Commands;
+
+use Illuminate\Console\Command;
+use Laravel\Telescope\Telescope;
+use TelescopeMonitor\Alerts\DeliveryDispatcher;
+use TelescopeMonitor\Alerts\DeliverySender;
+use TelescopeMonitor\Repositories\Contracts\AlertPlanning;
+use TelescopeMonitor\Repositories\Contracts\DeliveryLedger;
+
+final class DeliverCommand extends Command
+{
+    protected $signature = 'exception-monitor:deliver {--limit=100}';
+
+    protected $description = 'Explicitly send a bounded set of eligible deliveries inline in this CLI command.';
+
+    public function handle(DeliveryLedger $ledger, AlertPlanning $planning, DeliveryDispatcher $dispatcher, DeliverySender $sender): int
+    {
+        $limit = filter_var($this->option('limit'), FILTER_VALIDATE_INT);
+        if ($limit === false || $limit < 1 || $limit > 10000) {
+            return self::INVALID;
+        }if (! $planning->ready()) {
+            return self::FAILURE;
+        }
+        try {
+            $result = Telescope::withoutRecording(function () use ($limit, $ledger, $sender) {
+                $count = 0;
+                foreach ($ledger->due($limit) as $row) {
+                    if ($sender->send($row['id'], $row['generation'])) {
+                        $count++;
+                    }
+                }
+
+                return ['attempted' => $count];
+            });
+            $this->line(json_encode($result, JSON_THROW_ON_ERROR));
+
+            return self::SUCCESS;
+        } catch (\Throwable) {
+            $this->error('Delivery operation failed. No raw provider error was logged.');
+
+            return self::FAILURE;
+        }
+    }
+}

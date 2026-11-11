@@ -1,0 +1,6 @@
+<script setup lang="ts">
+import {date} from '../composables/investigation'
+import type { Check } from '../types'
+defineProps<{ checks: Check[] }>()
+</script>
+<template><div class="table-scroll health-table" tabindex="0" role="region" aria-label="Health checks and dated observations"><table><thead><tr><th>Check</th><th>Evidence</th><th>Result</th></tr></thead><tbody><tr v-for="check in checks" :key="check.key"><td><strong>{{ check.label }}</strong><p class="help">{{ check.detail }}</p><div v-if="check.kind!=='configuration'" class="health-times"><small v-if="check.last_started_at">Started {{date(check.last_started_at)}}</small><small v-if="check.last_success_at">Succeeded {{date(check.last_success_at)}}</small><small v-if="check.last_failure_at">Failed {{date(check.last_failure_at)}}</small><small v-if="!check.last_started_at&&!check.last_success_at&&!check.last_failure_at">{{check.observed_at?'Observed '+date(check.observed_at):'No dated processing observation'}}</small></div></td><td class="quiet">{{ check.kind === 'configuration' ? 'Configuration' : 'Observation' }}</td><td><span class="badge" :class="check.state">{{ check.state === 'running'?'Started':check.state === 'passed' ? 'Passed' : check.state === 'warning' ? 'Warning' : check.state === 'failed' ? 'Failed' : 'Unverified' }}</span></td></tr></tbody></table></div></template>

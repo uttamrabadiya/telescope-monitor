@@ -1,0 +1,9 @@
+<script setup lang="ts">
+import type { ErrorGroup } from '../types'
+import { bootstrap } from '../composables/api'
+import { date } from '../composables/investigation'
+import { useRoute } from 'vue-router'
+defineProps<{items:ErrorGroup[];range:string;compact?:boolean}>()
+const route=useRoute()
+</script>
+<template><div tabindex="0" role="region" aria-label="Error table, scroll horizontally for more columns" class="table-scroll errors-table" :class="{compact}"><table><thead><tr><th>Error</th><th>Status</th><th v-if="!compact">Environment</th><th v-if="!compact&&bootstrap?.features.assignments">Assignee</th><th>{{ range }}</th><th v-if="!compact">Lifetime</th><th>Last seen</th></tr></thead><tbody><tr v-for="issue in items" :key="issue.id"><td><RouterLink :to="{path:'/errors/'+issue.id,query:{range:route.query.range??'24h',returnTo:route.fullPath}}" class="error-title">{{ issue.message || issue.class }}</RouterLink><div class="row-secondary">{{ issue.class }}<span v-if="issue.origins?.length"> · {{ issue.origins.join(', ') }}</span></div><div v-if="!compact" class="code row-file" :title="'First seen: '+date(issue.first_seen_at)">{{ issue.file }}:{{ issue.line }}</div></td><td><span class="status-badge" :class="'status-'+issue.status">{{ issue.status }}</span><span v-if="issue.regressions" class="badge">Regression</span><span v-if="issue.is_test" class="badge">Test</span><span v-if="issue.recovered_only" class="badge">Recovered</span></td><td v-if="!compact">{{ issue.environment }}</td><td v-if="!compact&&bootstrap?.features.assignments">{{issue.assignee?.label??'Unassigned'}}</td><td class="numeric">{{ issue.range_count }}</td><td v-if="!compact" class="numeric">{{ issue.lifetime_count }}</td><td class="time-cell">{{ date(issue.last_seen_at) }}</td></tr><tr v-if="!items.length"><td :colspan="compact?4:bootstrap?.features.assignments?7:6" class="table-empty">No errors match these filters.</td></tr></tbody></table></div></template>

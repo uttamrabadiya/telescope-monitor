@@ -1,0 +1,12 @@
+/vendor/
+/node_modules/
+/.archive/
+/releases/
+/.phpunit.cache/
+/.phpstan-cache/
+/.playwright-mcp/
+/.idea/
+/.impeccable/
+/workbench/database/*.sqlite*
+/workbench/storage/
+/testbench.yaml.local
