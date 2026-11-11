@@ -147,6 +147,29 @@ Normal envelopes are at most 128 KiB; source/context reads, traces, logs, tags a
 
 A changed source database signature or backwards source sequence stops reconciliation for explicit epoch review; the package never silently resets identity. A source that was filtered, unmarked, pruned or unavailable before durable buffering cannot be reconstructed. Setup and system health expose pending/failed counts, oldest pending receipt, safe error code and actual processing/maintenance times. The overview and investigation UI consume these observations; email delivery has its own durable ledger and observations described below.
 
+## Backfill existing Telescope exceptions
+
+For retained exceptions that predate this package, use the explicit CLI importer. Choose the **original source environment**; legacy Telescope rows do not reliably prove it, and it is never guessed from the current app environment:
+
+```sh
+php artisan exception-monitor:backfill --environment=production --limit=100 --dry-run
+php artisan exception-monitor:backfill --environment=production --limit=100
+```
+
+Replace `production` when appropriate. Output is JSON with a fixed source `through` ceiling, `next_after` cursor, `has_more`, and candidate/import/duplicate/skip/pending/failure counts. Continue the same snapshot using the returned values:
+
+```sh
+php artisan exception-monitor:backfill --environment=production --after=1234 --through=9876 --limit=100
+```
+
+The numbers above are examples; use the values from your run. Each invocation scans at most 1–1,000 source exceptions and may stop earlier at the existing source byte budget. Repeat pages safely after interruption. Dry run validates candidate selection without writing package data or generating keys; it does not preview payload text or guarantee every payload can subsequently be sanitized/encrypted.
+
+The command sanitizes and encrypts evidence before buffering, then attempts ingestion inline in the CLI. A worker may claim buffered work concurrently; pending/retryable work uses the existing capture recovery path. Rows carrying package markers are skipped: use normal recovery/reconciliation for those. Malformed, oversized and future-dated rows are skipped with counts, never raw content. Source rows/tags are not changed, and normal reconciliation checkpoints are not advanced.
+
+Imported occurrences have `historical_import` provenance and an explicit Historical import label. History-only groups show Historical until a live occurrence arrives. Original timestamps are preserved using `capture.source_timezone` (otherwise the app timezone); legacy reportability is marked unavailable. Current deployment release/source-link metadata is never retroactively attached. Imported history contributes to lifetime totals and retained event-time charts but cannot reopen/unsnooze an existing issue, generate retrospective alert events/deliveries/GitHub creation, or inflate a subsequent live alert's frequency count.
+
+Identity is deduplicated by installation, source epoch and Telescope UUID, including repeated/concurrent runs and replay after evidence expiry. Totals count retained exception UUIDs; they do not reconstruct pruned history or multiply a row by denormalized family counters. Retention still applies from the original event time: very old records may have only a sanitized group summary and occurrence identity, with no retained snapshot. Purge generation/sequence/time fences prevent restoration of deliberately purged history. Disabled package capture, maintenance, source identity changes and unknown database connections are not bypassed. Explicit user actions on imported issues remain normal authorized actions and may notify according to current rules.
+
 ## Investigation and lifecycle
 
 `/exception-monitor/overview` is the dashboard landing page. The inbox at `/exception-monitor/errors` defaults to unresolved groups across observed environments, most recently seen first. Select a range (1h, 24h, 7d or 30d) for event-time counts; older unresolved groups remain visible with zero in-range occurrences until you explicitly filter first/last-seen dates. Lifetime totals are separate. Status, environment, origin, exact class, permitted tag, text and date filters are validated; unknown filters are rejected. Search covers sanitized class/message literally, and terms appear in the authenticated page URL/browser history. Page sizes are 25, 50 or 100, with stable ID tie-breaking.

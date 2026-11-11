@@ -17,6 +17,7 @@ use TelescopeMonitor\Auth\HostActorResolver;
 use TelescopeMonitor\Capture\CaptureContext;
 use TelescopeMonitor\Collaboration\Assignments;
 use TelescopeMonitor\Collaboration\Identity;
+use TelescopeMonitor\Console\Commands\BackfillCommand;
 use TelescopeMonitor\Console\Commands\DeliverCommand;
 use TelescopeMonitor\Console\Commands\DiagnoseCommand;
 use TelescopeMonitor\Console\Commands\ExpireSnoozesCommand;
@@ -123,7 +124,7 @@ final class ExceptionMonitorServiceProvider extends ServiceProvider
                     config('telescope.ignore_paths', []), [$path->prefix(), $path->prefix().'/*']
                 ))));
                 $this->app['config']->set('telescope.ignore_commands', array_values(array_unique(array_merge(
-                    config('telescope.ignore_commands', []), ['exception-monitor:install', 'exception-monitor:migrate', 'exception-monitor:diagnose', 'exception-monitor:process', 'exception-monitor:recover', 'exception-monitor:reconcile', 'exception-monitor:prune', 'exception-monitor:expire-snoozes', 'exception-monitor:deliver', 'exception-monitor:recover-deliveries', 'exception-monitor:prune-deliveries', 'exception-monitor:purge', 'exception-monitor:source-baseline', 'exception-monitor:heartbeat', 'exception-monitor:rewrap']
+                    config('telescope.ignore_commands', []), ['exception-monitor:backfill', 'exception-monitor:install', 'exception-monitor:migrate', 'exception-monitor:diagnose', 'exception-monitor:process', 'exception-monitor:recover', 'exception-monitor:reconcile', 'exception-monitor:prune', 'exception-monitor:expire-snoozes', 'exception-monitor:deliver', 'exception-monitor:recover-deliveries', 'exception-monitor:prune-deliveries', 'exception-monitor:purge', 'exception-monitor:source-baseline', 'exception-monitor:heartbeat', 'exception-monitor:rewrap']
                 ))));
                 Telescope::hideRequestParameters(['exception_monitor_private']);
                 Telescope::hideResponseParameters(['exception_monitor_private']);
@@ -155,6 +156,7 @@ final class ExceptionMonitorServiceProvider extends ServiceProvider
         }
         if ($this->app->runningInConsole()) {
             $this->commands([
+                BackfillCommand::class,
                 InstallCommand::class,
                 MigrateCommand::class,
                 DiagnoseCommand::class,

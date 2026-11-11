@@ -3,7 +3,9 @@
 namespace TelescopeMonitor\Tests\Concurrency;
 
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 use TelescopeMonitor\Capture\CaptureProcessor;
+use TelescopeMonitor\Capture\HistoricalBackfill;
 use TelescopeMonitor\Tests\Capture\CapturesExceptions;
 use TelescopeMonitor\Tests\TestCase;
 
@@ -51,5 +53,44 @@ final class CaptureConcurrencyTest extends TestCase
         $this->assertSame(12, (int) DB::table('exception_monitor_metric_buckets')->where('resolution', '1h')->sum('occurrence_count'));
         $this->assertSame(1, (int) DB::table('exception_monitor_metric_buckets')->where('resolution', '1h')->sum('new_group_count'));
         $this->assertDatabaseCount('exception_monitor_alert_events', 1);
+    }
+
+    public function test_concurrent_historical_imports_count_each_source_uuid_once_without_alert_intents(): void
+    {
+        if (DB::getDriverName() !== 'mysql' || ! function_exists('pcntl_fork')) {
+            $this->markTestSkipped('Requires MySQL/MariaDB and pcntl.');
+        }
+        for ($n = 0; $n < 12; $n++) {
+            DB::table('telescope_entries')->insert(['uuid' => (string) Str::uuid(), 'batch_id' => (string) Str::uuid(), 'type' => 'exception', 'content' => json_encode(['class' => 'RuntimeException', 'message' => 'Historical concurrent fixture', 'file' => base_path('app/Services/Payment.php'), 'line' => 42, 'trace' => []]), 'created_at' => now('UTC')->subMinute()->format('Y-m-d H:i:s'), 'should_display_on_index' => true]);
+        }
+        DB::disconnect();
+        $children = [];
+        for ($worker = 0; $worker < 3; $worker++) {
+            $pid = pcntl_fork();
+            if ($pid === 0) {
+                DB::purge();
+                try {
+                    app(HistoricalBackfill::class)->run('testing');
+                    exit(0);
+                } catch (\Throwable $e) {
+                    fwrite(STDERR, $e::class);
+                    exit(2);
+                }
+            }
+            $this->assertGreaterThan(0, $pid);
+            $children[] = $pid;
+        }
+        foreach ($children as $pid) {
+            pcntl_waitpid($pid, $status);
+            $this->assertSame(0, pcntl_wexitstatus($status));
+        }
+        DB::purge();
+        $this->process();
+        $this->assertDatabaseCount('exception_monitor_occurrences', 12);
+        $this->assertDatabaseCount('exception_monitor_issues', 1);
+        $this->assertSame(12, (int) DB::table('exception_monitor_issues')->value('lifetime_count'));
+        $this->assertSame(12, (int) DB::table('exception_monitor_metric_buckets')->where('resolution', '1h')->sum('occurrence_count'));
+        $this->assertDatabaseCount('exception_monitor_alert_events', 0);
+        $this->assertDatabaseCount('exception_monitor_deliveries', 0);
     }
 }

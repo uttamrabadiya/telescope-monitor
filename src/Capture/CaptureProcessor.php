@@ -127,6 +127,7 @@ final class CaptureProcessor
             $payload = $this->sanitizer->restrict($payload, $policy);
             $e = $payload['exception'];
             $test = $item->mode === 'synthetic_test';
+            $historical = $item->mode === 'historical_import';
             $issue = $this->issues->forCapture([
                 'installation_id' => $i->id,
                 'environment' => $item->environment,
@@ -165,7 +166,7 @@ final class CaptureProcessor
                     $issue->message = $e['message'];
                     $issue->last_seen_at = $item->occurred_at;
                 }
-                if ($issue->status === 'snoozed' && $issue->snoozed_until && $issue->snoozed_until <= CarbonImmutable::now('UTC')) {
+                if (! $historical && $issue->status === 'snoozed' && $issue->snoozed_until && $issue->snoozed_until <= CarbonImmutable::now('UTC')) {
                     $issue->notification_cutoff_at = $issue->notification_cutoff_at?->max($issue->snoozed_until) ?? $issue->snoozed_until;
                     $issue->status = 'unresolved';
                     $issue->snoozed_at = null;
@@ -173,14 +174,14 @@ final class CaptureProcessor
                     $issue->state_version++;
                     $this->activity->record($issue, 'error.snooze_expired', $occurrence->public_id, CarbonImmutable::now('UTC'), $item->mode);
                 }
-                if ($issue->status === 'resolved' && $issue->resolution_cutoff_at && $item->occurred_at > $issue->resolution_cutoff_at) {
+                if (! $historical && $issue->status === 'resolved' && $issue->resolution_cutoff_at && $item->occurred_at > $issue->resolution_cutoff_at) {
                     $issue->status = 'unresolved';
                     $issue->resolved_at = null;
                     $issue->state_version++;
                     $regression = true;
                 }
                 if ($first) {
-                    $issue->recovered_only = $item->mode === 'reconciliation';
+                    $issue->recovered_only = in_array($item->mode, ['reconciliation', 'historical_import'], true);
                 } elseif ($item->mode === 'live') {
                     $issue->recovered_only = false;
                 }
@@ -214,7 +215,7 @@ final class CaptureProcessor
                 if ($first || $regression) {
                     $type = $first ? 'error.created' : 'error.regressed';
                     $this->activity->record($issue, $type, $occurrence->public_id, $item->occurred_at, $item->mode);
-                    if (! $test) {
+                    if (! $test && ! $historical) {
                         $this->events->record($issue, $occurrence, $type, [
                             'class' => $e['class'],
                             'message' => $e['message'],
@@ -224,7 +225,7 @@ final class CaptureProcessor
                     }
                 }
             }
-            if ($occurrence->wasRecentlyCreated) {
+            if ($occurrence->wasRecentlyCreated && ! $historical) {
                 app(AlertPlanning::class)->occurrence($issue, $occurrence);
             }
             if ($payload['marker']['probe_id'] ?? null) {

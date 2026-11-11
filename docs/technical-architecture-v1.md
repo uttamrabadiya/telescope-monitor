@@ -245,3 +245,10 @@ The [implementation plan](implementation-plan-v1.md) turns these decisions into 
 The user approved using Telescope's database connection as the package default, with an optional `EXCEPTION_MONITOR_DB_CONNECTION` override. Resolution is monitoring override → Telescope storage connection → host default when unset. All 25 package tables and intra-package foreign keys use that effective connection, including migrations, schema diagnostics, models, transactions, callbacks, retention and purge. Telescope reads, user identity resolution and broker storage remain independently configured. No cross-database foreign key or atomic source/monitor/broker transaction is assumed.
 
 A package-only migration command scopes files and the ledger to the selected connection. New migrations publish in a subdirectory for nondefault storage; migration suffixes remain stable. Connection changes do not move data and require explicit deployment planning. The sealed rc.1 archive predates this addendum; it remains unchanged.
+
+
+## Accepted explicit historical import addendum — 11 November 2026
+
+The user requested import of retained pre-install Telescope exception history. This is a separate privileged CLI operation, not a relaxation of signed live capture/reconciliation. An explicit original environment is required for unsigned rows; reportability remains unavailable. Source rows/tags remain unchanged, and unsigned package-private release/route/origin fields are not trusted.
+
+The importer pages by source sequence with a fixed ceiling, existing byte bounds, a read-only dry run and replay-safe UUID identity. Sanitization precedes encrypted durable buffering; the normal processor rechecks privacy, retention and generation/epoch/purge fences. Historical mode never reopens/unsnoozes existing issues, creates alert events/intent, triggers GitHub creation or inflates live frequency counts. Current retention applies from event time; expired evidence is not rehydrated. No new table or schema migration is required.

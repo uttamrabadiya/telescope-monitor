@@ -56,6 +56,19 @@ final class StoredEntries
         return $this->hydrate($rows->all());
     }
 
+    public function historicalPage(int $after, int $limit, int $through): array
+    {
+        $rows = $this->query()->where('type', 'exception')->where('sequence', '>', $after)->where('sequence', '<=', $through)
+            ->orderBy('sequence')->limit($limit)->get(['sequence', 'uuid', 'batch_id', 'created_at', DB::raw('length(content) as content_bytes')]);
+
+        return $this->hydrate($rows->all(), true);
+    }
+
+    public function hasHistoricalAfter(int $after, int $through): bool
+    {
+        return $this->query()->where('type', 'exception')->where('sequence', '>', $after)->where('sequence', '<=', $through)->exists();
+    }
+
     public function context(string $batch): array
     {
         $rows = $this->query()->where('batch_id', $batch)->whereIn('type', ['request', 'job', 'command', 'log', 'query'])->orderByRaw("CASE WHEN type IN ('request','job','command') THEN 0 ELSE 1 END")->orderBy('sequence')->limit(100)->get(['sequence', 'uuid', 'type', DB::raw('length(content) as content_bytes')]);
@@ -80,7 +93,7 @@ final class StoredEntries
         return $this->query()->where('uuid', $id)->exists();
     }
 
-    private function hydrate(array $rows): array
+    private function hydrate(array $rows, bool $allowUnmarked = false): array
     {
         if (! $rows) {
             return [];
@@ -98,7 +111,7 @@ final class StoredEntries
         $more = false;
         foreach ($rows as $row) {
             // Legacy unmarked exceptions cannot prove reportability and do not consume the content budget.
-            $marked = ($row->type ?? 'exception') !== 'exception' || count(array_filter($tags[$row->uuid] ?? [], fn ($tag) => str_starts_with($tag, 'em2c|'))) === 1;
+            $marked = $allowUnmarked || ($row->type ?? 'exception') !== 'exception' || count(array_filter($tags[$row->uuid] ?? [], fn ($tag) => str_starts_with($tag, 'em2c|'))) === 1;
             if ($marked && $row->content_bytes <= $budget && $used + $row->content_bytes > $budget) {
                 $more = true;
                 break;

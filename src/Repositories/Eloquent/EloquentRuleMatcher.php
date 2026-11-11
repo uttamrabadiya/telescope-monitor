@@ -57,7 +57,7 @@ final class EloquentRuleMatcher
 
     public function thresholdCount(AlertRule $rule, Issue $issue, CarbonImmutable $start, CarbonImmutable $end, Occurrence $through): int
     {
-        $q = Occurrence::query()->where('installation_id', $issue->installation_id)->where('issue_id', $issue->id)->where('is_test', false)->where('occurred_at', '>=', $start->format('Y-m-d H:i:s.u'))->where('occurred_at', '<', $end->format('Y-m-d H:i:s.u'))->where('id', '<=', $through->id);
+        $q = Occurrence::query()->where('installation_id', $issue->installation_id)->where('issue_id', $issue->id)->where('is_test', false)->where('mode', '!=', 'historical_import')->where('occurred_at', '>=', $start->format('Y-m-d H:i:s.u'))->where('occurred_at', '<', $end->format('Y-m-d H:i:s.u'))->where('id', '<=', $through->id);
         if ($rule->conditions['origin'] ?? null) {
             $q->where('origin', $rule->conditions['origin']);
         }
