@@ -15,7 +15,7 @@ final class Setting extends Model
 
     protected $dateFormat = 'Y-m-d H:i:s.u';
 
-    protected $table = 'exception_monitor_settings';
+    protected $table = 'telescope_monitor_settings';
 
     protected $guarded = [];
 

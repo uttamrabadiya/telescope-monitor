@@ -13,7 +13,7 @@ Deploy supervised capture/delivery workers using the configured queue connection
 1. Open Retention and inspect the effective field source, deployment lock and minimum/maximum.
 2. Enter draft limits. Before saving a reduction, preview impact. A capped result is a lower-bound count; an unavailable estimate is an error, never an invented zero.
 3. Save using the current row version. Conflicts preserve the draft and require reload/review.
-4. Run/schedule `exception-monitor:prune --limit=1000`; repeat bounded sweeps for a large backlog. Inspect actual counts/history afterward.
+4. Run/schedule `telescope-monitor:prune --limit=1000`; repeat bounded sweeps for a large backlog. Inspect actual counts/history afterward.
 
 Evidence/tags, 48-hour five-minute metrics, hourly metrics, eligible activity, terminal delivery/attempt/event history and expired receipts/buffers are eligible. Active references, current leases and ambiguous GitHub creation remain protected. Captured lifetime counts and first/last seen do not decrement. UUID identity prevents replay from re-counting an expired snapshot. Notes, view definitions/preferences and linked GitHub associations remain independent of occurrence snapshot retention.
 
@@ -24,8 +24,8 @@ Saved changes retain monotonic cutoffs. Reducing a limit can make an existing de
 Purge is an explicitly confirmed deployment action. It deletes error evidence, error summaries/lifecycle/assignment references, occurrences/UUID identities, counts, notes, activity, aggregates, local GitHub associations, capture inbox and delivery/event/attempt/support history. It does not delete host users, Telescope source, external GitHub tickets or accepted messages. It preserves installation identity/configuration/cutoffs, connections/credentials, alert rules, saved definitions/preferences, minimal idempotency receipts and the purge ledger.
 
 ```sh
-php artisan exception-monitor:purge INSTALLATION_UUID --preview
-php artisan exception-monitor:purge INSTALLATION_UUID --confirm=INSTALLATION_UUID --limit=500 --batches=1 --label=DEPLOYMENT_LABEL
+php artisan telescope-monitor:purge INSTALLATION_UUID --preview
+php artisan telescope-monitor:purge INSTALLATION_UUID --confirm=INSTALLATION_UUID --limit=500 --batches=1 --label=DEPLOYMENT_LABEL
 ```
 
 Both UUID positions must identify the intended installation. Without exact confirmation, mutation is rejected. Preview is read-only and bounds family counts at 10,000, marking larger results as lower bounds.
@@ -35,8 +35,8 @@ The first committed step sets draining and prevents new package claims. Valid in
 Once drained, an exclusive fence advances generation, records current source sequence/time protection, invalidates old work, resets setup verification and enters purging. Error-domain deletion proceeds leaf-first with foreign keys enabled. Every bounded step and its counts commit atomically; interruption rolls back only the current step. Concurrent resumers serialize and recognize an already completed run idempotently.
 
 ```sh
-php artisan exception-monitor:purge INSTALLATION_UUID --resume=RUN_UUID --status
-php artisan exception-monitor:purge INSTALLATION_UUID --confirm=INSTALLATION_UUID --resume=RUN_UUID --limit=500 --batches=100
+php artisan telescope-monitor:purge INSTALLATION_UUID --resume=RUN_UUID --status
+php artisan telescope-monitor:purge INSTALLATION_UUID --confirm=INSTALLATION_UUID --resume=RUN_UUID --limit=500 --batches=100
 ```
 
 A successful command exit can represent bounded progress, not whole-run completion. Read the returned state. Keep resuming until `completed` / `verified` and installation `active`. An error leaves the run resumable with a bounded safe code. No table is truncated, no foreign-key checking is disabled and no arbitrary command can be run from the dashboard.
@@ -44,7 +44,7 @@ A successful command exit can represent bounded progress, not whole-run completi
 Before the fence only, an explicitly confirmed abort is available:
 
 ```sh
-php artisan exception-monitor:purge INSTALLATION_UUID --confirm=INSTALLATION_UUID --resume=RUN_UUID --abort
+php artisan telescope-monitor:purge INSTALLATION_UUID --confirm=INSTALLATION_UUID --resume=RUN_UUID --abort
 ```
 
 Abort is rejected after fencing/deletion begins; continue that run to verification. Aborted target generation numbers are not reused. Existing source markers retained during drain can be recovered after abort without historical notifications.
@@ -58,8 +58,8 @@ After verification, generate a new current-generation capture proof and repeat s
 A changed storage signature or backwards sequence stops reconciliation. Do not clear installation cutoffs manually.
 
 ```sh
-php artisan exception-monitor:source-baseline INSTALLATION_UUID --preview
-php artisan exception-monitor:source-baseline INSTALLATION_UUID --confirm=INSTALLATION_UUID
+php artisan telescope-monitor:source-baseline INSTALLATION_UUID --preview
+php artisan telescope-monitor:source-baseline INSTALLATION_UUID --confirm=INSTALLATION_UUID
 ```
 
 An explicit baseline creates a new source epoch, excludes every currently stored source sequence and advances/retains the time boundary. It preserves existing monitor data and stable installation/digest keys. Old-epoch jobs/markers cannot become new evidence; future reportable entries can resume capture. It is blocked during an active purge. A new capture proof is required for setup in the changed epoch.
@@ -69,7 +69,7 @@ An explicit baseline creates a new source epoch, excludes every currently stored
 Configure the host's current and previous keys according to [Laravel encryption](https://laravel.com/framework/docs/13.x/encryption#gracefully-rotating-encryption-keys). Keep recoverable backups; the package cannot decrypt without a valid current/previous key. The health check reports unreadable active revisions without deleting them.
 
 ```sh
-php artisan exception-monitor:rewrap INSTALLATION_UUID secrets --confirm=INSTALLATION_UUID --limit=100 --after=0
+php artisan telescope-monitor:rewrap INSTALLATION_UUID secrets --confirm=INSTALLATION_UUID --limit=100 --after=0
 ```
 
 Targets: secrets, inbox, evidence, events, deliveries and notes. Limits are 1–1,000 rows per call. Continue each target with its returned next_cursor while has_more is true. Failed rows remain untouched and make complete false / command failure; repair the host key and repeat that target from cursor zero. Do not retire a previous host key until all targets complete and active credentials/evidence/notes are readable. Retain keys required by other host data independently of this package.
@@ -85,16 +85,16 @@ Destructive browser and standalone-host tests used isolated copies only. The sta
 
 ## Storage connection selection (post-candidate update)
 
-Monitoring tables now inherit `telescope.storage.database.connection` by default, falling back to Laravel's default only when Telescope has no named connection. `EXCEPTION_MONITOR_DB_CONNECTION` selects a separately configured Laravel connection for package data. Host authentication, queue/cache storage and Telescope source reads keep their own connection settings. Invalid/unavailable named targets never trigger a silent fallback.
+Monitoring tables now inherit `telescope.storage.database.connection` by default, falling back to Laravel's default only when Telescope has no named connection. `TELESCOPE_MONITOR_DB_CONNECTION` selects a separately configured Laravel connection for package data. Host authentication, queue/cache storage and Telescope source reads keep their own connection settings. Invalid/unavailable named targets never trigger a silent fallback.
 
-Configure before install; use `exception-monitor:install` followed by `exception-monitor:migrate`. The latter migrates package files only, on the selected connection and its migration ledger; it does not migrate host application tables there. New published files use a package subdirectory when targeting a different connection from the host default. Existing filenames are preserved. Retention, purge, transactions and after-commit scheduling target the monitoring connection consistently.
+Configure before install; use `telescope-monitor:install` followed by `telescope-monitor:migrate`. The latter migrates package files only, on the selected connection and its migration ledger; it does not migrate host application tables there. New published files use a package subdirectory when targeting a different connection from the host default. Existing filenames are preserved. Retention, purge, transactions and after-commit scheduling target the monitoring connection consistently.
 
 Changing connections is not data migration. Stop workers and plan/verify a full data plus migration-ledger transfer, or explicitly initialize a fresh installation. Do not use a connection change as a purge or an automatic adoption of another installation. Keep host encryption keys available, rebuild cached configuration and restart long-lived workers. Source/monitor/broker writes on different databases cannot share a distributed transaction; retained signed-source recovery has the documented availability/retention limits.
 
 
 ## Historical Telescope backfill
 
-`exception-monitor:backfill --environment=<original-environment> --limit=100 --dry-run` inspects one bounded page of unmarked exceptions without package writes. Omit dry-run to sanitize/encrypt and import as historical records. Default output shows a readable summary and copyable import/continuation commands; `--json` retains machine-readable results. Resume using the printed command or JSON `next_after` and the same `through` ceiling; repeat safely after interruption. The source database is Telescope's configured connection and the destination uses the package's effective storage connection. No migration or additional table is required.
+`telescope-monitor:backfill --environment=<original-environment> --limit=100 --dry-run` inspects one bounded page of unmarked exceptions without package writes. Omit dry-run to sanitize/encrypt and import as historical records. Default output shows a readable summary and copyable import/continuation commands; `--json` retains machine-readable results. Resume using the printed command or JSON `next_after` and the same `through` ceiling; repeat safely after interruption. The source database is Telescope's configured connection and the destination uses the package's effective storage connection. No migration or additional table is required.
 
 Only explicitly unmarked legacy rows are eligible; package-marked rows use normal recovery. Reportability and unsigned release/route provenance are not invented. Current privacy/bounds are enforced before buffering and again during ingestion. Original timestamps use the configured source timezone and govern evidence retention. Importing does not reset retention, reopen resolved issues, emit alerts, create GitHub tickets or contribute to live alert threshold counts. Normal later operator actions and live captures retain their existing behavior.
 
@@ -105,7 +105,7 @@ Purge/epoch/generation fences remain enforced. The cursor is separate from recon
 
 Default `authorization.driver=telescope` delegates every monitoring shell/asset/API request to Laravel Telescope's `Authorize` middleware and `Telescope::check`. Published middleware should contain `web` without Laravel's separate session `auth` requirement. Default Telescope behavior permits local access and uses `viewTelescope` elsewhere; custom Telescope callbacks remain authoritative for HTTP access. Every approved visitor has monitoring administration rights in this mode. Opt into `driver=gates` to retain separate package capability gates.
 
-Authenticated actors keep their host-provider identity. Guest-approved requests use a shared operator, not a created/impersonated User. Notes and personal views are shared among visitors with that identity. CSRF protection remains. Queued work re-resolves its saved account or uses a genuine guest scope, then evaluates current Telescope::check. The old allow_guest_jobs switch is ignored. Request/auth/gate context is isolated and restored, without browser credentials or spoofed network details. Current policy denial or failure cancels before provider I/O. Request-only policies must explicitly support the marked exception-monitor.worker context in the host Telescope policy. Clear/rebuild route/config caches and restart workers after changing deployment policy. No previous personal ownership is rewritten.
+Authenticated actors keep their host-provider identity. Guest-approved requests use a shared operator, not a created/impersonated User. Notes and personal views are shared among visitors with that identity. CSRF protection remains. Queued work re-resolves its saved account or uses a genuine guest scope, then evaluates current Telescope::check. The old allow_guest_jobs switch is ignored. Request/auth/gate context is isolated and restored, without browser credentials or spoofed network details. Current policy denial or failure cancels before provider I/O. Request-only policies must explicitly support the marked telescope-monitor.worker context in the host Telescope policy. Clear/rebuild route/config caches and restart workers after changing deployment policy. No previous personal ownership is rewritten.
 
 
 ## Context activity and SQL template retention
@@ -119,14 +119,14 @@ The non-executing lexer masks supported literal forms, excludes bindings/comment
 
 Email uses the Telescope palette, a responsive HTML table layout and a plain-text alternative, with no remote fonts or images. It includes the sanitized summary, stable application/group reference, event/count metadata and available retained execution context/application frames. It never reconstructs missing historical evidence from source files. Raw request URLs, payloads, headers, SQL, user identities, frame arguments and note text are excluded.
 
-Deployment options under `exception-monitor.alerts.email` are `include_context` (default true), `include_stack_trace` (true), `max_frames` (8, hard cap 12), and `allowed_tags` (empty). Email tags must also pass the capture allowlist. Review tag names/values before export. Turning off context preserves the summary. Retained context freezes on the first attempt; privacy restrictions are reapplied on retries and incompatible frozen exports cancel with `export_policy_changed` rather than changing silently. Missing/expired evidence degrades to the summary; other notification providers retain their existing payload contract.
+Deployment options under `telescope-monitor.alerts.email` are `include_context` (default true), `include_stack_trace` (true), `max_frames` (8, hard cap 12), and `allowed_tags` (empty). Email tags must also pass the capture allowlist. Review tag names/values before export. Turning off context preserves the summary. Retained context freezes on the first attempt; privacy restrictions are reapplied on retries and incompatible frozen exports cancel with `export_policy_changed` rather than changing silently. Missing/expired evidence degrades to the summary; other notification providers retain their existing payload contract.
 
 No migration is required for this template update. Merge configuration overrides if desired, refresh the host config cache and restart queue workers. Use an array mailer for non-network checks; an explicit synthetic test uses the real configured host transport. Desktop/mobile browser verification is not certification of Gmail/Outlook inbox rendering.
 
 
 ## Telescope-source capture boundary
 
-Host capture now performs zero package database reads or writes in requests, host commands, jobs and scheduled host tasks. The package only attaches deployment-signed metadata to eligible Telescope exceptions; Telescope supplies its existing storage. Run `php artisan exception-monitor:import --watch --process --limit=100 --sleep=2` as a separate supervised process. Existing queue workers alone do not import new source. No new migration is required; restart host workers and the importer after deployment.
+Host capture now performs zero package database reads or writes in requests, host commands, jobs and scheduled host tasks. The package only attaches deployment-signed metadata to eligible Telescope exceptions; Telescope supplies its existing storage. Run `php artisan telescope-monitor:import --watch --process --limit=100 --sleep=2` as a separate supervised process. Existing queue workers alone do not import new source. No new migration is required; restart host workers and the importer after deployment.
 
 Telescope retention must cover importer outages. Evidence pruned before buffering cannot be recovered. Privacy settings apply during import/processing/read, independently of Telescope's source privacy. Importer checkpoints advance after successful bounded pages; duplicate imports are idempotent. Generation/epoch fences and source sequence/event/capture-time cutoffs protect purge and rebaseline, including delayed source commits. Explicit reconciliation and legacy-marker recovery remain non-alerting. The source signing key comes from deployment configuration (APP_KEY fallback); retain previous verification keys during rotation.
 

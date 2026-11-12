@@ -12,17 +12,17 @@ final class Assignments
 
     public function enabled(): bool
     {
-        $class = config('exception-monitor.assignments.directory');
+        $class = config('telescope-monitor.assignments.directory');
 
-        return (bool) config('exception-monitor.assignments.enabled', false) && is_string($class) && is_subclass_of($class, AssignmentDirectory::class);
+        return (bool) config('telescope-monitor.assignments.enabled', false) && is_string($class) && is_subclass_of($class, AssignmentDirectory::class);
     }
 
     public function configuration(): array
     {
         return [
             'enabled' => $this->enabled(),
-            'requested' => (bool) config('exception-monitor.assignments.enabled', false),
-            'configured' => is_string(config('exception-monitor.assignments.directory')) && is_subclass_of(config('exception-monitor.assignments.directory'), AssignmentDirectory::class),
+            'requested' => (bool) config('telescope-monitor.assignments.enabled', false),
+            'configured' => is_string(config('telescope-monitor.assignments.directory')) && is_subclass_of(config('telescope-monitor.assignments.directory'), AssignmentDirectory::class),
             'detail' => $this->enabled() ? 'Host assignment directory configured; availability is checked when used.' : 'Assignments require the deployment flag and a host directory adapter. Existing references are preserved.',
         ];
     }
@@ -32,7 +32,7 @@ final class Assignments
         if (! $this->enabled()) {
             throw new Unavailable('Assignments are disabled or the host directory is not configured.');
         }try {
-            return app(config('exception-monitor.assignments.directory'));
+            return app(config('telescope-monitor.assignments.directory'));
         } catch (\Throwable) {
             throw new Unavailable('The host assignment directory is unavailable. Try again later.');
         }

@@ -24,7 +24,7 @@ final class Installation extends Model
 
     protected $dateFormat = 'Y-m-d H:i:s.u';
 
-    protected $table = 'exception_monitor_installations';
+    protected $table = 'telescope_monitor_installations';
 
     protected $guarded = [];
 

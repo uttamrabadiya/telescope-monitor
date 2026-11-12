@@ -20,7 +20,7 @@ final class ActionReceipt extends Model
 
     protected $dateFormat = 'Y-m-d H:i:s.u';
 
-    protected $table = 'exception_monitor_action_receipts';
+    protected $table = 'telescope_monitor_action_receipts';
 
     protected $guarded = [];
 

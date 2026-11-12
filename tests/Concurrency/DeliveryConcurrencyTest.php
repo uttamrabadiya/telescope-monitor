@@ -18,7 +18,7 @@ final class DeliveryConcurrencyTest extends TestCase
     private function prepare(): void
     {
         $this->authorize();
-        config(['exception-monitor.alerts.allowed_environments' => ['testing']]);
+        config(['telescope-monitor.alerts.allowed_environments' => ['testing']]);
         $this->travelTo(CarbonImmutable::parse('2026-11-11T10:00:01Z'));
         $a = app(AlertManagement::class)->command('connection.create', null, (string) Str::uuid(), ['name' => 'Canonical recipient', 'email' => 'oncall@example.test', 'enabled' => true]);
         app(AlertManagement::class)->command('rule.create', null, (string) Str::uuid(), [
@@ -69,11 +69,11 @@ final class DeliveryConcurrencyTest extends TestCase
     public function test_duplicate_sender_jobs_cannot_take_a_live_claim(): void
     {
         $this->prepare();
-        $id = DB::table('exception_monitor_deliveries')->value('id');
+        $id = DB::table('telescope_monitor_deliveries')->value('id');
         $this->assertSame([0, 1], $this->claims([$id, $id]));
-        $this->assertDatabaseCount('exception_monitor_delivery_attempts', 1);
-        $this->assertSame(1, DB::table('exception_monitor_deliveries')->where('status', 'processing')->count());
-        $this->assertSame(1, (int) DB::table('exception_monitor_deliveries')->value('attempt_count_total'));
+        $this->assertDatabaseCount('telescope_monitor_delivery_attempts', 1);
+        $this->assertSame(1, DB::table('telescope_monitor_deliveries')->where('status', 'processing')->count());
+        $this->assertSame(1, (int) DB::table('telescope_monitor_deliveries')->value('attempt_count_total'));
     }
 
     public function test_different_delivery_rows_share_one_destination_reservation_and_cooldown(): void
@@ -82,16 +82,16 @@ final class DeliveryConcurrencyTest extends TestCase
         $this->travel(5)->minutes();
         $this->capture();
         $this->process();
-        $ids = DB::table('exception_monitor_deliveries')->orderBy('id')->pluck('id')->all();
+        $ids = DB::table('telescope_monitor_deliveries')->orderBy('id')->pluck('id')->all();
         $this->assertCount(2, $ids);
         $this->assertSame([0, 1], $this->claims($ids));
-        $active = DB::table('exception_monitor_deliveries')->where('status', 'processing')->first();
+        $active = DB::table('telescope_monitor_deliveries')->where('status', 'processing')->first();
         app(DeliveryLedger::class)->finish($active->id, $active->claim_token, Outcome::accepted());
         $this->travel(121)->seconds();
-        $pending = DB::table('exception_monitor_deliveries')->where('status', 'pending')->first();
+        $pending = DB::table('telescope_monitor_deliveries')->where('status', 'pending')->first();
         $this->assertNull(app(DeliveryLedger::class)->claim($pending->id, 1, true));
-        $this->assertSame('cooldown', DB::table('exception_monitor_deliveries')->where('id', $pending->id)->value('cancellation_reason'));
-        $this->assertDatabaseCount('exception_monitor_delivery_attempts', 1);
-        $this->assertDatabaseCount('exception_monitor_notification_gates', 1);
+        $this->assertSame('cooldown', DB::table('telescope_monitor_deliveries')->where('id', $pending->id)->value('cancellation_reason'));
+        $this->assertDatabaseCount('telescope_monitor_delivery_attempts', 1);
+        $this->assertDatabaseCount('telescope_monitor_notification_gates', 1);
     }
 }

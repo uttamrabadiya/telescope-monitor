@@ -17,7 +17,7 @@ final class CapturePolicy
             'retain_stack_trace' => true,
             'retain_execution_context' => true,
             'retain_related_logs' => true,
-            'retain_sql_templates' => (bool) config('exception-monitor.capture.sql_templates', false),
+            'retain_sql_templates' => (bool) config('telescope-monitor.capture.sql_templates', false),
             'identify_users' => false,
             'redact_patterns' => [],
         ], $this->settings->find($i->id, 'privacy')->values ?? []);
@@ -27,7 +27,7 @@ final class CapturePolicy
             'delivery_days' => 30,
             'activity_days' => 90,
         ], $this->settings->find($i->id, 'retention')->values ?? []);
-        foreach (config('exception-monitor.locked', []) as $name => $value) {
+        foreach (config('telescope-monitor.locked', []) as $name => $value) {
             if (str_starts_with($name, 'privacy.')) {
                 $privacy[substr($name, 8)] = $value;
             }

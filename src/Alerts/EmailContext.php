@@ -40,7 +40,7 @@ final class EmailContext
                     $context['release'] = $data['source']['release'] ?? null;
                     $trace = $data['exception']['trace'];
                     $application = array_values(array_filter($trace, fn ($frame) => $frame['file'] !== '[internal]' && ! str_starts_with($frame['file'], 'vendor/') && ! str_contains($frame['file'], '/vendor/')));
-                    $limit = max(0, min(12, (int) config('exception-monitor.alerts.email.max_frames', 8)));
+                    $limit = max(0, min(12, (int) config('telescope-monitor.alerts.email.max_frames', 8)));
                     $context['frames'] = array_slice($application, 0, $limit);
                     $context['omitted_frames'] = count($trace) - count($context['frames']);
                     $context['tags'] = $data['tags'];
@@ -90,7 +90,7 @@ final class EmailContext
         $out['frames'] = [];
         $out['tags'] = [];
         $out['omitted_frames'] = max(0, (int) ($context['omitted_frames'] ?? 0));
-        if (! config('exception-monitor.alerts.email.include_context', true)) {
+        if (! config('telescope-monitor.alerts.email.include_context', true)) {
             $out['snapshot_state'] = 'excluded';
             $out['omitted_frames'] = 0;
             unset($out['release']);
@@ -101,8 +101,8 @@ final class EmailContext
                 $out['execution'][$key] = $text($value, $key === 'path_template' ? 1024 : 256);
             }
         }
-        if ($policy['privacy']['retain_stack_trace'] && config('exception-monitor.alerts.email.include_stack_trace', true)) {
-            foreach (array_slice($context['frames'] ?? [], 0, max(0, min(12, (int) config('exception-monitor.alerts.email.max_frames', 8)))) as $frame) {
+        if ($policy['privacy']['retain_stack_trace'] && config('telescope-monitor.alerts.email.include_stack_trace', true)) {
+            foreach (array_slice($context['frames'] ?? [], 0, max(0, min(12, (int) config('telescope-monitor.alerts.email.max_frames', 8)))) as $frame) {
                 $out['frames'][] = [
                     'file' => $text($frame['file'] ?? '', 512),
                     'line' => max(0, (int) ($frame['line'] ?? 0)),
@@ -114,7 +114,7 @@ final class EmailContext
         } else {
             $out['omitted_frames'] = 0;
         }
-        $allowed = array_intersect(config('exception-monitor.alerts.email.allowed_tags', []), config('exception-monitor.capture.allowed_tags', []));
+        $allowed = array_intersect(config('telescope-monitor.alerts.email.allowed_tags', []), config('telescope-monitor.capture.allowed_tags', []));
         foreach (array_slice(array_intersect_key($context['tags'] ?? [], array_flip($allowed)), 0, 8, true) as $key => $value) {
             $out['tags'][$text($key, 64)] = $text($value, 64);
         }

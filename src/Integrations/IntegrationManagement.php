@@ -96,8 +96,8 @@ final class IntegrationManagement
                 return $s;
             })->all(),
             'events' => EventCatalog::LABELS,
-            'allowed_environments' => config('exception-monitor.alerts.allowed_environments', ['production']),
-            'credential_references' => $admin ? array_keys(config('exception-monitor.integrations.credentials', [])) : [],
+            'allowed_environments' => config('telescope-monitor.alerts.allowed_environments', ['production']),
+            'credential_references' => $admin ? array_keys(config('telescope-monitor.integrations.credentials', [])) : [],
         ];
     }
 
@@ -117,7 +117,7 @@ final class IntegrationManagement
                 'events.*' => [Rule::in(array_keys(EventCatalog::LABELS)), 'distinct'],
                 'automatic' => ['sometimes', 'boolean'],
                 'environments' => ['sometimes', 'array', 'max:20'],
-                'environments.*' => ['string', Rule::in(config('exception-monitor.alerts.allowed_environments', ['production']))],
+                'environments.*' => ['string', Rule::in(config('telescope-monitor.alerts.allowed_environments', ['production']))],
                 'replaces' => ['nullable', 'uuid'],
                 'replaces_version' => ['required_with:replaces', 'integer', 'min:1'],
             ],
@@ -129,7 +129,7 @@ final class IntegrationManagement
                 'events.*' => [Rule::in(array_keys(EventCatalog::LABELS)), 'distinct'],
                 'automatic' => ['sometimes', 'boolean'],
                 'environments' => ['sometimes', 'array', 'max:20'],
-                'environments.*' => ['string', Rule::in(config('exception-monitor.alerts.allowed_environments', ['production']))],
+                'environments.*' => ['string', Rule::in(config('telescope-monitor.alerts.allowed_environments', ['production']))],
                 'labels' => ['sometimes', 'array', 'max:25'],
                 'labels.*' => ['string', 'max:100', 'distinct'],
             ],
@@ -180,7 +180,7 @@ final class IntegrationManagement
         $ref = $v['credential_reference'] ?? null;
         $value = $v['credential'] ?? null;
         if ($ref) {
-            $registry = config('exception-monitor.integrations.credentials', []);
+            $registry = config('telescope-monitor.integrations.credentials', []);
             $entry = $registry[$ref] ?? null;
             if (! $entry || ($entry['purpose'] ?? null) !== $purpose) {
                 throw ValidationException::withMessages(['credential_reference' => 'Choose a deployment-approved credential reference for this purpose.']);

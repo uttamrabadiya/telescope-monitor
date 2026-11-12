@@ -27,7 +27,7 @@ final class Occurrence extends Model
 
     protected $dateFormat = 'Y-m-d H:i:s.u';
 
-    protected $table = 'exception_monitor_occurrences';
+    protected $table = 'telescope_monitor_occurrences';
 
     protected $guarded = [];
 

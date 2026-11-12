@@ -13,7 +13,7 @@ final class SourceStamp
 
     public function validate(): void
     {
-        foreach (array_merge([config('exception-monitor.capture.signing_key') ?? config('app.key')], config('exception-monitor.capture.signing_previous_keys', [])) as $key) {
+        foreach (array_merge([config('telescope-monitor.capture.signing_key') ?? config('app.key')], config('telescope-monitor.capture.signing_previous_keys', [])) as $key) {
             $this->key($key);
         }
     }
@@ -24,33 +24,33 @@ final class SourceStamp
         if (! is_string($environment) || $environment === '' || strlen($environment) > 64 || ! mb_check_encoding($environment, 'UTF-8')) {
             throw new CaptureFailure('environment_invalid');
         }
-        $content['exception_monitor_capture'] = [
+        $content['telescope_monitor_capture'] = [
             'version' => 3,
             'environment' => $environment,
             'captured_at' => CarbonImmutable::now('UTC')->format('Y-m-d H:i:s.u'),
             'occurred_at' => CarbonImmutable::parse($time)->utc()->format('Y-m-d H:i:s.u'),
             'source' => $this->source->signature(),
-            'grouping_version' => (int) config('exception-monitor.capture.grouping_version', 1),
+            'grouping_version' => (int) config('telescope-monitor.capture.grouping_version', 1),
             'grouping_file' => $this->fingerprint->file((string) ($content['file'] ?? 'unknown')),
             'probe_id' => $probe,
         ];
 
         return [
-            'em3|'.hash_hmac('sha256', $this->body($uuid, $content), $this->key(config('exception-monitor.capture.signing_key') ?? config('app.key'))),
+            'tm3|'.hash_hmac('sha256', $this->body($uuid, $content), $this->key(config('telescope-monitor.capture.signing_key') ?? config('app.key'))),
         ];
     }
 
     public function read(string $uuid, array $content, array $tags): ?array
     {
-        $proofs = array_values(array_filter($tags, fn ($t) => is_string($t) && (str_starts_with($t, 'em3|') || str_starts_with($t, 'em2c|') || str_starts_with($t, 'em2g|'))));
-        $m = $content['exception_monitor_capture'] ?? null;
-        if (! Str::isUuid($uuid) || count($proofs) !== 1 || ! preg_match('/^em3\|[a-f0-9]{64}$/D', $proofs[0]) || ! is_array($m) || ($m['version'] ?? null) !== 3 || ! is_string($m['environment'] ?? null) || $m['environment'] === '' || strlen($m['environment']) > 64 || ! is_string($m['captured_at'] ?? null) || ! is_string($m['occurred_at'] ?? null) || ! is_string($m['grouping_file'] ?? null) || ! is_int($m['grouping_version'] ?? null) || $m['grouping_version'] < 1 || (($m['probe_id'] ?? null) !== null && ! Str::isUuid($m['probe_id']))) {
+        $proofs = array_values(array_filter($tags, fn ($t) => is_string($t) && (str_starts_with($t, 'tm3|') || str_starts_with($t, 'tm2c|') || str_starts_with($t, 'tm2g|'))));
+        $m = $content['telescope_monitor_capture'] ?? null;
+        if (! Str::isUuid($uuid) || count($proofs) !== 1 || ! preg_match('/^tm3\|[a-f0-9]{64}$/D', $proofs[0]) || ! is_array($m) || ($m['version'] ?? null) !== 3 || ! is_string($m['environment'] ?? null) || $m['environment'] === '' || strlen($m['environment']) > 64 || ! is_string($m['captured_at'] ?? null) || ! is_string($m['occurred_at'] ?? null) || ! is_string($m['grouping_file'] ?? null) || ! is_int($m['grouping_version'] ?? null) || $m['grouping_version'] < 1 || (($m['probe_id'] ?? null) !== null && ! Str::isUuid($m['probe_id']))) {
             return null;
         }
         $valid = false;
-        $keys = array_merge([config('exception-monitor.capture.signing_key') ?? config('app.key')], config('exception-monitor.capture.signing_previous_keys', []));
+        $keys = array_merge([config('telescope-monitor.capture.signing_key') ?? config('app.key')], config('telescope-monitor.capture.signing_previous_keys', []));
         foreach ($keys as $key) {
-            if (hash_equals('em3|'.hash_hmac('sha256', $this->body($uuid, $content), $this->key($key)), $proofs[0])) {
+            if (hash_equals('tm3|'.hash_hmac('sha256', $this->body($uuid, $content), $this->key($key)), $proofs[0])) {
                 $valid = true;
                 break;
             }
@@ -58,7 +58,7 @@ final class SourceStamp
         if (! $valid || ! hash_equals($this->source->signature(), $m['source'] ?? '')) {
             return null;
         }
-        if ($m['grouping_version'] !== (int) config('exception-monitor.capture.grouping_version', 1)) {
+        if ($m['grouping_version'] !== (int) config('telescope-monitor.capture.grouping_version', 1)) {
             // Do not advance the importer past a deployment/configuration mismatch.
             throw new CaptureFailure('source_grouping_version_unavailable');
         }
@@ -79,10 +79,10 @@ final class SourceStamp
             'file',
             'line',
             'trace',
-            'exception_monitor_source',
-            'exception_monitor_origin',
-            'exception_monitor_route',
-            'exception_monitor_capture',
+            'telescope_monitor_source',
+            'telescope_monitor_origin',
+            'telescope_monitor_route',
+            'telescope_monitor_capture',
         ] as $key) {
             $selected[$key] = $content[$key] ?? null;
         }

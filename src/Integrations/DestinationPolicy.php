@@ -23,7 +23,7 @@ final class DestinationPolicy
         if ($provider === 'github' && ($host !== 'api.github.com' || $port !== 443)) {
             $this->invalid();
         }
-        if ($provider === 'webhook' && ! in_array($port, config('exception-monitor.integrations.webhooks.ports', [443]), true)) {
+        if ($provider === 'webhook' && ! in_array($port, config('telescope-monitor.integrations.webhooks.ports', [443]), true)) {
             $this->invalid();
         }
         $url = 'https://'.(str_contains($host, ':') ? '['.$host.']' : $host).($port !== 443 ? ':'.$port : '').($p['path'] ?? '/').(isset($p['query']) ? '?'.$p['query'] : '');
@@ -90,7 +90,7 @@ final class DestinationPolicy
             }
             $allowed = false;
             if ($provider === 'webhook') {
-                foreach ((config('exception-monitor.integrations.webhooks.private_targets', [])[$p['host']] ?? []) as $cidr) {
+                foreach ((config('telescope-monitor.integrations.webhooks.private_targets', [])[$p['host']] ?? []) as $cidr) {
                     if ($this->inRange($ip, $cidr)) {
                         $allowed = true;
                     }

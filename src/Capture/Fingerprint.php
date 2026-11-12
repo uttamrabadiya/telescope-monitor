@@ -25,7 +25,7 @@ final class Fingerprint
             'file' => $this->file((string) ($content['file'] ?? 'unknown')),
             'line' => max(0, (int) ($content['line'] ?? 0)),
         ];
-        $callback = config('exception-monitor.capture.grouping_callback');
+        $callback = config('telescope-monitor.capture.grouping_callback');
         $value = is_callable($callback) ? $callback($input) : json_encode($input, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
         if (! is_string($value) || strlen($value) > 8192) {
             throw new CaptureFailure('grouping_value_invalid');

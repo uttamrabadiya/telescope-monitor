@@ -23,7 +23,7 @@ final class AlertRule extends Model
 {
     use UsesUtcTimestamps;
 
-    protected $table = 'exception_monitor_alert_rules';
+    protected $table = 'telescope_monitor_alert_rules';
 
     protected $guarded = [];
 

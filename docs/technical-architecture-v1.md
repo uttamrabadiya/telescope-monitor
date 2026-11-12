@@ -35,7 +35,7 @@ The exact dependency lock and minimum compatible Telescope release must pass the
 
 The package owns its document shell, routes under a configurable base path, JavaScript mount, compiled assets, styles, models, and tables. It does not extend the host layout or import the host Vite bundle, Tailwind configuration, router, or global JavaScript instance. CSS selectors and theme variables remain package-scoped. Fonts and icons are shipped locally with their redistribution notices; no runtime font CDN is required.
 
-The initial base path remains `/exception-monitor`. A different configured path must work for deep links, assets, login return paths, notifications, and reverse-proxy subdirectories. Source repositories, integration destinations, and canonical public URLs are deployment-validated configuration, not values inferred from arbitrary request headers.
+The initial base path remains `/telescope-monitor`. A different configured path must work for deep links, assets, login return paths, notifications, and reverse-proxy subdirectories. Source repositories, integration destinations, and canonical public URLs are deployment-validated configuration, not values inferred from arbitrary request headers.
 
 One table set has one stable installation identity. Installation IDs and environment fields support fencing and correct identity, not a partially implemented multi-tenant product. Two host applications cannot share the same package table set. Separate databases/host connection prefixes are required if applications otherwise share infrastructure; arbitrary runtime package-table renaming and a cross-application dashboard are outside v1.
 
@@ -244,7 +244,7 @@ The [implementation plan](implementation-plan-v1.md) turns these decisions into 
 
 ## Accepted storage configuration addendum — 11 November 2026
 
-The user approved using Telescope's database connection as the package default, with an optional `EXCEPTION_MONITOR_DB_CONNECTION` override. Resolution is monitoring override → Telescope storage connection → host default when unset. All 25 package tables and intra-package foreign keys use that effective connection, including migrations, schema diagnostics, models, transactions, callbacks, retention and purge. Telescope reads, user identity resolution and broker storage remain independently configured. No cross-database foreign key or atomic source/monitor/broker transaction is assumed.
+The user approved using Telescope's database connection as the package default, with an optional `TELESCOPE_MONITOR_DB_CONNECTION` override. Resolution is monitoring override → Telescope storage connection → host default when unset. All 25 package tables and intra-package foreign keys use that effective connection, including migrations, schema diagnostics, models, transactions, callbacks, retention and purge. Telescope reads, user identity resolution and broker storage remain independently configured. No cross-database foreign key or atomic source/monitor/broker transaction is assumed.
 
 A package-only migration command scopes files and the ledger to the selected connection. New migrations publish in a subdirectory for nondefault storage; migration suffixes remain stable. Connection changes do not move data and require explicit deployment planning. The sealed rc.1 archive predates this addendum; it remains unchanged.
 

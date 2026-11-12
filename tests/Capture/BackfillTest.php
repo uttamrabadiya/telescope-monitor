@@ -26,7 +26,7 @@ final class BackfillTest extends TestCase
         parent::setUp();
         $this->authorize();
         $this->travelTo(CarbonImmutable::parse('2026-11-11T10:10:10Z'));
-        config(['exception-monitor.alerts.allowed_environments' => ['testing']]);
+        config(['telescope-monitor.alerts.allowed_environments' => ['testing']]);
         $this->app->bind(NotificationProvider::class, fn () => new class implements NotificationProvider
         {
             public function send(array $envelope, array $target): Outcome
@@ -70,8 +70,8 @@ final class BackfillTest extends TestCase
 
     private function rule(array $extra = []): void
     {
-        $connection = $this->postJson('/exception-monitor/api/v1/alerting/email', ['client_key' => (string) Str::uuid(), 'name' => 'Never sent', 'email' => 'fixture@example.test', 'enabled' => true])->assertOk()->json('exception_monitor_private.id');
-        $this->postJson('/exception-monitor/api/v1/alerting/rules', array_replace([
+        $connection = $this->postJson('/telescope-monitor/api/v1/alerting/email', ['client_key' => (string) Str::uuid(), 'name' => 'Never sent', 'email' => 'fixture@example.test', 'enabled' => true])->assertOk()->json('telescope_monitor_private.id');
+        $this->postJson('/telescope-monitor/api/v1/alerting/rules', array_replace([
             'client_key' => (string) Str::uuid(),
             'name' => 'Configured before import',
             'enabled' => true,
@@ -92,8 +92,8 @@ final class BackfillTest extends TestCase
             'trace' => [['file' => base_path('app/Caller.php'), 'line' => 12, 'args' => ['LEAK-ARG'], 'object' => 'LEAK-OBJECT']],
             'user' => ['id' => 7, 'email' => 'LEAK-EMAIL'],
             'context' => ['secret' => 'LEAK-CONTEXT'],
-            'exception_monitor_source' => ['version' => 1, 'release' => 'UNVERIFIED-RELEASE'],
-            'exception_monitor_origin' => ['kind' => 'job', 'job_class' => 'UNVERIFIED-ORIGIN'],
+            'telescope_monitor_source' => ['version' => 1, 'release' => 'UNVERIFIED-RELEASE'],
+            'telescope_monitor_origin' => ['kind' => 'job', 'job_class' => 'UNVERIFIED-ORIGIN'],
         ], batch: $batch);
         $this->source()->insert([
             'uuid' => (string) Str::uuid(),
@@ -112,20 +112,20 @@ final class BackfillTest extends TestCase
         $before = $this->source()->where('uuid', $uuid)->value('content');
         $this->assertSame(1, $this->backfill()['imported']);
         $this->assertSame($before, $this->source()->where('uuid', $uuid)->value('content'));
-        $o = DB::table('exception_monitor_occurrences')->first();
+        $o = DB::table('telescope_monitor_occurrences')->first();
         $this->assertSame('historical_import', $o->mode);
         $this->assertSame('2026-11-11 10:10:01', substr($o->occurred_at, 0, 19));
-        $payload = Crypt::decryptString(DB::table('exception_monitor_occurrence_evidence')->value('payload_ciphertext'));
+        $payload = Crypt::decryptString(DB::table('telescope_monitor_occurrence_evidence')->value('payload_ciphertext'));
         $this->assertStringNotContainsString('LEAK-', $payload);
         $this->assertStringNotContainsString('UNVERIFIED-', $payload);
         $data = json_decode($payload, true);
         $this->assertSame('web', $data['origin']);
         $this->assertNull($data['source']);
         $this->assertSame('unavailable', $data['coverage']['reportability']);
-        $this->assertTrue((bool) DB::table('exception_monitor_issues')->value('recovered_only'));
-        $this->assertDatabaseCount('exception_monitor_alert_events', 0);
+        $this->assertTrue((bool) DB::table('telescope_monitor_issues')->value('recovered_only'));
+        $this->assertDatabaseCount('telescope_monitor_alert_events', 0);
         $this->source()->delete();
-        $this->assertDatabaseCount('exception_monitor_occurrence_evidence', 1);
+        $this->assertDatabaseCount('telescope_monitor_occurrence_evidence', 1);
     }
 
     public function test_repeat_pages_and_replay_after_evidence_pruning_never_recount_or_rehydrate(): void
@@ -138,30 +138,30 @@ final class BackfillTest extends TestCase
         $this->assertSame(2, $first['imported']);
         $this->assertSame(1, $this->backfill($first['next_after'], 2, $first['through'])['imported']);
         $this->assertSame(3, $this->backfill()['duplicates']);
-        $this->assertSame(3, (int) DB::table('exception_monitor_issues')->value('lifetime_count'));
-        $this->assertSame(3, (int) DB::table('exception_monitor_metric_buckets')->where('resolution', '1h')->sum('occurrence_count'));
+        $this->assertSame(3, (int) DB::table('telescope_monitor_issues')->value('lifetime_count'));
+        $this->assertSame(3, (int) DB::table('telescope_monitor_metric_buckets')->where('resolution', '1h')->sum('occurrence_count'));
         $this->travel(31)->days();
         app(RetentionSweep::class)->run(100);
-        $this->assertDatabaseCount('exception_monitor_occurrence_evidence', 0);
+        $this->assertDatabaseCount('telescope_monitor_occurrence_evidence', 0);
         $this->assertSame(3, $this->backfill()['duplicates']);
-        $this->assertDatabaseCount('exception_monitor_occurrences', 3);
-        $this->assertDatabaseCount('exception_monitor_occurrence_evidence', 0);
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 3);
+        $this->assertDatabaseCount('telescope_monitor_occurrence_evidence', 0);
     }
 
     public function test_dry_run_does_not_write_keys_health_inbox_source_or_domain_data(): void
     {
         $this->legacy();
-        config(['exception-monitor.locked' => ['privacy.identify_users' => true]]);
+        config(['telescope-monitor.locked' => ['privacy.identify_users' => true]]);
         $snapshots = [];
         foreach (['installations', 'secrets', 'health_checks', 'capture_inbox', 'issues', 'occurrences'] as $table) {
-            $snapshots[$table] = DB::table('exception_monitor_'.$table)->get()->toJson();
+            $snapshots[$table] = DB::table('telescope_monitor_'.$table)->get()->toJson();
         }
         $source = $this->source()->get()->toJson();
         $result = $this->backfill(dry: true);
         $this->assertSame(1, $result['eligible']);
         $this->assertSame(0, $result['imported']);
         foreach ($snapshots as $table => $snapshot) {
-            $this->assertSame($snapshot, DB::table('exception_monitor_'.$table)->get()->toJson());
+            $this->assertSame($snapshot, DB::table('telescope_monitor_'.$table)->get()->toJson());
         }
         $this->assertSame($source, $this->source()->get()->toJson());
     }
@@ -173,17 +173,17 @@ final class BackfillTest extends TestCase
             $this->legacy();
         }
         $this->assertSame(3, $this->backfill()['imported']);
-        $this->assertDatabaseCount('exception_monitor_alert_events', 0);
-        $this->assertDatabaseCount('exception_monitor_deliveries', 0);
-        $this->assertDatabaseCount('exception_monitor_linked_issues', 0);
+        $this->assertDatabaseCount('telescope_monitor_alert_events', 0);
+        $this->assertDatabaseCount('telescope_monitor_deliveries', 0);
+        $this->assertDatabaseCount('telescope_monitor_linked_issues', 0);
         $this->capture('First live');
         $this->process();
-        $this->assertDatabaseCount('exception_monitor_deliveries', 0);
+        $this->assertDatabaseCount('telescope_monitor_deliveries', 0);
         $this->capture('Second live');
         $this->process();
-        $this->assertDatabaseCount('exception_monitor_deliveries', 1);
-        $this->assertSame('error.threshold_reached', DB::table('exception_monitor_alert_events')->value('event_type'));
-        $this->assertFalse((bool) DB::table('exception_monitor_issues')->value('recovered_only'));
+        $this->assertDatabaseCount('telescope_monitor_deliveries', 1);
+        $this->assertSame('error.threshold_reached', DB::table('telescope_monitor_alert_events')->value('event_type'));
+        $this->assertFalse((bool) DB::table('telescope_monitor_issues')->value('recovered_only'));
     }
 
     public function test_import_never_reopens_a_resolved_issue_even_if_source_time_is_after_resolution(): void
@@ -191,19 +191,19 @@ final class BackfillTest extends TestCase
         $this->rule();
         $this->capture();
         $this->process();
-        $issue = DB::table('exception_monitor_issues')->first();
-        $this->postJson('/exception-monitor/api/v1/issues/'.$issue->public_id.'/actions', ['client_key' => (string) Str::uuid(), 'version' => $issue->state_version, 'action' => 'resolve'])->assertOk();
-        $version = DB::table('exception_monitor_issues')->value('state_version');
-        $events = DB::table('exception_monitor_alert_events')->count();
-        $deliveries = DB::table('exception_monitor_deliveries')->count();
+        $issue = DB::table('telescope_monitor_issues')->first();
+        $this->postJson('/telescope-monitor/api/v1/issues/'.$issue->public_id.'/actions', ['client_key' => (string) Str::uuid(), 'version' => $issue->state_version, 'action' => 'resolve'])->assertOk();
+        $version = DB::table('telescope_monitor_issues')->value('state_version');
+        $events = DB::table('telescope_monitor_alert_events')->count();
+        $deliveries = DB::table('telescope_monitor_deliveries')->count();
         $this->travel(2)->minutes();
         $this->legacy(time: '2026-11-11 10:11:00');
         $this->assertSame(1, $this->backfill()['imported']);
-        $this->assertSame('resolved', DB::table('exception_monitor_issues')->value('status'));
-        $this->assertSame($version, DB::table('exception_monitor_issues')->value('state_version'));
-        $this->assertSame($events, DB::table('exception_monitor_alert_events')->count());
-        $this->assertSame($deliveries, DB::table('exception_monitor_deliveries')->count());
-        $this->assertSame(0, DB::table('exception_monitor_metric_buckets')->sum('regression_count'));
+        $this->assertSame('resolved', DB::table('telescope_monitor_issues')->value('status'));
+        $this->assertSame($version, DB::table('telescope_monitor_issues')->value('state_version'));
+        $this->assertSame($events, DB::table('telescope_monitor_alert_events')->count());
+        $this->assertSame($deliveries, DB::table('telescope_monitor_deliveries')->count());
+        $this->assertSame(0, DB::table('telescope_monitor_metric_buckets')->sum('regression_count'));
     }
 
     public function test_marks_malformed_rows_and_large_payloads_as_skipped_and_makes_cursor_progress(): void
@@ -211,10 +211,10 @@ final class BackfillTest extends TestCase
         $this->legacy(['message' => ['not', 'text']]);
         $this->legacy(['trace' => [['file' => ['bad'], 'line' => 2]]]);
         $marked = $this->legacy();
-        DB::table('telescope_entries_tags')->insert(['entry_uuid' => $marked, 'tag' => 'em2c|not-a-trusted-marker']);
+        DB::table('telescope_entries_tags')->insert(['entry_uuid' => $marked, 'tag' => 'tm2c|not-a-trusted-marker']);
         $this->legacy(['message' => str_repeat('x', 140000)]);
         $this->legacy(time: '2026-11-11 10:10:01');
-        config(['exception-monitor.capture.max_source_bytes' => 131072]);
+        config(['telescope-monitor.capture.max_source_bytes' => 131072]);
         $result = $this->backfill();
         $this->assertSame(5, $result['scanned']);
         $this->assertSame(3, $result['skipped_invalid']);
@@ -239,35 +239,35 @@ final class BackfillTest extends TestCase
         $this->assertSame('completed', $result['run']['state']);
         $this->legacy(time: '2026-11-11 10:01:00');
         $this->assertSame(0, $this->backfill()['imported']);
-        $this->assertDatabaseCount('exception_monitor_occurrences', 0);
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 0);
     }
 
     public function test_command_validates_options_and_reports_a_resumable_page(): void
     {
         $this->legacy();
-        $this->assertSame(2, Artisan::call('exception-monitor:backfill'));
-        $this->assertSame(0, Artisan::call('exception-monitor:backfill', ['--environment' => 'testing', '--dry-run' => true, '--json' => true]));
+        $this->assertSame(2, Artisan::call('telescope-monitor:backfill'));
+        $this->assertSame(0, Artisan::call('telescope-monitor:backfill', ['--environment' => 'testing', '--dry-run' => true, '--json' => true]));
         $result = json_decode(trim(Artisan::output()), true);
         $this->assertTrue($result['dry_run']);
         $this->assertSame(1, $result['eligible']);
-        $this->assertSame(0, Artisan::call('exception-monitor:backfill', ['--environment' => 'testing']));
-        $this->assertDatabaseCount('exception_monitor_occurrences', 1);
+        $this->assertSame(0, Artisan::call('telescope-monitor:backfill', ['--environment' => 'testing']));
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 1);
     }
 
     public function test_source_timezone_and_retention_are_respected_without_guessing_release_data(): void
     {
-        config(['exception-monitor.capture.source_timezone' => 'Asia/Kolkata', 'exception-monitor.capture.release' => 'CURRENT-HEAD']);
+        config(['telescope-monitor.capture.source_timezone' => 'Asia/Kolkata', 'telescope-monitor.capture.release' => 'CURRENT-HEAD']);
         $this->legacy(time: '2026-11-11 15:39:00');
         $this->legacy(time: '2020-01-01 00:00:00');
         $this->assertSame(2, $this->backfill()['imported']);
-        $this->assertSame('2026-11-11 10:09:00', substr(DB::table('exception_monitor_occurrences')->orderBy('id')->value('occurred_at'), 0, 19));
-        $this->assertDatabaseCount('exception_monitor_occurrence_evidence', 1);
-        $this->assertNull(json_decode(Crypt::decryptString(DB::table('exception_monitor_occurrence_evidence')->value('payload_ciphertext')), true)['source']);
+        $this->assertSame('2026-11-11 10:09:00', substr(DB::table('telescope_monitor_occurrences')->orderBy('id')->value('occurred_at'), 0, 19));
+        $this->assertDatabaseCount('telescope_monitor_occurrence_evidence', 1);
+        $this->assertNull(json_decode(Crypt::decryptString(DB::table('telescope_monitor_occurrence_evidence')->value('payload_ciphertext')), true)['source']);
     }
 
     public function test_disabled_capture_and_maintenance_are_not_bypassed(): void
     {
-        config(['exception-monitor.capture.enabled' => false]);
+        config(['telescope-monitor.capture.enabled' => false]);
         $this->expectException(CaptureFailure::class);
         $this->backfill();
     }
@@ -276,7 +276,7 @@ final class BackfillTest extends TestCase
     {
         $original = config('telescope.storage.database.connection');
         config([
-            'exception-monitor.database.connection' => config('database.default'),
+            'telescope-monitor.database.connection' => config('database.default'),
             'database.connections.history_source' => ['driver' => 'sqlite', 'database' => ':memory:', 'foreign_key_constraints' => true],
             'telescope.storage.database.connection' => 'history_source',
         ]);
@@ -285,11 +285,11 @@ final class BackfillTest extends TestCase
         try {
             $this->legacy();
             $this->assertSame(1, $this->backfill()['imported']);
-            $this->assertDatabaseCount('exception_monitor_occurrences', 1);
-            $this->assertFalse(DB::connection('history_source')->getSchemaBuilder()->hasTable('exception_monitor_occurrences'));
+            $this->assertDatabaseCount('telescope_monitor_occurrences', 1);
+            $this->assertFalse(DB::connection('history_source')->getSchemaBuilder()->hasTable('telescope_monitor_occurrences'));
         } finally {
             $migration->down();
-            config(['exception-monitor.database.connection' => null, 'telescope.storage.database.connection' => $original]);
+            config(['telescope-monitor.database.connection' => null, 'telescope.storage.database.connection' => $original]);
         }
     }
 
@@ -314,26 +314,26 @@ final class BackfillTest extends TestCase
         } catch (CaptureFailure $e) {
             $this->assertSame('source_epoch_review_required', $e->getMessage());
         }
-        $this->assertDatabaseCount('exception_monitor_occurrences', 0);
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 0);
     }
 
     public function test_failure_output_never_exposes_grouping_callback_input_or_raw_errors(): void
     {
         $this->legacy();
-        config(['exception-monitor.capture.grouping_callback' => fn () => throw new CaptureFailure('LEAK-RAW-SECRET')]);
-        $this->assertSame(1, Artisan::call('exception-monitor:backfill', ['--environment' => 'testing']));
+        config(['telescope-monitor.capture.grouping_callback' => fn () => throw new CaptureFailure('LEAK-RAW-SECRET')]);
+        $this->assertSame(1, Artisan::call('telescope-monitor:backfill', ['--environment' => 'testing']));
         $this->assertStringNotContainsString('LEAK-', Artisan::output());
-        $this->assertDatabaseCount('exception_monitor_occurrences', 0);
-        $this->assertSame(2, Artisan::call('exception-monitor:backfill', ['--environment' => 'testing', '--limit' => 1001]));
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 0);
+        $this->assertSame(2, Artisan::call('telescope-monitor:backfill', ['--environment' => 'testing', '--limit' => 1001]));
     }
 
     public function test_invalid_source_timezone_fails_without_advancing_or_importing(): void
     {
         $this->legacy();
-        config(['exception-monitor.capture.source_timezone' => 'not-a-timezone']);
-        $this->assertSame(1, Artisan::call('exception-monitor:backfill', ['--environment' => 'testing']));
+        config(['telescope-monitor.capture.source_timezone' => 'not-a-timezone']);
+        $this->assertSame(1, Artisan::call('telescope-monitor:backfill', ['--environment' => 'testing']));
         $this->assertStringContainsString('invalid_source_timezone', Artisan::output());
-        $this->assertDatabaseCount('exception_monitor_occurrences', 0);
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 0);
     }
 
     public function test_human_dry_run_distinguishes_importing_this_page_from_previewing_the_next(): void
@@ -342,7 +342,7 @@ final class BackfillTest extends TestCase
         $this->legacy();
         $ceiling = $this->source()->max('sequence');
         $first = $this->source()->min('sequence');
-        $this->assertSame(0, Artisan::call('exception-monitor:backfill', ['--environment' => 'testing', '--limit' => 1, '--dry-run' => true]));
+        $this->assertSame(0, Artisan::call('telescope-monitor:backfill', ['--environment' => 'testing', '--limit' => 1, '--dry-run' => true]));
         $output = Artisan::output();
         $this->assertStringContainsString('No monitoring data was written.', $output);
         $this->assertStringContainsString('Eligible candidates', $output);
@@ -350,18 +350,18 @@ final class BackfillTest extends TestCase
         $this->assertStringContainsString('--after=0 --through='.$ceiling.' --limit=1', $output);
         $this->assertStringContainsString('To preview the next page:', $output);
         $this->assertStringContainsString('--after='.$first.' --through='.$ceiling.' --limit=1 --dry-run', $output);
-        $this->assertDatabaseCount('exception_monitor_occurrences', 0);
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 0);
     }
 
     public function test_human_completion_and_json_success_keep_the_import_results_accurate(): void
     {
         $this->legacy();
-        $this->assertSame(0, Artisan::call('exception-monitor:backfill', ['--environment' => 'testing']));
+        $this->assertSame(0, Artisan::call('telescope-monitor:backfill', ['--environment' => 'testing']));
         $output = Artisan::output();
         $this->assertStringContainsString('Imported this run', $output);
         $this->assertStringContainsString('Source snapshot scanned.', $output);
         $this->assertStringNotContainsString('Continue with:', $output);
-        $this->assertSame(0, Artisan::call('exception-monitor:backfill', ['--environment' => 'testing', '--json' => true]));
+        $this->assertSame(0, Artisan::call('telescope-monitor:backfill', ['--environment' => 'testing', '--json' => true]));
         $result = json_decode(trim(Artisan::output()), true);
         $this->assertSame(1, $result['duplicates']);
         $this->assertSame(0, $result['imported']);
@@ -370,10 +370,10 @@ final class BackfillTest extends TestCase
 
     public function test_json_errors_are_structured_and_copyable_commands_quote_environment_names(): void
     {
-        $this->assertSame(2, Artisan::call('exception-monitor:backfill', ['--json' => true]));
+        $this->assertSame(2, Artisan::call('telescope-monitor:backfill', ['--json' => true]));
         $this->assertSame('invalid_backfill_options', json_decode(trim(Artisan::output()), true)['error']['code']);
         $this->legacy();
-        $this->assertSame(0, Artisan::call('exception-monitor:backfill', ['--environment' => 'production blue', '--dry-run' => true, '--env' => 'testing']));
+        $this->assertSame(0, Artisan::call('telescope-monitor:backfill', ['--environment' => 'production blue', '--dry-run' => true, '--env' => 'testing']));
         $output = Artisan::output();
         $this->assertStringContainsString("--environment='production blue'", $output);
         $this->assertStringContainsString('--env=testing', $output);

@@ -10,13 +10,13 @@ use Laravel\Telescope\TelescopeServiceProvider;
 use Orchestra\Testbench\TestCase as Orchestra;
 use TelescopeMonitor\Auth\ActorResolver;
 use TelescopeMonitor\Data\Actor;
-use TelescopeMonitor\ExceptionMonitorServiceProvider;
+use TelescopeMonitor\TelescopeMonitorServiceProvider;
 
 abstract class TestCase extends Orchestra
 {
     protected function getPackageProviders($app): array
     {
-        return [TelescopeServiceProvider::class, ExceptionMonitorServiceProvider::class];
+        return [TelescopeServiceProvider::class, TelescopeMonitorServiceProvider::class];
     }
 
     protected function defineEnvironment($app): void
@@ -39,10 +39,10 @@ abstract class TestCase extends Orchestra
             ]);
         }
         $app['config']->set('telescope.storage.database.connection', $driver);
-        $app['config']->set('exception-monitor.middleware', ['web']);
+        $app['config']->set('telescope-monitor.middleware', ['web']);
         // Existing capability-specific domain tests exercise the opt-in gate mode.
         // TelescopeAuthorizationTest covers the default native Telescope policy.
-        $app['config']->set('exception-monitor.authorization.driver', 'gates');
+        $app['config']->set('telescope-monitor.authorization.driver', 'gates');
         $app['config']->set('app.key', 'base64:'.base64_encode(str_repeat('t', 32)));
         $app['config']->set('app.url', 'https://example.test');
         $app['config']->set('mail.default', 'array');
@@ -84,9 +84,9 @@ abstract class TestCase extends Orchestra
 
     protected function authorize(bool $operate = true, bool $manage = true): void
     {
-        Gate::define('viewExceptionMonitor', fn ($user) => true);
-        Gate::define('operateExceptionMonitor', fn ($user) => $operate);
-        Gate::define('manageExceptionMonitor', fn ($user) => $manage);
+        Gate::define('viewTelescopeMonitor', fn ($user) => true);
+        Gate::define('operateTelescopeMonitor', fn ($user) => $operate);
+        Gate::define('manageTelescopeMonitor', fn ($user) => $manage);
     }
 
     protected function tearDown(): void

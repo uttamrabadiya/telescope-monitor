@@ -44,7 +44,7 @@ final class Delivery extends Model
 {
     use UsesUtcTimestamps;
 
-    protected $table = 'exception_monitor_deliveries';
+    protected $table = 'telescope_monitor_deliveries';
 
     protected $guarded = [];
 

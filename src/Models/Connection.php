@@ -27,7 +27,7 @@ final class Connection extends Model
 {
     use UsesUtcTimestamps;
 
-    protected $table = 'exception_monitor_connections';
+    protected $table = 'telescope_monitor_connections';
 
     protected $guarded = [];
 

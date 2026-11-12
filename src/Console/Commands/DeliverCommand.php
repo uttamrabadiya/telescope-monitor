@@ -11,7 +11,7 @@ use TelescopeMonitor\Repositories\Contracts\DeliveryLedger;
 
 final class DeliverCommand extends Command
 {
-    protected $signature = 'exception-monitor:deliver {--limit=100}';
+    protected $signature = 'telescope-monitor:deliver {--limit=100}';
 
     protected $description = 'Explicitly send a bounded set of eligible deliveries inline in this CLI command.';
 

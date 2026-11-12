@@ -27,7 +27,7 @@ final class EloquentCaptureInboxRepository implements CaptureInboxRepository
                 'alert_events',
                 'secrets',
             ] as $table) {
-                if (! Database::schema()->hasTable('exception_monitor_'.$table)) {
+                if (! Database::schema()->hasTable('telescope_monitor_'.$table)) {
                     $this->available = false;
                     break;
                 }

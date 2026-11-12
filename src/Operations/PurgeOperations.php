@@ -35,7 +35,7 @@ final class PurgeOperations
 
     public function ready(): bool
     {
-        return Database::schema()->hasTable('exception_monitor_purge_runs');
+        return Database::schema()->hasTable('telescope_monitor_purge_runs');
     }
 
     private function confirmed(string $installation, string $confirm): Installation
@@ -78,9 +78,9 @@ final class PurgeOperations
 
     private function rows(string $suffix, int $installation)
     {
-        $q = Database::connection()->table('exception_monitor_'.$suffix);
+        $q = Database::connection()->table('telescope_monitor_'.$suffix);
 
-        return $suffix === 'delivery_rules' ? $q->whereIn('delivery_id', Database::connection()->table('exception_monitor_deliveries')->where('installation_id', $installation)->select('id')) : $q->where('installation_id', $installation);
+        return $suffix === 'delivery_rules' ? $q->whereIn('delivery_id', Database::connection()->table('telescope_monitor_deliveries')->where('installation_id', $installation)->select('id')) : $q->where('installation_id', $installation);
     }
 
     public function preview(string $installation): array
@@ -106,7 +106,7 @@ final class PurgeOperations
                 'minimal purge ledger',
             ],
             'external_data' => 'Telescope source, GitHub issues and accepted external messages are not deleted.',
-            'command' => 'exception-monitor:purge '.$i->public_id.' --confirm='.$i->public_id.' --limit=500 --batches=1',
+            'command' => 'telescope-monitor:purge '.$i->public_id.' --confirm='.$i->public_id.' --limit=500 --batches=1',
         ];
     }
 
@@ -152,7 +152,7 @@ final class PurgeOperations
     {
         $time = CarbonImmutable::now('UTC')->format('Y-m-d H:i:s.u');
 
-        return Database::connection()->table('exception_monitor_capture_inbox')->where('installation_id', $installation)->where('state', 'processing')->where('lease_until', '>', $time)->count() + Database::connection()->table('exception_monitor_deliveries')->where('installation_id', $installation)->where('status', 'processing')->where('lease_until', '>', $time)->count();
+        return Database::connection()->table('telescope_monitor_capture_inbox')->where('installation_id', $installation)->where('state', 'processing')->where('lease_until', '>', $time)->count() + Database::connection()->table('telescope_monitor_deliveries')->where('installation_id', $installation)->where('status', 'processing')->where('lease_until', '>', $time)->count();
     }
 
     public function abort(string $installation, string $confirm, string $runId): array
@@ -232,8 +232,8 @@ final class PurgeOperations
                             $run->source_time_cutoff = $cutoff;
                             $run->safe_error_code = null;
                             $run->save();
-                            Database::connection()->table('exception_monitor_action_receipts')->where('installation_id', $i->id)->whereIn('state', ['pending', 'captured'])->update(['state' => 'cancelled', 'completed_at' => CarbonImmutable::now('UTC')->format('Y-m-d H:i:s.u')]);
-                            Database::connection()->table('exception_monitor_connections')->where('installation_id', $i->id)->update([
+                            Database::connection()->table('telescope_monitor_action_receipts')->where('installation_id', $i->id)->whereIn('state', ['pending', 'captured'])->update(['state' => 'cancelled', 'completed_at' => CarbonImmutable::now('UTC')->format('Y-m-d H:i:s.u')]);
+                            Database::connection()->table('telescope_monitor_connections')->where('installation_id', $i->id)->update([
                                 'transport_claim_token' => null,
                                 'transport_lease_until' => null,
                                 'next_send_at' => null,
@@ -241,7 +241,7 @@ final class PurgeOperations
                                 'last_test_outcome' => null,
                                 'options->last_accepted_at' => null,
                             ]);
-                            Database::connection()->table('exception_monitor_health_checks')->where('installation_id', $i->id)->whereIn('check_key', ['capture_received', 'capture_worker', 'delivery_worker', 'capture_overlap'])->update([
+                            Database::connection()->table('telescope_monitor_health_checks')->where('installation_id', $i->id)->whereIn('check_key', ['capture_received', 'capture_worker', 'delivery_worker', 'capture_overlap'])->update([
                                 'state' => 'unverified',
                                 'last_success_at' => null,
                                 'observed_at' => null,
@@ -330,7 +330,7 @@ final class PurgeOperations
             $i->setup_state = $setup;
             $i->config_revision++;
             $i->save();
-            Database::connection()->table('exception_monitor_action_receipts')->where('installation_id', $i->id)->where('operation', 'capture_probe')->whereIn('state', ['pending', 'captured'])->update(['state' => 'cancelled', 'completed_at' => CarbonImmutable::now('UTC')->format('Y-m-d H:i:s.u')]);
+            Database::connection()->table('telescope_monitor_action_receipts')->where('installation_id', $i->id)->where('operation', 'capture_probe')->whereIn('state', ['pending', 'captured'])->update(['state' => 'cancelled', 'completed_at' => CarbonImmutable::now('UTC')->format('Y-m-d H:i:s.u')]);
             app(CaptureObservation::class)->record('source_baseline', 'passed', 'The source epoch was explicitly rebaselined. Existing source rows were excluded; prior time protection remains.', ['old_epoch' => $old, 'epoch' => $i->source_epoch, 'floor' => $maximum, 'generation' => $i->generation]);
         }, 5);
 

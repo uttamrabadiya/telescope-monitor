@@ -17,7 +17,7 @@ use RuntimeException;
 use Symfony\Component\Console\Input\ArrayInput;
 use Symfony\Component\Console\Output\BufferedOutput;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
-use TelescopeMonitor\ExceptionMonitorServiceProvider;
+use TelescopeMonitor\TelescopeMonitorServiceProvider;
 use TelescopeMonitor\Tests\Fixtures\FailingProbeJob;
 use TelescopeMonitor\Tests\Fixtures\StorageProbeProvider;
 use TelescopeMonitor\Tests\TestCase;
@@ -26,7 +26,7 @@ final class TelescopeContractTest extends TestCase
 {
     protected function getPackageProviders($app): array
     {
-        return [TelescopeServiceProvider::class, StorageProbeProvider::class, ExceptionMonitorServiceProvider::class];
+        return [TelescopeServiceProvider::class, StorageProbeProvider::class, TelescopeMonitorServiceProvider::class];
     }
 
     protected function setUp(): void
@@ -86,12 +86,12 @@ final class TelescopeContractTest extends TestCase
     public function test_private_envelopes_are_redacted_in_telescope_source_request_and_response(): void
     {
         Route::post('/source-private-proof', fn () => response()->json([
-            'exception_monitor_private' => [
+            'telescope_monitor_private' => [
                 'generated_secret' => 'proof-secret-response',
             ],
         ]));
         $this->postJson('/source-private-proof', [
-            'exception_monitor_private' => [
+            'telescope_monitor_private' => [
                 'token' => 'proof-secret-request',
                 'sample_text' => 'proof-private-text',
             ],
@@ -108,8 +108,8 @@ final class TelescopeContractTest extends TestCase
     public function test_own_paths_are_ignored_without_mutating_application_filter_callbacks(): void
     {
         $check = new \ReflectionMethod(Telescope::class, 'requestIsToApprovedUri');
-        $this->assertFalse($check->invoke(null, Request::create('/exception-monitor/settings/privacy')));
-        $this->assertFalse($check->invoke(null, Request::create('/exception-monitor')));
+        $this->assertFalse($check->invoke(null, Request::create('/telescope-monitor/settings/privacy')));
+        $this->assertFalse($check->invoke(null, Request::create('/telescope-monitor')));
         $this->assertTrue($check->invoke(null, Request::create('/checkout')));
         $this->assertSame([], Telescope::$filterUsing);
         $this->assertSame([], Telescope::$filterBatchUsing);
@@ -143,7 +143,7 @@ final class TelescopeContractTest extends TestCase
 
     public function test_terminal_worker_ordering_requires_the_planned_bridge(): void
     {
-        config(['exception-monitor.capture.bridge_jobs' => false]);
+        config(['telescope-monitor.capture.bridge_jobs' => false]);
         $this->loadMigrationsFrom(__DIR__.'/../../vendor/orchestra/testbench-core/laravel/migrations');
         config([
             'queue.default' => 'database',

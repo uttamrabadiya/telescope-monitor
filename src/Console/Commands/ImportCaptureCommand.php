@@ -8,7 +8,7 @@ use TelescopeMonitor\Repositories\Contracts\CaptureInboxRepository;
 
 final class ImportCaptureCommand extends Command
 {
-    protected $signature = 'exception-monitor:import {--limit=100} {--process : Also process buffered evidence in this monitoring process} {--watch : Run as a separate supervised importer} {--sleep=2 : Seconds between bounded passes}';
+    protected $signature = 'telescope-monitor:import {--limit=100} {--process : Also process buffered evidence in this monitoring process} {--watch : Run as a separate supervised importer} {--sleep=2 : Seconds between bounded passes}';
 
     protected $description = 'Import accepted, deployment-signed Telescope exceptions outside host execution.';
 

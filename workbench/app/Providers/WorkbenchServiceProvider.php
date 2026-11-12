@@ -21,25 +21,25 @@ final class WorkbenchServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $operationalPreview = (bool) env('EXCEPTION_MONITOR_WORKBENCH_OPERATIONS', false);
-        $controlled = $operationalPreview || (bool) env('EXCEPTION_MONITOR_WORKBENCH_INTEGRATIONS', false);
+        $operationalPreview = (bool) env('TELESCOPE_MONITOR_WORKBENCH_OPERATIONS', false);
+        $controlled = $operationalPreview || (bool) env('TELESCOPE_MONITOR_WORKBENCH_INTEGRATIONS', false);
         $this->app['config']->set('app.name', $controlled ? ($operationalPreview ? 'Controlled operations preview' : 'Controlled integrations preview') : 'Acme Store');
         $this->app['config']->set('app.url', 'http://127.0.0.1:8195');
         $this->app['config']->set('app.key', 'base64:'.base64_encode(str_repeat('w', 32)));
         $this->app['config']->set('database.default', 'sqlite');
         $this->app['config']->set('database.connections.sqlite.database', $controlled ? ($operationalPreview ? '/private/tmp/telescope-monitor-phase7-preview.sqlite' : '/private/tmp/telescope-monitor-phase6-preview.sqlite') : dirname(__DIR__, 2).'/database/database.sqlite');
-        $this->app['config']->set('exception-monitor.workbench_controlled_integrations', $controlled);
+        $this->app['config']->set('telescope-monitor.workbench_controlled_integrations', $controlled);
         if ($controlled) {
             $this->app->bind(HttpTransport::class, WorkbenchIntegrationTransport::class);
             $this->app->bind(DnsResolver::class, WorkbenchIntegrationTransport::class);
             $this->app['config']->set('app.url', $operationalPreview ? 'http://127.0.0.1:8198' : 'http://127.0.0.1:8197');
         }
         $this->app['config']->set('telescope.storage.database.connection', 'sqlite');
-        $this->app['config']->set('exception-monitor.middleware', ['web']);
+        $this->app['config']->set('telescope-monitor.middleware', ['web']);
         $this->app['config']->set('mail.default', 'array');
         $this->app['config']->set('queue.default', 'database');
-        $this->app['config']->set('exception-monitor.assignments', [
-            'enabled' => (bool) env('EXCEPTION_MONITOR_WORKBENCH_ASSIGNMENTS', false),
+        $this->app['config']->set('telescope-monitor.assignments', [
+            'enabled' => (bool) env('TELESCOPE_MONITOR_WORKBENCH_ASSIGNMENTS', false),
             'directory' => WorkbenchAssignmentDirectory::class,
         ]);
         $this->app['config']->set('session.driver', 'file');
@@ -63,7 +63,7 @@ final class WorkbenchServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
-        if (config('exception-monitor.workbench_controlled_integrations')) {
+        if (config('telescope-monitor.workbench_controlled_integrations')) {
             if (! ($this->app->make(HttpTransport::class) instanceof WorkbenchIntegrationTransport)) {
                 throw new \LogicException('Controlled preview transport must be active.');
             }
@@ -80,14 +80,14 @@ final class WorkbenchServiceProvider extends ServiceProvider
                 Telescope::store(app(EntriesRepository::class));
                 app(CaptureOperations::class)->import(100);
                 app(CaptureOperations::class)->process(100);
-                $id = DB::table('exception_monitor_issues')->where('is_test', false)->latest('id')->value('public_id');
-                $this->line(rtrim(config('app.url'), '/').'/exception-monitor/errors/'.$id.'?tab=links');
+                $id = DB::table('telescope_monitor_issues')->where('is_test', false)->latest('id')->value('public_id');
+                $this->line(rtrim(config('app.url'), '/').'/telescope-monitor/errors/'.$id.'?tab=links');
             });
             Artisan::command('workbench:integration-mode', function () {
                 $this->info('Controlled transports: external I/O disabled.');
             });
         }
-        foreach (['viewExceptionMonitor', 'operateExceptionMonitor', 'manageExceptionMonitor'] as $gate) {
+        foreach (['viewTelescopeMonitor', 'operateTelescopeMonitor', 'manageTelescopeMonitor'] as $gate) {
             Gate::define($gate, fn ($user) => $this->app->environment('local', 'workbench'));
         }
     }

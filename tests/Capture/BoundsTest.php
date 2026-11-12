@@ -22,19 +22,19 @@ final class BoundsTest extends TestCase
         for ($i = 0; $i < 7; $i++) {
             $this->capture('Gap '.$i);
         }
-        DB::table('exception_monitor_capture_inbox')->delete();
+        DB::table('telescope_monitor_capture_inbox')->delete();
         for ($i = 0; $i < 5; $i++) {
             app(CaptureOperations::class)->reconcile(2);
         }
         $this->process();
-        $this->assertDatabaseCount('exception_monitor_occurrences', 7);
-        $this->assertSame((int) DB::table('telescope_entries')->where('type', 'exception')->max('sequence'), (int) DB::table('exception_monitor_installations')->value('source_sequence_checkpoint'));
-        DB::table('exception_monitor_capture_inbox')->delete();
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 7);
+        $this->assertSame((int) DB::table('telescope_entries')->where('type', 'exception')->max('sequence'), (int) DB::table('telescope_monitor_installations')->value('source_sequence_checkpoint'));
+        DB::table('telescope_monitor_capture_inbox')->delete();
         for ($i = 0; $i < 5; $i++) {
             app(CaptureOperations::class)->reconcile(2);
         }
         $this->process();
-        $this->assertSame(7, (int) DB::table('exception_monitor_issues')->value('lifetime_count'));
+        $this->assertSame(7, (int) DB::table('telescope_monitor_issues')->value('lifetime_count'));
     }
 
     public function test_source_pruned_before_import_does_not_invent_captured_evidence(): void
@@ -44,7 +44,7 @@ final class BoundsTest extends TestCase
         $result = $this->importSource();
         $this->assertSame(0, $result['buffered']);
         $this->process();
-        $this->assertDatabaseCount('exception_monitor_occurrences', 0);
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 0);
     }
 
     public function test_imported_buffer_survives_source_pruning_but_unimported_rows_do_not(): void
@@ -53,23 +53,23 @@ final class BoundsTest extends TestCase
             $this->capture(import: false);
         }
         $this->assertSame(2, $this->importSource(2)['buffered']);
-        DB::table('telescope_entries')->where('sequence', '>', DB::table('exception_monitor_installations')->value('source_sequence_checkpoint'))->delete();
+        DB::table('telescope_entries')->where('sequence', '>', DB::table('telescope_monitor_installations')->value('source_sequence_checkpoint'))->delete();
         $this->process();
-        $this->assertDatabaseCount('exception_monitor_occurrences', 2);
-        $this->assertDatabaseCount('exception_monitor_capture_inbox', 2);
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 2);
+        $this->assertDatabaseCount('telescope_monitor_capture_inbox', 2);
     }
 
     public function test_malformed_nested_evidence_is_terminal_without_any_domain_writes(): void
     {
         $this->capture();
-        $row = DB::table('exception_monitor_capture_inbox')->first();
+        $row = DB::table('telescope_monitor_capture_inbox')->first();
         $data = json_decode(Crypt::decryptString($row->payload_ciphertext), true);
         $data['exception']['trace'] = [['line' => ['password' => 'bad']]];
         $json = json_encode($data, JSON_THROW_ON_ERROR);
-        DB::table('exception_monitor_capture_inbox')->where('id', $row->id)->update(['payload_ciphertext' => Crypt::encryptString($json), 'payload_digest' => hash('sha256', $json)]);
+        DB::table('telescope_monitor_capture_inbox')->where('id', $row->id)->update(['payload_ciphertext' => Crypt::encryptString($json), 'payload_digest' => hash('sha256', $json)]);
         $this->process();
-        $this->assertSame('malformed_trace', DB::table('exception_monitor_capture_inbox')->value('last_error_code'));
-        $this->assertDatabaseCount('exception_monitor_issues', 0);
+        $this->assertSame('malformed_trace', DB::table('telescope_monitor_capture_inbox')->value('last_error_code'));
+        $this->assertDatabaseCount('telescope_monitor_issues', 0);
     }
 
     public function test_large_evidence_is_bounded_with_explicit_truncation_and_raw_values_excluded(): void
@@ -107,8 +107,8 @@ final class BoundsTest extends TestCase
     public function test_explicit_override_keeps_package_data_on_the_host_with_a_separate_telescope_source(): void
     {
         $original = config('telescope.storage.database.connection');
-        $override = config('exception-monitor.database.connection');
-        config(['exception-monitor.database.connection' => config('database.default')]);
+        $override = config('telescope-monitor.database.connection');
+        config(['telescope-monitor.database.connection' => config('database.default')]);
         config([
             'database.connections.capture_source' => ['driver' => 'sqlite', 'database' => ':memory:', 'foreign_key_constraints' => true],
             'telescope.storage.database.connection' => 'capture_source',
@@ -120,18 +120,18 @@ final class BoundsTest extends TestCase
             $this->capture();
             $this->process();
             $this->assertSame(1, DB::connection('capture_source')->table('telescope_entries')->where('type', 'exception')->count());
-            $this->assertDatabaseCount('exception_monitor_occurrences', 1);
-            $this->assertFalse(Schema::connection('capture_source')->hasTable('exception_monitor_occurrences'));
+            $this->assertDatabaseCount('telescope_monitor_occurrences', 1);
+            $this->assertFalse(Schema::connection('capture_source')->hasTable('telescope_monitor_occurrences'));
         } finally {
             $migration->down();
-            config(['telescope.storage.database.connection' => $original, 'exception-monitor.database.connection' => $override]);
+            config(['telescope.storage.database.connection' => $original, 'telescope-monitor.database.connection' => $override]);
         }
     }
 
     public function test_source_connection_change_is_fenced_without_rotating_identity(): void
     {
         $this->capture();
-        DB::table('exception_monitor_installations')->update(['source_signature' => str_repeat('a', 64)]);
+        DB::table('telescope_monitor_installations')->update(['source_signature' => str_repeat('a', 64)]);
         $this->expectException(CaptureFailure::class);
         $this->expectExceptionMessage('source_epoch_review_required');
         app(CaptureOperations::class)->reconcile(100);
@@ -139,17 +139,17 @@ final class BoundsTest extends TestCase
 
     public function test_source_byte_budget_advances_in_pages_without_quarantining_later_valid_rows(): void
     {
-        config(['exception-monitor.capture.max_source_bytes' => 131072]);
+        config(['telescope-monitor.capture.max_source_bytes' => 131072]);
         for ($i = 0; $i < 3; $i++) {
             $this->capture(str_repeat('large ', 16000));
         }
-        DB::table('exception_monitor_capture_inbox')->delete();
+        DB::table('telescope_monitor_capture_inbox')->delete();
         for ($i = 0; $i < 3; $i++) {
             app(CaptureOperations::class)->reconcile(100);
         }
         $this->process();
-        $this->assertDatabaseCount('exception_monitor_occurrences', 3);
-        $this->assertSame(0, DB::table('exception_monitor_capture_inbox')->where('state', 'failed')->count());
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 3);
+        $this->assertSame(0, DB::table('telescope_monitor_capture_inbox')->where('state', 'failed')->count());
     }
 
     public function test_source_sequence_rollback_requires_explicit_epoch_review(): void

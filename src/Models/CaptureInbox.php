@@ -43,7 +43,7 @@ final class CaptureInbox extends Model
 
     protected $dateFormat = 'Y-m-d H:i:s.u';
 
-    protected $table = 'exception_monitor_capture_inbox';
+    protected $table = 'telescope_monitor_capture_inbox';
 
     protected $guarded = [];
 

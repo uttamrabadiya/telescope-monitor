@@ -17,7 +17,7 @@ Prepared 11 November 2026. **Not published. Publication is held pending the outs
 
 Install official Telescope as a production dependency and use a supported asynchronous database/Redis queue. Follow the README and operations guide for host gates, actors, scheduler, mailer and network policy. No destinations or enabled rules are created automatically.
 
-For a replacement-package upgrade, back up the host database and encryption keys, install the reviewed candidate, run `php artisan exception-monitor:install`, inspect newly published migrations, then run `php artisan migrate`. Configuration is preserved; missing migration files publish by stable suffix. Restart long-lived workers. The complete schema is version 6. This candidate adds no migration over Phase 7.
+For a replacement-package upgrade, back up the host database and encryption keys, install the reviewed candidate, run `php artisan telescope-monitor:install`, inspect newly published migrations, then run `php artisan migrate`. Configuration is preserved; missing migration files publish by stable suffix. Restart long-lived workers. The complete schema is version 6. This candidate adds no migration over Phase 7.
 
 The old dashboard-only prototype is unsupported and explicitly rejected. There is no automatic destructive conversion. A database restore must use matching application code, schema and encryption keys; rolling back package files alone is not a database rollback.
 

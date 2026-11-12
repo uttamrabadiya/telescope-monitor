@@ -11,8 +11,8 @@ final class HostEmailProvider implements NotificationProvider
     {
         try {
             $presentation = app(EmailPresentation::class);
-            $message = Mail::mailer(config('exception-monitor.alerts.mailer'))->send(
-                ['html' => 'exception-monitor::mail.exception', 'raw' => $presentation->text($envelope)],
+            $message = Mail::mailer(config('telescope-monitor.alerts.mailer'))->send(
+                ['html' => 'telescope-monitor::mail.exception', 'raw' => $presentation->text($envelope)],
                 ['mail' => $presentation->data($envelope)],
                 fn ($m) => $m->to($target['email'])->subject($presentation->subject($envelope)),
             );

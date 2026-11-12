@@ -21,7 +21,7 @@ final class HealthCheck extends Model
 
     protected $dateFormat = 'Y-m-d H:i:s.u';
 
-    protected $table = 'exception_monitor_health_checks';
+    protected $table = 'telescope_monitor_health_checks';
 
     protected $guarded = [];
 

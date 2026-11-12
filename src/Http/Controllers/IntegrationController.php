@@ -17,7 +17,7 @@ final class IntegrationController
     private function run(callable $callback, int $status = 200): JsonResponse
     {
         try {
-            return response()->json(['exception_monitor_private' => Telescope::withoutRecording($callback)], $status)->header('Cache-Control', 'private, no-store');
+            return response()->json(['telescope_monitor_private' => Telescope::withoutRecording($callback)], $status)->header('Cache-Control', 'private, no-store');
         } catch (Conflict $e) {
             return response()->json(['error' => ['code' => 'integration_conflict', 'message' => $e->getMessage()]], 409)->header('Cache-Control', 'private, no-store');
         } catch (ValidationException|ModelNotFoundException|HttpExceptionInterface $e) {

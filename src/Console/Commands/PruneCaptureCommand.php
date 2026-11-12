@@ -8,7 +8,7 @@ use TelescopeMonitor\Repositories\Contracts\CaptureInboxRepository;
 
 final class PruneCaptureCommand extends Command
 {
-    protected $signature = 'exception-monitor:prune {--limit=1000}';
+    protected $signature = 'telescope-monitor:prune {--limit=1000}';
 
     protected $description = 'Prune expired capture evidence while preserving occurrence identity and lifetime counts.';
 

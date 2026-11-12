@@ -10,11 +10,11 @@ final class TelescopeAccess
 
     public const SHARED_LABEL = 'Telescope operator (shared)';
 
-    public const REQUEST_APPROVED = 'exception-monitor.telescope-approved';
+    public const REQUEST_APPROVED = 'telescope-monitor.telescope-approved';
 
     public function enabled(): bool
     {
-        return config('exception-monitor.authorization.driver', 'telescope') === 'telescope';
+        return config('telescope-monitor.authorization.driver', 'telescope') === 'telescope';
     }
 
     public function sharedAvailable(): bool

@@ -18,7 +18,7 @@ final class EvidenceTag extends Model
 
     protected $dateFormat = 'Y-m-d H:i:s.u';
 
-    protected $table = 'exception_monitor_evidence_tags';
+    protected $table = 'telescope_monitor_evidence_tags';
 
     protected $guarded = [];
 

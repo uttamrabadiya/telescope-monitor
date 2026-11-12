@@ -20,8 +20,8 @@ final class CollaborationRequest extends FormRequest
             $rules['version'] = ['required', 'integer', 'min:'.($op === 'preferences' ? '0' : '1')];
         }
         if (in_array($op, ['note.create', 'note.update'], true)) {
-            $rules['exception_monitor_private'] = ['required', 'array:body'];
-            $rules['exception_monitor_private.body'] = ['required', 'string', 'max:10000'];
+            $rules['telescope_monitor_private'] = ['required', 'array:body'];
+            $rules['telescope_monitor_private.body'] = ['required', 'string', 'max:10000'];
         }
         if (in_array($op, ['view.create', 'view.update', 'view.rename'], true)) {
             $rules['name'] = ['required', 'string', 'max:80'];

@@ -9,7 +9,7 @@ use TelescopeMonitor\Storage\Database;
 
 final class MigrateCommand extends Command
 {
-    protected $signature = 'exception-monitor:migrate {--force : Run in production} {--pretend : Show SQL without applying migrations}';
+    protected $signature = 'telescope-monitor:migrate {--force : Run in production} {--pretend : Show SQL without applying migrations}';
 
     protected $description = 'Run only published monitoring migrations on the configured storage connection.';
 

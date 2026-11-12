@@ -11,7 +11,7 @@ final class Database
 {
     public static function connectionName(): string
     {
-        $name = config('exception-monitor.database.connection')
+        $name = config('telescope-monitor.database.connection')
             ?? config('telescope.storage.database.connection')
             ?? config('database.default');
         if (! is_string($name) || trim($name) === '') {

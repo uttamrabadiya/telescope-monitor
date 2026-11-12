@@ -33,6 +33,6 @@ final class CaptureController
         $data = $reader->read($occurrence);
         abort_unless($data !== null, 404);
 
-        return response()->json(['exception_monitor_private' => $data])->header('Cache-Control', 'private, no-store');
+        return response()->json(['telescope_monitor_private' => $data])->header('Cache-Control', 'private, no-store');
     }
 }

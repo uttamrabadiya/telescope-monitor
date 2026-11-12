@@ -32,8 +32,8 @@ final class OriginsTest extends TestCase
         Artisan::call('queue:work', ['connection' => 'database', '--once' => true, '--tries' => 1]);
         $this->importSource();
         $this->process();
-        $this->assertDatabaseCount('exception_monitor_occurrences', 1);
-        $this->assertSame('job', DB::table('exception_monitor_occurrences')->value('origin'));
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 1);
+        $this->assertSame('job', DB::table('telescope_monitor_occurrences')->value('origin'));
     }
 
     public function test_retrying_worker_records_each_report_once_and_clears_context_for_next_operation(): void
@@ -49,8 +49,8 @@ final class OriginsTest extends TestCase
         Telescope::store(app(EntriesRepository::class));
         $this->importSource();
         $this->process();
-        $this->assertDatabaseCount('exception_monitor_occurrences', 2);
-        $this->assertSame(2, DB::table('exception_monitor_occurrences')->where('origin', 'job')->count());
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 2);
+        $this->assertSame(2, DB::table('telescope_monitor_occurrences')->where('origin', 'job')->count());
         $this->assertNull(app(CaptureContext::class)->job);
         $this->assertNull(app(CaptureContext::class)->probeId);
     }
@@ -65,8 +65,8 @@ final class OriginsTest extends TestCase
         Telescope::store(app(EntriesRepository::class));
         $this->importSource();
         $this->process();
-        $this->assertDatabaseCount('exception_monitor_occurrences', 1);
-        $this->assertSame('job', DB::table('exception_monitor_occurrences')->value('origin'));
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 1);
+        $this->assertSame('job', DB::table('telescope_monitor_occurrences')->value('origin'));
     }
 
     public function test_console_kernel_exception_reaches_sanitized_evidence(): void
@@ -78,9 +78,9 @@ final class OriginsTest extends TestCase
         Telescope::store(app(EntriesRepository::class));
         $this->importSource();
         $this->process();
-        $this->assertDatabaseCount('exception_monitor_occurrences', 1);
-        $this->assertSame('command', DB::table('exception_monitor_occurrences')->value('origin'));
-        $this->assertStringNotContainsString('console-secret', DB::table('exception_monitor_issues')->value('message'));
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 1);
+        $this->assertSame('command', DB::table('telescope_monitor_occurrences')->value('origin'));
+        $this->assertStringNotContainsString('console-secret', DB::table('telescope_monitor_issues')->value('message'));
     }
 
     public function test_sync_origin_survives_filtered_related_job_records_without_leaking_context(): void
@@ -94,12 +94,12 @@ final class OriginsTest extends TestCase
         Telescope::store(app(EntriesRepository::class));
         $this->importSource();
         $this->process();
-        $this->assertSame('job', DB::table('exception_monitor_occurrences')->value('origin'));
+        $this->assertSame('job', DB::table('telescope_monitor_occurrences')->value('origin'));
         $this->assertNull(app(CaptureContext::class)->failedJobException);
         $this->capture('A later unrelated error');
         $this->importSource();
         $this->process();
-        $this->assertSame('unknown', DB::table('exception_monitor_occurrences')->orderByDesc('id')->value('origin'));
+        $this->assertSame('unknown', DB::table('telescope_monitor_occurrences')->orderByDesc('id')->value('origin'));
     }
 
     public function test_late_command_metadata_is_prioritized_over_a_large_related_query_batch(): void
@@ -114,8 +114,8 @@ final class OriginsTest extends TestCase
         Telescope::store(app(EntriesRepository::class));
         $this->importSource();
         $this->process();
-        $this->assertSame('command', DB::table('exception_monitor_occurrences')->value('origin'));
-        $payload = json_decode(Crypt::decryptString(DB::table('exception_monitor_occurrence_evidence')->value('payload_ciphertext')), true);
+        $this->assertSame('command', DB::table('telescope_monitor_occurrences')->value('origin'));
+        $payload = json_decode(Crypt::decryptString(DB::table('telescope_monitor_occurrence_evidence')->value('payload_ciphertext')), true);
         $this->assertSame('phase4:many-queries', $payload['execution']['command']);
     }
 }

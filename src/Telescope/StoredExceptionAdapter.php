@@ -30,7 +30,7 @@ final class StoredExceptionAdapter
     {
         $watcher = config('telescope.watchers.'.ExceptionWatcher::class, false);
 
-        return config('exception-monitor.enabled') && config('exception-monitor.capture.enabled', true) && config('telescope.enabled') && (is_array($watcher) ? ($watcher['enabled'] ?? true) : (bool) $watcher);
+        return config('telescope-monitor.enabled') && config('telescope-monitor.capture.enabled', true) && config('telescope.enabled') && (is_array($watcher) ? ($watcher['enabled'] ?? true) : (bool) $watcher);
     }
 
     public function tags(IncomingEntry $entry): array
@@ -43,9 +43,9 @@ final class StoredExceptionAdapter
             if (! $exception instanceof Throwable) {
                 return [];
             }
-            unset($entry->content['exception_monitor_trace'], $entry->content['exception_monitor_capture'], $entry->content['exception_monitor_source'], $entry->content['exception_monitor_origin'], $entry->content['exception_monitor_route']);
-            $entry->content['exception_monitor_source'] = app(SourceSnapshot::class)->capture();
-            $entry->content['exception_monitor_trace'] = array_map(function ($frame) {
+            unset($entry->content['telescope_monitor_trace'], $entry->content['telescope_monitor_capture'], $entry->content['telescope_monitor_source'], $entry->content['telescope_monitor_origin'], $entry->content['telescope_monitor_route']);
+            $entry->content['telescope_monitor_source'] = app(SourceSnapshot::class)->capture();
+            $entry->content['telescope_monitor_trace'] = array_map(function ($frame) {
                 $out = [];
                 foreach (['file' => 2048, 'class' => 512, 'function' => 191] as $key => $limit) {
                     if (is_string($frame[$key] ?? null)) {
@@ -60,14 +60,14 @@ final class StoredExceptionAdapter
             $requestContext = is_array($requestWatcher) ? ($requestWatcher['enabled'] ?? true) : (bool) $requestWatcher;
             if ($requestContext && ! app()->runningInConsole() && app()->bound('request') && app('request')->route() instanceof Route) {
                 $route = app('request')->route();
-                $entry->content['exception_monitor_route'] = ['name' => $route->getName(), 'template' => '/'.ltrim($route->uri(), '/')];
+                $entry->content['telescope_monitor_route'] = ['name' => $route->getName(), 'template' => '/'.ltrim($route->uri(), '/')];
             }
             if ($this->context->job) {
-                $entry->content['exception_monitor_origin'] = $this->context->job;
+                $entry->content['telescope_monitor_origin'] = $this->context->job;
             } elseif ($this->context->failedJobException === ($entry->exception ?? null) && $this->context->failedJobOrigin) {
-                $entry->content['exception_monitor_origin'] = $this->context->failedJobOrigin;
+                $entry->content['telescope_monitor_origin'] = $this->context->failedJobOrigin;
             } elseif ($this->context->command) {
-                $entry->content['exception_monitor_origin'] = ['kind' => 'command', 'command' => $this->context->command];
+                $entry->content['telescope_monitor_origin'] = ['kind' => 'command', 'command' => $this->context->command];
             }
             return app(SourceStamp::class)->tags($entry->uuid, $entry->recordedAt, $entry->content, $this->context->probeException === ($entry->exception ?? null) ? $this->context->probeId : null);
         } catch (Throwable) {
@@ -139,11 +139,11 @@ final class StoredExceptionAdapter
             }
             $marker['policy'] = $policy;
             $content = $row['content'];
-            if (isset($content['exception_monitor_capture']['grouping_file'])) {
-                $content['file'] = $content['exception_monitor_capture']['grouping_file'];
+            if (isset($content['telescope_monitor_capture']['grouping_file'])) {
+                $content['file'] = $content['telescope_monitor_capture']['grouping_file'];
             }
-            $payload = $this->sanitizer->envelope($content, $marker, $contexts[$batch], $row['tags'], $content['exception_monitor_trace'] ?? null);
-            $item = $this->buffer->enqueue($payload['marker'], $row['uuid'], $batch, $row['sequence'], $payload, $marker['probe_id'] ? 'synthetic_test' : ($mode === 'live' && ! isset($row['content']['exception_monitor_capture']) ? 'reconciliation' : $mode));
+            $payload = $this->sanitizer->envelope($content, $marker, $contexts[$batch], $row['tags'], $content['telescope_monitor_trace'] ?? null);
+            $item = $this->buffer->enqueue($payload['marker'], $row['uuid'], $batch, $row['sequence'], $payload, $marker['probe_id'] ? 'synthetic_test' : ($mode === 'live' && ! isset($row['content']['telescope_monitor_capture']) ? 'reconciliation' : $mode));
             if (! $item) {
                 throw new CaptureFailure('installation_fenced');
             }
@@ -160,7 +160,7 @@ final class StoredExceptionAdapter
     public function failedJob(JobFailed $event): void
     {
         try {
-            if (! config('exception-monitor.capture.bridge_jobs', true) || ! $this->enabled() || ! Telescope::isRecording() || $event->connectionName === 'sync' || str_starts_with($event->job->resolveName(), 'TelescopeMonitor\\Jobs\\')) {
+            if (! config('telescope-monitor.capture.bridge_jobs', true) || ! $this->enabled() || ! Telescope::isRecording() || $event->connectionName === 'sync' || str_starts_with($event->job->resolveName(), 'TelescopeMonitor\\Jobs\\')) {
                 return;
             }
             foreach (Telescope::$entriesQueue as $entry) {
@@ -175,7 +175,7 @@ final class StoredExceptionAdapter
                 'file' => $e->getFile(),
                 'line' => $e->getLine(),
                 'trace' => array_map(fn ($f) => array_intersect_key($f, array_flip(['file', 'line', 'class', 'function'])), array_slice($e->getTrace(), 0, 100)),
-                'exception_monitor_origin' => ['kind' => 'job', 'job_class' => $event->job->resolveName()],
+                'telescope_monitor_origin' => ['kind' => 'job', 'job_class' => $event->job->resolveName()],
             ]);
             if ($entry->isReportableException()) {
                 Telescope::recordException($entry);

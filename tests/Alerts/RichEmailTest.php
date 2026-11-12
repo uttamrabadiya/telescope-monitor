@@ -34,7 +34,7 @@ final class RichEmailTest extends TestCase
             'line' => 215,
             'count' => '3',
             'occurred_at' => '2026-11-11T15:03:31Z',
-            'url' => 'https://monitor.example.test/exception-monitor/errors/issue?occurrence=occurrence',
+            'url' => 'https://monitor.example.test/telescope-monitor/errors/issue?occurrence=occurrence',
             'delivery_id' => (string) Str::uuid(),
             'email_context' => [
                 'version' => 1,
@@ -109,9 +109,9 @@ final class RichEmailTest extends TestCase
     public function test_context_obeys_current_privacy_and_explicit_email_tag_allowlist(): void
     {
         config([
-            'exception-monitor.capture.allowed_tags' => ['browser', 'tenant'],
-            'exception-monitor.alerts.email.allowed_tags' => ['browser'],
-            'exception-monitor.locked' => ['privacy.retain_stack_trace' => false, 'privacy.retain_execution_context' => false],
+            'telescope-monitor.capture.allowed_tags' => ['browser', 'tenant'],
+            'telescope-monitor.alerts.email.allowed_tags' => ['browser'],
+            'telescope-monitor.locked' => ['privacy.retain_stack_trace' => false, 'privacy.retain_execution_context' => false],
         ]);
         $context = $this->envelope()['email_context'];
         $context['tags'] = ['browser' => 'Android 16', 'tenant' => 'PRIVATE-TENANT'];
@@ -124,7 +124,7 @@ final class RichEmailTest extends TestCase
         $this->assertSame([], $safe['execution']);
         $this->assertSame(['browser' => 'Android 16'], $safe['tags']);
         $this->assertStringNotContainsString('PRIVATE-', json_encode($safe));
-        config(['exception-monitor.alerts.email.include_context' => false]);
+        config(['telescope-monitor.alerts.email.include_context' => false]);
         $disabled = app(EmailContext::class)->sanitize($context);
         $this->assertSame([], $disabled['tags']);
         $this->assertSame('excluded', $disabled['snapshot_state']);
@@ -134,14 +134,14 @@ final class RichEmailTest extends TestCase
     {
         $e = $this->envelope(['test' => true, 'event' => 'monitor.test', 'email_context' => []]);
         $data = app(EmailPresentation::class)->data($e);
-        $html = view('exception-monitor::mail.exception', ['mail' => $data])->render();
+        $html = view('telescope-monitor::mail.exception', ['mail' => $data])->render();
         $this->assertStringContainsString('Synthetic delivery test', $html);
         $this->assertStringNotContainsString('Application stack', $html);
         $this->assertStringNotContainsString('>Tags<', $html);
         $this->assertStringStartsWith('[TEST]', app(EmailPresentation::class)->subject($e));
         unset($e['email_context']);
         $e['test'] = false;
-        $html = view('exception-monitor::mail.exception', ['mail' => app(EmailPresentation::class)->data($e)])->render();
+        $html = view('telescope-monitor::mail.exception', ['mail' => app(EmailPresentation::class)->data($e)])->render();
         $this->assertStringContainsString('Detailed stack evidence is unavailable', $html);
         $this->assertStringNotContainsString('Retained execution context', $html);
     }
@@ -166,9 +166,9 @@ final class RichEmailTest extends TestCase
     private function capturedDelivery(): Delivery
     {
         $this->authorize();
-        config(['exception-monitor.alerts.allowed_environments' => ['testing']]);
-        $connection = $this->postJson('/exception-monitor/api/v1/alerting/email', ['client_key' => (string) Str::uuid(), 'name' => 'Rich fixture', 'email' => 'fixture@example.test', 'enabled' => true])->assertOk()->json('exception_monitor_private.id');
-        $this->postJson('/exception-monitor/api/v1/alerting/rules', [
+        config(['telescope-monitor.alerts.allowed_environments' => ['testing']]);
+        $connection = $this->postJson('/telescope-monitor/api/v1/alerting/email', ['client_key' => (string) Str::uuid(), 'name' => 'Rich fixture', 'email' => 'fixture@example.test', 'enabled' => true])->assertOk()->json('telescope_monitor_private.id');
+        $this->postJson('/telescope-monitor/api/v1/alerting/rules', [
             'client_key' => (string) Str::uuid(),
             'name' => 'Rich fixture rule',
             'enabled' => true,
@@ -181,11 +181,11 @@ final class RichEmailTest extends TestCase
         ])->assertOk();
         $this->capture('Rich fixture failure');
         $this->process();
-        $evidence = DB::table('exception_monitor_occurrence_evidence')->first();
+        $evidence = DB::table('telescope_monitor_occurrence_evidence')->first();
         $payload = json_decode(Crypt::decryptString($evidence->payload_ciphertext), true);
         $payload['execution'] = ['method' => 'GET', 'path_template' => '/groups/{id}', 'path' => '/groups/PRIVATE-ID'];
         $json = json_encode($payload);
-        DB::table('exception_monitor_occurrence_evidence')->where('id', $evidence->id)->update(['payload_ciphertext' => Crypt::encryptString($json), 'payload_digest' => hash('sha256', $json)]);
+        DB::table('telescope_monitor_occurrence_evidence')->where('id', $evidence->id)->update(['payload_ciphertext' => Crypt::encryptString($json), 'payload_digest' => hash('sha256', $json)]);
         return Delivery::query()->firstOrFail();
     }
 
@@ -207,7 +207,7 @@ final class RichEmailTest extends TestCase
         $this->assertSame('/groups/{id}', $provider->calls[0]['email_context']['execution']['path_template']);
         $this->assertStringNotContainsString('PRIVATE-ID', json_encode($provider->calls[0]));
         $this->assertNotEmpty($provider->calls[0]['email_context']['frames']);
-        DB::table('exception_monitor_occurrence_evidence')->delete();
+        DB::table('telescope_monitor_occurrence_evidence')->delete();
         $this->travel(61)->seconds();
         $this->assertTrue($sender->send($delivery->id, $delivery->generation));
         $this->assertSame($provider->calls[0], $provider->calls[1]);
@@ -228,7 +228,7 @@ final class RichEmailTest extends TestCase
         $this->app->instance(NotificationProvider::class, $provider);
         $sender = app(DeliverySender::class);
         $sender->send($delivery->id, $delivery->generation);
-        config(['exception-monitor.locked' => ['privacy.retain_stack_trace' => false]]);
+        config(['telescope-monitor.locked' => ['privacy.retain_stack_trace' => false]]);
         $this->travel(61)->seconds();
         $this->assertFalse($sender->send($delivery->id, $delivery->generation));
         $this->assertSame(1, $provider->calls);

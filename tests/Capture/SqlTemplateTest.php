@@ -74,7 +74,7 @@ final class SqlTemplateTest extends TestCase
         $default = app(Sanitizer::class)->batch($batch, $policy);
         $this->assertSame('disabled', $default['queries'][0]['sql_state']);
         $this->assertArrayNotHasKey('sql_template', $default['queries'][0]);
-        $this->patchJson('/exception-monitor/api/v1/settings/privacy', ['version' => 0, 'values' => ['retain_sql_templates' => true]])->assertOk();
+        $this->patchJson('/telescope-monitor/api/v1/settings/privacy', ['version' => 0, 'values' => ['retain_sql_templates' => true]])->assertOk();
         $enabled = app(Sanitizer::class)->batch($batch, app(CapturePolicy::class)->read());
         $this->assertStringNotContainsString('LEAK', json_encode($enabled));
         $this->assertStringNotContainsString('9898', json_encode($enabled));
@@ -83,15 +83,15 @@ final class SqlTemplateTest extends TestCase
         Telescope::recordQuery(IncomingEntry::make($batch[0]['content']));
         $this->capture('SQL template capture');
         Telescope::store(app(EntriesRepository::class));
-        $inbox = DB::table('exception_monitor_capture_inbox')->first();
+        $inbox = DB::table('telescope_monitor_capture_inbox')->first();
         $buffer = Crypt::decryptString($inbox->payload_ciphertext);
         $this->assertStringNotContainsString('LEAK', $buffer);
         $this->assertStringContainsString('sql_template', $buffer);
         $this->process();
-        $id = DB::table('exception_monitor_occurrences')->value('public_id');
+        $id = DB::table('telescope_monitor_occurrences')->value('public_id');
         $reader = app(EvidenceReader::class);
         $this->assertSame('retained', $reader->read($id)['evidence']['queries'][0]['sql_state']);
-        $this->patchJson('/exception-monitor/api/v1/settings/privacy', ['version' => 1, 'values' => ['retain_sql_templates' => false]])->assertOk();
+        $this->patchJson('/telescope-monitor/api/v1/settings/privacy', ['version' => 1, 'values' => ['retain_sql_templates' => false]])->assertOk();
         $read = $reader->read($id)['evidence'];
         $this->assertArrayNotHasKey('sql_template', $read['queries'][0]);
         $this->assertSame('disabled', $read['queries'][0]['sql_state']);
@@ -102,7 +102,7 @@ final class SqlTemplateTest extends TestCase
 
     public function test_restricter_policy_before_processing_removes_both_sql_copies_and_custom_redactions_fail_closed(): void
     {
-        config(['exception-monitor.capture.sql_templates' => true]);
+        config(['telescope-monitor.capture.sql_templates' => true]);
         $policy = app(CapturePolicy::class)->read();
         $policy['privacy']['redact_patterns'] = ['~private_table~'];
         $data = app(Sanitizer::class)->batch([['type' => 'query', 'content' => ['driver' => 'mysql', 'sql' => 'select id from private_table', 'time' => INF]]], $policy);
@@ -111,9 +111,9 @@ final class SqlTemplateTest extends TestCase
         $this->assertStringNotContainsString('private_table', json_encode($data));
         Telescope::recordQuery(IncomingEntry::make(['driver' => 'mysql', 'sql' => "select * from users where email='LEAK'", 'time' => 1]));
         $this->capture();
-        config(['exception-monitor.locked' => ['privacy.retain_sql_templates' => false]]);
+        config(['telescope-monitor.locked' => ['privacy.retain_sql_templates' => false]]);
         $this->process();
-        $payload = json_decode(Crypt::decryptString(DB::table('exception_monitor_occurrence_evidence')->value('payload_ciphertext')), true);
+        $payload = json_decode(Crypt::decryptString(DB::table('telescope_monitor_occurrence_evidence')->value('payload_ciphertext')), true);
         $this->assertArrayNotHasKey('sql_template', $payload['queries'][0]);
         $this->assertSame('disabled', $payload['queries'][0]['sql_state']);
     }
@@ -137,8 +137,8 @@ final class SqlTemplateTest extends TestCase
     public function test_sql_setting_can_be_deployment_locked_and_old_snapshots_do_not_gain_sql(): void
     {
         $this->authorize();
-        config(['exception-monitor.locked' => ['privacy.retain_sql_templates' => false]]);
-        $this->patchJson('/exception-monitor/api/v1/settings/privacy', ['version' => 0, 'values' => ['retain_sql_templates' => true]])->assertUnprocessable();
+        config(['telescope-monitor.locked' => ['privacy.retain_sql_templates' => false]]);
+        $this->patchJson('/telescope-monitor/api/v1/settings/privacy', ['version' => 0, 'values' => ['retain_sql_templates' => true]])->assertUnprocessable();
         $old = [
             'version' => 1,
             'marker' => [],
@@ -159,7 +159,7 @@ final class SqlTemplateTest extends TestCase
 
     public function test_sql_heavy_batches_stay_bounded_and_report_partial_measurements(): void
     {
-        config(['exception-monitor.capture.sql_templates' => true, 'exception-monitor.capture.sql_max_bytes' => 4096]);
+        config(['telescope-monitor.capture.sql_templates' => true, 'telescope-monitor.capture.sql_max_bytes' => 4096]);
         $sql = 'select '.implode(', ', array_fill(0, 250, 'column_name')).' from users where id=12345';
         $entries = array_fill(0, 100, ['type' => 'query', 'content' => ['driver' => 'mysql', 'connection' => 'mysql', 'sql' => $sql, 'time' => 1]]);
         $batch = app(Sanitizer::class)->batch($entries, app(CapturePolicy::class)->read());

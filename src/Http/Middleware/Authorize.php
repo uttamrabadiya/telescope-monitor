@@ -42,7 +42,7 @@ final class Authorize
                 return response()->json([
                     'error' => [
                         'code' => $status === 401 ? 'unauthenticated' : 'forbidden',
-                        'message' => $status === 401 ? 'Sign in to access Exception Monitor.' : 'You do not have permission for this action.',
+                        'message' => $status === 401 ? 'Sign in to access Telescope Monitor.' : 'You do not have permission for this action.',
                     ],
                 ], $status)->header('Cache-Control', 'private, no-store');
             }

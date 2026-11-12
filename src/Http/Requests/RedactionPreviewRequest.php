@@ -14,8 +14,8 @@ final class RedactionPreviewRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'exception_monitor_private' => ['required', 'array:text,patterns'],
-            'exception_monitor_private.text' => [
+            'telescope_monitor_private' => ['required', 'array:text,patterns'],
+            'telescope_monitor_private.text' => [
                 'required',
                 'string',
                 function ($attribute, $value, $fail) {
@@ -24,8 +24,8 @@ final class RedactionPreviewRequest extends FormRequest
                     }
                 },
             ],
-            'exception_monitor_private.patterns' => ['sometimes', 'array', 'max:20'],
-            'exception_monitor_private.patterns.*' => [
+            'telescope_monitor_private.patterns' => ['sometimes', 'array', 'max:20'],
+            'telescope_monitor_private.patterns.*' => [
                 'string',
                 'max:512',
                 function ($attribute, $value, $fail) {

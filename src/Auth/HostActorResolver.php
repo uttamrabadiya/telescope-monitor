@@ -11,7 +11,7 @@ final class HostActorResolver implements ActorResolver
 {
     public function current(): ?Actor
     {
-        $user = Auth::guard(config('exception-monitor.guard'))->user();
+        $user = Auth::guard(config('telescope-monitor.guard'))->user();
         if (! $user) {
             return app(TelescopeAccess::class)->sharedAvailable()
                 ? new Actor(TelescopeAccess::SHARED_KEY, TelescopeAccess::SHARED_LABEL)
@@ -38,7 +38,7 @@ final class HostActorResolver implements ActorResolver
 
     private function provider(): string
     {
-        $guard = config('exception-monitor.guard') ?? config('auth.defaults.guard');
+        $guard = config('telescope-monitor.guard') ?? config('auth.defaults.guard');
 
         return (string) config('auth.guards.'.$guard.'.provider', 'users');
     }

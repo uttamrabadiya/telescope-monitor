@@ -18,7 +18,7 @@ final class AlertController
     private function run(callable $work, int $status = 200): JsonResponse
     {
         try {
-            return response()->json(['exception_monitor_private' => Telescope::withoutRecording($work)], $status)->header('Cache-Control', 'private, no-store');
+            return response()->json(['telescope_monitor_private' => Telescope::withoutRecording($work)], $status)->header('Cache-Control', 'private, no-store');
         } catch (Conflict $e) {
             return response()->json(['error' => ['code' => 'alert_conflict', 'message' => $e->getMessage(), 'current' => $e->current]], 409)->header('Cache-Control', 'private, no-store');
         } catch (ValidationException|ModelNotFoundException|HttpExceptionInterface $e) {

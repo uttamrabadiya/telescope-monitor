@@ -32,7 +32,7 @@ final class SettingsService
                 'retain_stack_trace' => true,
                 'retain_execution_context' => true,
                 'retain_related_logs' => true,
-                'retain_sql_templates' => (bool) config('exception-monitor.capture.sql_templates', false),
+                'retain_sql_templates' => (bool) config('telescope-monitor.capture.sql_templates', false),
                 'identify_users' => false,
                 'redact_patterns' => [],
             ],
@@ -77,7 +77,7 @@ final class SettingsService
                     $metadata[$key]['source'] = 'deployment';
                 }
                 if (! $metadata[$key]['locked']) {
-                    $metadata[$key]['reason'] = 'exception-monitor.retention_limits.'.$key;
+                    $metadata[$key]['reason'] = 'telescope-monitor.retention_limits.'.$key;
                 }
             }
         }
@@ -149,17 +149,17 @@ final class SettingsService
 
     private function lock(string $group, string $key): ?array
     {
-        $locks = config('exception-monitor.locked', []);
+        $locks = config('telescope-monitor.locked', []);
         if (array_key_exists($group.'.'.$key, $locks)) {
             return [
                 'value' => $locks[$group.'.'.$key],
-                'reason' => 'exception-monitor.locked.'.$group.'.'.$key,
+                'reason' => 'telescope-monitor.locked.'.$group.'.'.$key,
             ];
         }
         if ($group === 'general' && $key === 'dashboard_url') {
             return [
                 'value' => $this->defaults('general')['dashboard_url'],
-                'reason' => 'app.url and exception-monitor.path',
+                'reason' => 'app.url and telescope-monitor.path',
             ];
         }
 

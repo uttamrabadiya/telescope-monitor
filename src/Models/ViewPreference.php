@@ -18,7 +18,7 @@ final class ViewPreference extends Model
 {
     use UsesUtcTimestamps;
 
-    protected $table = 'exception_monitor_view_preferences';
+    protected $table = 'telescope_monitor_view_preferences';
 
     protected $guarded = [];
 

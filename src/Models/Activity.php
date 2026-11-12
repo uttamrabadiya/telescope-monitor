@@ -26,7 +26,7 @@ final class Activity extends Model
 
     protected $dateFormat = 'Y-m-d H:i:s.u';
 
-    protected $table = 'exception_monitor_activity';
+    protected $table = 'telescope_monitor_activity';
 
     protected $guarded = [];
 

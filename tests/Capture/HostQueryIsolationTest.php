@@ -23,7 +23,7 @@ final class HostQueryIsolationTest extends TestCase
         $active = true;
         $queries = [];
         DB::connection()->beforeExecuting(function ($sql) use (&$active, &$queries) {
-            if ($active && preg_match('/exception_monitor_|sqlite_(schema|master)|information_schema|pg_catalog|pragma/i', $sql)) {
+            if ($active && preg_match('/telescope_monitor_|sqlite_(schema|master)|information_schema|pg_catalog|pragma/i', $sql)) {
                 $queries[] = $sql;
             }
         });
@@ -34,12 +34,12 @@ final class HostQueryIsolationTest extends TestCase
             $active = false;
         }
         $this->assertSame([], $queries, 'Host execution attempted monitoring queries.');
-        $this->assertDatabaseCount('exception_monitor_capture_inbox', 0);
-        $this->assertDatabaseCount('exception_monitor_occurrences', 0);
+        $this->assertDatabaseCount('telescope_monitor_capture_inbox', 0);
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 0);
         $this->assertGreaterThan(0, DB::table('telescope_entries')->where('type', 'exception')->count());
         $this->importSource();
         $this->process();
-        $this->assertGreaterThan(0, DB::table('exception_monitor_occurrences')->count());
+        $this->assertGreaterThan(0, DB::table('telescope_monitor_occurrences')->count());
     }
 
     public function test_http_exception_has_zero_monitoring_queries_until_separate_import(): void

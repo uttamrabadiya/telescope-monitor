@@ -9,7 +9,7 @@ use TelescopeMonitor\Repositories\Contracts\InstallationRepository;
 
 final class HeartbeatCommand extends Command
 {
-    protected $signature = 'exception-monitor:heartbeat';
+    protected $signature = 'telescope-monitor:heartbeat';
 
     protected $description = 'Record a local maintenance heartbeat; this is not an independent availability monitor.';
 

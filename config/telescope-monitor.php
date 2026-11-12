@@ -1,10 +1,10 @@
 <?php
 
 return [
-    'enabled' => env('EXCEPTION_MONITOR_ENABLED', true),
+    'enabled' => env('TELESCOPE_MONITOR_ENABLED', true),
     // Null inherits Telescope's storage connection, then Laravel's default.
-    'database' => ['connection' => env('EXCEPTION_MONITOR_DB_CONNECTION')],
-    'path' => env('EXCEPTION_MONITOR_PATH', 'exception-monitor'),
+    'database' => ['connection' => env('TELESCOPE_MONITOR_DB_CONNECTION')],
+    'path' => env('TELESCOPE_MONITOR_PATH', 'telescope-monitor'),
     'middleware' => ['web'],
     'authorization' => [
         'driver' => 'telescope',
@@ -14,7 +14,7 @@ return [
     'capture' => [
         'enabled' => true,
         // Deployment-only signing: null uses APP_KEY with domain separation.
-        'signing_key' => env('EXCEPTION_MONITOR_CAPTURE_KEY'),
+        'signing_key' => env('TELESCOPE_MONITOR_CAPTURE_KEY'),
         'signing_previous_keys' => [],
         'bridge_jobs' => true,
         'sql_templates' => false,
@@ -24,14 +24,14 @@ return [
         'inline_limit' => 100,
         'max_source_bytes' => 2097152,
         'source_timezone' => null,
-        'release' => env('EXCEPTION_MONITOR_RELEASE'),
+        'release' => env('TELESCOPE_MONITOR_RELEASE'),
         'source_link_template' => null,
         'allowed_tags' => [],
     ],
     'capabilities' => [
-        'view' => 'viewExceptionMonitor',
-        'operate' => 'operateExceptionMonitor',
-        'manage' => 'manageExceptionMonitor',
+        'view' => 'viewTelescopeMonitor',
+        'operate' => 'operateTelescopeMonitor',
+        'manage' => 'manageTelescopeMonitor',
     ],
     'alerts' => [
         'enabled' => true,
@@ -55,7 +55,7 @@ return [
     'locked' => [],
     'queues' => [
         'connection' => null,
-        'capture' => 'exception-monitor-capture',
-        'delivery' => 'exception-monitor-deliveries',
+        'capture' => 'telescope-monitor-capture',
+        'delivery' => 'telescope-monitor-deliveries',
     ],
 ];

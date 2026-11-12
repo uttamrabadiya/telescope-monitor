@@ -43,8 +43,8 @@ final class ConfigurationTest extends TestCase
         sort($statuses);
         DB::purge();
         $this->assertSame([0, 1], $statuses);
-        $this->assertSame(1, DB::table('exception_monitor_settings')->count());
-        $this->assertSame(1, (int) DB::table('exception_monitor_settings')->value('row_version'));
-        $this->assertSame(2, (int) DB::table('exception_monitor_installations')->value('config_revision'));
+        $this->assertSame(1, DB::table('telescope_monitor_settings')->count());
+        $this->assertSame(1, (int) DB::table('telescope_monitor_settings')->value('row_version'));
+        $this->assertSame(2, (int) DB::table('telescope_monitor_installations')->value('config_revision'));
     }
 }

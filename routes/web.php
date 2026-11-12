@@ -14,8 +14,8 @@ use TelescopeMonitor\Http\Middleware\Authorize;
 use TelescopeMonitor\Http\Middleware\MaintenanceGuard;
 use TelescopeMonitor\Http\Middleware\RequireStorage;
 
-Route::prefix(config('exception-monitor.path'))->name('exception-monitor.')
-    ->middleware(array_merge(config('exception-monitor.middleware'), [Authorize::class]))
+Route::prefix(config('telescope-monitor.path'))->name('telescope-monitor.')
+    ->middleware(array_merge(config('telescope-monitor.middleware'), [Authorize::class]))
     ->group(function () {
         Route::get('/assets/{build}/{file}', AssetController::class)->where('file', '.*')->name('asset');
         Route::prefix('api/v1')->name('api.')->middleware(MaintenanceGuard::class)->group(function () {

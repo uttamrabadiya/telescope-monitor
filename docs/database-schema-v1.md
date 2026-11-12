@@ -11,7 +11,7 @@ Phase 1 delivers installations, settings, health_checks and action_receipts. Pha
 
 ## Storage conventions
 
-All tables use the `exception_monitor_` prefix. The shorter names below omit that prefix for readability. Internal primary keys are unsigned 64-bit integers where supported; public resource identifiers are random UUIDs. Public IDs do not replace authorization. A table with a natural composite primary key is identified explicitly.
+All tables use the `telescope_monitor_` prefix. The shorter names below omit that prefix for readability. Internal primary keys are unsigned 64-bit integers where supported; public resource identifiers are random UUIDs. Public IDs do not replace authorization. A table with a natural composite primary key is identified explicitly.
 
 Use UTC datetimes with six-digit fractional precision for package-owned event/action timestamps, represented with explicit timezone in JSON. MySQL/MariaDB use a microsecond-capable datetime type; SQLite uses a consistent sortable UTC representation. Do not assume Telescope's own timestamps always have the same precision. Preserve `time_precision` when source recovery cannot supply microseconds.
 

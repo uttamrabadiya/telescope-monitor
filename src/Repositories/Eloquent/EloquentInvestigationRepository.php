@@ -32,7 +32,7 @@ final class EloquentInvestigationRepository implements InvestigationRepository
     private function groups(int $installation, array $f, Window $w)
     {
         $counts = app(RetentionPolicy::class)->metrics(MetricBucket::query())->select('issue_id')->selectRaw('SUM(occurrence_count) AS range_count, SUM(regression_count) AS range_regressions')->where('installation_id', $installation)->where('resolution', $w->resolution)->where('bucket_start_at', '>=', $w->sql($w->start))->where('bucket_start_at', '<', $w->sql($w->end))->where('expires_at', '>', now('UTC')->format('Y-m-d H:i:s.u'))->groupBy('issue_id');
-        $q = Issue::query()->select('exception_monitor_issues.*')->selectRaw('COALESCE(window_counts.range_count,0) AS range_count, COALESCE(window_counts.range_regressions,0) AS range_regressions')->selectRaw($this->effective().' AS effective_status')->leftJoinSub($counts, 'window_counts', 'window_counts.issue_id', '=', 'exception_monitor_issues.id')->where('exception_monitor_issues.installation_id', $installation);
+        $q = Issue::query()->select('telescope_monitor_issues.*')->selectRaw('COALESCE(window_counts.range_count,0) AS range_count, COALESCE(window_counts.range_regressions,0) AS range_regressions')->selectRaw($this->effective().' AS effective_status')->leftJoinSub($counts, 'window_counts', 'window_counts.issue_id', '=', 'telescope_monitor_issues.id')->where('telescope_monitor_issues.installation_id', $installation);
         if (! ($f['include_tests'] ?? false)) {
             $q->where('is_test', false);
         }
@@ -69,11 +69,11 @@ final class EloquentInvestigationRepository implements InvestigationRepository
             }
         }
         if ($f['origin'] ?? null) {
-            $q->whereExists(fn ($q) => $q->selectRaw('1')->from('exception_monitor_occurrences as o')->whereColumn('o.issue_id', 'exception_monitor_issues.id')->where('o.installation_id', $installation)->where('o.origin', $f['origin']));
+            $q->whereExists(fn ($q) => $q->selectRaw('1')->from('telescope_monitor_occurrences as o')->whereColumn('o.issue_id', 'telescope_monitor_issues.id')->where('o.installation_id', $installation)->where('o.origin', $f['origin']));
         }
         if ($f['tag'] ?? null) {
             [$key,$value] = array_pad(explode(':', $f['tag'], 2), 2, '');
-            $q->whereExists(fn ($q) => $q->selectRaw('1')->from('exception_monitor_evidence_tags as t')->join('exception_monitor_occurrence_evidence as e', 'e.id', '=', 't.evidence_id')->join('exception_monitor_occurrences as o', 'o.id', '=', 'e.occurrence_id')->whereColumn('o.issue_id', 'exception_monitor_issues.id')->where('t.installation_id', $installation)->where('t.tag_key', $key)->where('t.tag_value', $value)->where('e.expires_at', '>', now('UTC')->format('Y-m-d H:i:s.u'))->where('o.occurred_at', '>', app(RetentionPolicy::class)->floors()['evidence']));
+            $q->whereExists(fn ($q) => $q->selectRaw('1')->from('telescope_monitor_evidence_tags as t')->join('telescope_monitor_occurrence_evidence as e', 'e.id', '=', 't.evidence_id')->join('telescope_monitor_occurrences as o', 'o.id', '=', 'e.occurrence_id')->whereColumn('o.issue_id', 'telescope_monitor_issues.id')->where('t.installation_id', $installation)->where('t.tag_key', $key)->where('t.tag_value', $value)->where('e.expires_at', '>', now('UTC')->format('Y-m-d H:i:s.u'))->where('o.occurred_at', '>', app(RetentionPolicy::class)->floors()['evidence']));
         }
 
         return $q;
@@ -108,7 +108,7 @@ final class EloquentInvestigationRepository implements InvestigationRepository
         $sort = match ($filters['sort'] ?? 'last_seen') {
             'first_seen' => 'first_seen_at','occurrences' => 'range_count',default => 'last_seen_at'
         };
-        $page = $q->orderByDesc($sort)->orderByDesc('exception_monitor_issues.id')->paginate($filters['per_page'] ?? 25, ['*'], 'page', $filters['page'] ?? 1);
+        $page = $q->orderByDesc($sort)->orderByDesc('telescope_monitor_issues.id')->paginate($filters['per_page'] ?? 25, ['*'], 'page', $filters['page'] ?? 1);
         $ids = $page->getCollection()->pluck('id');
         $origins = Occurrence::query()->where('installation_id', $installation)->whereIn('issue_id', $ids)->select('issue_id', 'origin')->distinct()->get()->groupBy('issue_id');
 
@@ -120,14 +120,14 @@ final class EloquentInvestigationRepository implements InvestigationRepository
             'last_page' => $page->lastPage(),
             'window' => $window->json(),
             'environments' => Issue::query()->where('installation_id', $installation)->distinct()->orderBy('environment')->limit(100)->pluck('environment')->all(),
-            'allowed_tags' => config('exception-monitor.capture.allowed_tags', []),
+            'allowed_tags' => config('telescope-monitor.capture.allowed_tags', []),
             'coverage' => 'Range counts include all origins for each group. Origin filters use captured identities; tag filters use unexpired retained evidence. The count range does not hide older unresolved groups.',
         ];
     }
 
     public function overview(int $installation, array $filters, Window $window): array
     {
-        $groups = $this->groups($installation, array_merge($filters, ['status' => 'all']), $window)->select('exception_monitor_issues.id');
+        $groups = $this->groups($installation, array_merge($filters, ['status' => 'all']), $window)->select('telescope_monitor_issues.id');
         $rows = app(RetentionPolicy::class)->metrics(MetricBucket::query())->where('installation_id', $installation)->whereIn('issue_id', $groups)->where('resolution', $window->resolution)->where('bucket_start_at', '>=', $window->sql($window->start))->where('bucket_start_at', '<', $window->sql($window->end))->where('expires_at', '>', now('UTC')->format('Y-m-d H:i:s.u'))->select('bucket_start_at')->selectRaw('SUM(occurrence_count) AS occurrences, SUM(new_group_count) AS groups_count, SUM(regression_count) AS regressions')->groupBy('bucket_start_at')->toBase()->get();
         $buckets = [];
         for ($at = $window->start; $at < $window->end; $at = $at->addSeconds($window->step)) {
@@ -209,15 +209,15 @@ final class EloquentInvestigationRepository implements InvestigationRepository
             return null;
         }
         if (! $selected) {
-            $selected = Occurrence::query()->join('exception_monitor_occurrence_evidence as e', 'e.occurrence_id', '=', 'exception_monitor_occurrences.id')->where('exception_monitor_occurrences.installation_id', $installation)->where('issue_id', $issue->id)->where('e.expires_at', '>', now('UTC')->format('Y-m-d H:i:s.u'))->where('exception_monitor_occurrences.occurred_at', '>', app(RetentionPolicy::class)->floors()['evidence'])->orderByDesc('occurred_at')->orderByDesc('exception_monitor_occurrences.id')->first(['exception_monitor_occurrences.*']) ?? $history->getCollection()->first();
+            $selected = Occurrence::query()->join('telescope_monitor_occurrence_evidence as e', 'e.occurrence_id', '=', 'telescope_monitor_occurrences.id')->where('telescope_monitor_occurrences.installation_id', $installation)->where('issue_id', $issue->id)->where('e.expires_at', '>', now('UTC')->format('Y-m-d H:i:s.u'))->where('telescope_monitor_occurrences.occurred_at', '>', app(RetentionPolicy::class)->floors()['evidence'])->orderByDesc('occurred_at')->orderByDesc('telescope_monitor_occurrences.id')->first(['telescope_monitor_occurrences.*']) ?? $history->getCollection()->first();
         }
         $evidence = $selected ? app(EvidenceReader::class)->read($selected->public_id) : null;
-        $retained = Occurrence::query()->join('exception_monitor_occurrence_evidence as e', 'e.occurrence_id', '=', 'exception_monitor_occurrences.id')->where('issue_id', $issue->id)->where('exception_monitor_occurrences.installation_id', $installation)->where('e.expires_at', '>', now('UTC')->format('Y-m-d H:i:s.u'))->where('exception_monitor_occurrences.occurred_at', '>', app(RetentionPolicy::class)->floors()['evidence']);
+        $retained = Occurrence::query()->join('telescope_monitor_occurrence_evidence as e', 'e.occurrence_id', '=', 'telescope_monitor_occurrences.id')->where('issue_id', $issue->id)->where('telescope_monitor_occurrences.installation_id', $installation)->where('e.expires_at', '>', now('UTC')->format('Y-m-d H:i:s.u'))->where('telescope_monitor_occurrences.occurred_at', '>', app(RetentionPolicy::class)->floors()['evidence']);
         $breakdowns = [];
-        foreach (['origin' => 'exception_monitor_occurrences.origin', 'route' => 'e.route_name', 'release' => 'e.release'] as $key => $column) {
+        foreach (['origin' => 'telescope_monitor_occurrences.origin', 'route' => 'e.route_name', 'release' => 'e.release'] as $key => $column) {
             $breakdowns[$key] = (clone $retained)->whereNotNull($column)->select($column.' as value')->selectRaw('COUNT(*) AS count')->groupBy($column)->orderByDesc('count')->limit(20)->toBase()->get()->map(fn ($r) => ['value' => $r->value, 'count' => (string) $r->count])->all();
         }
-        $breakdowns['tags'] = (clone $retained)->join('exception_monitor_evidence_tags as tags', 'tags.evidence_id', '=', 'e.id')->select('tags.tag_key', 'tags.tag_value')->selectRaw('COUNT(*) as count')->groupBy('tags.tag_key', 'tags.tag_value')->orderByDesc('count')->limit(20)->toBase()->get()->map(fn ($r) => ['value' => $r->tag_key.':'.$r->tag_value, 'count' => (string) $r->count])->all();
+        $breakdowns['tags'] = (clone $retained)->join('telescope_monitor_evidence_tags as tags', 'tags.evidence_id', '=', 'e.id')->select('tags.tag_key', 'tags.tag_value')->selectRaw('COUNT(*) as count')->groupBy('tags.tag_key', 'tags.tag_value')->orderByDesc('count')->limit(20)->toBase()->get()->map(fn ($r) => ['value' => $r->tag_key.':'.$r->tag_value, 'count' => (string) $r->count])->all();
         $breakdowns['users'] = (clone $retained)->whereNotNull('e.impact_subject_hash')->distinct()->count('e.impact_subject_hash');
 
         return [

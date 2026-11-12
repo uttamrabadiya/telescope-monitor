@@ -27,7 +27,7 @@ final class GitHubIssues
 
     public function ready(): bool
     {
-        return Database::schema()->hasTable('exception_monitor_linked_issues');
+        return Database::schema()->hasTable('telescope_monitor_linked_issues');
     }
 
     public function connection(string $id): Connection
@@ -132,7 +132,7 @@ final class GitHubIssues
             'event_family' => 'github',
             'alert_generation' => $issue->alert_generation,
             'eligible_at' => CarbonImmutable::now('UTC'),
-            'expires_at' => CarbonImmutable::now('UTC')->addSeconds(config('exception-monitor.alerts.pending_seconds', 86400)),
+            'expires_at' => CarbonImmutable::now('UTC')->addSeconds(config('telescope-monitor.alerts.pending_seconds', 86400)),
         ]);
         if ($frozen) {
             $body = json_encode($frozen, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
@@ -198,7 +198,7 @@ final class GitHubIssues
         if ($d->action === 'github_auto') {
             $c = Connection::query()->find($d->connection_id);
 
-            return ! $issue->is_test && $issue->status === 'unresolved' && $issue->alert_generation === $d->alert_generation && ($c->options['automatic'] ?? false) && in_array($issue->environment, $c->options['environments'] ?? [], true) && in_array($issue->environment, config('exception-monitor.alerts.allowed_environments', ['production']), true);
+            return ! $issue->is_test && $issue->status === 'unresolved' && $issue->alert_generation === $d->alert_generation && ($c->options['automatic'] ?? false) && in_array($issue->environment, $c->options['environments'] ?? [], true) && in_array($issue->environment, config('telescope-monitor.alerts.allowed_environments', ['production']), true);
         }
 
         return true;

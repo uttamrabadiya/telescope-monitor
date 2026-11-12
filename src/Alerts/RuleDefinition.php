@@ -22,7 +22,7 @@ final class RuleDefinition
                 'required',
                 'string',
                 'max:64',
-                Rule::in(config('exception-monitor.alerts.allowed_environments', ['production'])),
+                Rule::in(config('telescope-monitor.alerts.allowed_environments', ['production'])),
                 'distinct',
             ],
             'conditions.class' => ['nullable', 'string', 'max:512'],
@@ -30,13 +30,13 @@ final class RuleDefinition
             'conditions.tag' => ['nullable', 'string', 'max:129'],
             'connections' => ['present', 'array', 'max:25'],
             'connections.*' => ['uuid', 'distinct'],
-            'threshold_count' => ['nullable', 'integer', 'min:1', 'max:'.max(1, (int) config('exception-monitor.alerts.max_threshold_count', 100000))],
+            'threshold_count' => ['nullable', 'integer', 'min:1', 'max:'.max(1, (int) config('telescope-monitor.alerts.max_threshold_count', 100000))],
             'window_seconds' => ['nullable', Rule::in([300, 900, 3600])],
             'cooldown_seconds' => [
                 'required',
                 'integer',
                 'min:0',
-                'max:'.max(0, min(86400, (int) config('exception-monitor.alerts.max_cooldown_seconds', 86400))),
+                'max:'.max(0, min(86400, (int) config('telescope-monitor.alerts.max_cooldown_seconds', 86400))),
             ],
         ])->validate();
         $data['enabled'] = (bool) $data['enabled'];
@@ -63,7 +63,7 @@ final class RuleDefinition
         foreach (['class', 'origin', 'tag'] as $key) {
             $data['conditions'][$key] = $data['conditions'][$key] ?? null;
         }
-        if ($data['conditions']['tag'] && ! in_array(explode(':', $data['conditions']['tag'], 2)[0], config('exception-monitor.capture.allowed_tags', []), true)) {
+        if ($data['conditions']['tag'] && ! in_array(explode(':', $data['conditions']['tag'], 2)[0], config('telescope-monitor.capture.allowed_tags', []), true)) {
             throw ValidationException::withMessages(['conditions.tag' => 'Choose a deployment-permitted tag.']);
         }
         ksort($data['conditions']);

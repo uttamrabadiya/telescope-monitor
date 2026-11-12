@@ -25,7 +25,7 @@ final class PurgeRun extends Model
 {
     use UsesUtcTimestamps;
 
-    protected $table = 'exception_monitor_purge_runs';
+    protected $table = 'telescope_monitor_purge_runs';
 
     protected $guarded = [];
 

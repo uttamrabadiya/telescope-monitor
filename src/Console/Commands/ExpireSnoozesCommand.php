@@ -9,7 +9,7 @@ use TelescopeMonitor\Repositories\Contracts\LifecycleRepository;
 
 final class ExpireSnoozesCommand extends Command
 {
-    protected $signature = 'exception-monitor:expire-snoozes {--limit=100}';
+    protected $signature = 'telescope-monitor:expire-snoozes {--limit=100}';
 
     protected $description = 'Expire a bounded set of snoozes without retrospective alerts.';
 

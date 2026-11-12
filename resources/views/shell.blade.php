@@ -13,7 +13,7 @@
     <script type="module" src="{{ $base }}/assets/{{ $build }}/{{ $entry['file'] }}" @if($nonce) nonce="{{ $nonce }}" @endif></script>
 </head>
 <body>
-    <div id="exception-monitor-app" data-base="{{ $base }}" data-api="{{ $base }}/api/v1"><p role="status">Loading Telescope Monitor…</p></div>
+    <div id="telescope-monitor-app" data-base="{{ $base }}" data-api="{{ $base }}/api/v1"><p role="status">Loading Telescope Monitor…</p></div>
     <noscript>Enable JavaScript to use this dashboard.</noscript>
 </body>
 </html>

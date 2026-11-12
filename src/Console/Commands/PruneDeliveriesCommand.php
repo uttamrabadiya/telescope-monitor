@@ -11,7 +11,7 @@ use TelescopeMonitor\Repositories\Contracts\DeliveryLedger;
 
 final class PruneDeliveriesCommand extends Command
 {
-    protected $signature = 'exception-monitor:prune-deliveries {--limit=1000}';
+    protected $signature = 'telescope-monitor:prune-deliveries {--limit=1000}';
 
     protected $description = 'Prune terminal delivery history while preserving pending references.';
 

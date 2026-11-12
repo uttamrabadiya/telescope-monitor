@@ -57,7 +57,7 @@ final class IntegrationsTest extends TestCase
     {
         parent::setUp();
         $this->authorize();
-        config(['exception-monitor.alerts.allowed_environments' => ['testing']]);
+        config(['telescope-monitor.alerts.allowed_environments' => ['testing']]);
         $this->dns = new ControlledDns;
         $this->http = new ControlledHttp;
         $this->app->instance(DnsResolver::class, $this->dns);
@@ -74,17 +74,17 @@ final class IntegrationsTest extends TestCase
             $base['endpoint'] = $provider === 'slack' ? 'https://hooks.slack.com/services/T123/B123/PRIVATESECRET' : 'https://hooks.example.test/ingest';
         }
 
-        return $this->postJson('/exception-monitor/api/v1/integrations', ['client_key' => (string) Str::uuid()] + array_replace($base, $extra))->assertOk()->json('exception_monitor_private');
+        return $this->postJson('/telescope-monitor/api/v1/integrations', ['client_key' => (string) Str::uuid()] + array_replace($base, $extra))->assertOk()->json('telescope_monitor_private');
     }
 
     private function command(string $id, string $action, array $v = [])
     {
-        return $this->postJson('/exception-monitor/api/v1/integrations/'.$id.'/'.$action, ['client_key' => (string) Str::uuid()] + $v);
+        return $this->postJson('/telescope-monitor/api/v1/integrations/'.$id.'/'.$action, ['client_key' => (string) Str::uuid()] + $v);
     }
 
     private function rule(array $connections): void
     {
-        $this->postJson('/exception-monitor/api/v1/alerting/rules', [
+        $this->postJson('/telescope-monitor/api/v1/alerting/rules', [
             'client_key' => (string) Str::uuid(),
             'name' => 'Operations',
             'enabled' => true,
@@ -109,7 +109,7 @@ final class IntegrationsTest extends TestCase
         $this->capture('secret=hidden token=PRIVATE');
         $this->process();
 
-        return DB::table('exception_monitor_issues')->value('public_id');
+        return DB::table('telescope_monitor_issues')->value('public_id');
     }
 
     private function preview(string $issue, string $connection, array $extra = []): array
@@ -120,14 +120,14 @@ final class IntegrationsTest extends TestCase
             'title' => 'Investigate this exception',
             'labels' => [],
         ], $extra);
-        $p = $this->postJson('/exception-monitor/api/v1/issues/'.$issue.'/github/preview', $v)->assertOk()->json('exception_monitor_private');
+        $p = $this->postJson('/telescope-monitor/api/v1/issues/'.$issue.'/github/preview', $v)->assertOk()->json('telescope_monitor_private');
 
         return $v + ['preview_digest' => $p['digest'], 'link_version' => $p['link_version']];
     }
 
     private function createTicket(string $issue, array $preview, ?string $key = null)
     {
-        return $this->postJson('/exception-monitor/api/v1/issues/'.$issue.'/github/create', ['client_key' => $key ?? (string) Str::uuid()] + $preview);
+        return $this->postJson('/telescope-monitor/api/v1/issues/'.$issue.'/github/create', ['client_key' => $key ?? (string) Str::uuid()] + $preview);
     }
 
     private function ticket(int $number = 42, array $extra = []): HttpResult
@@ -150,9 +150,9 @@ final class IntegrationsTest extends TestCase
         $this->assertStringContainsString('&lt;!channel&gt;', $r['body']);
         $this->assertFalse($r['recording']);
         $this->assertSame(0, $r['transaction']);
-        $config = $this->getJson('/exception-monitor/api/v1/integrations')->assertOk()->getContent();
+        $config = $this->getJson('/telescope-monitor/api/v1/integrations')->assertOk()->getContent();
         $this->assertStringNotContainsString('PRIVATESECRET', $config);
-        $this->assertStringNotContainsString('TOPSECRET', json_encode(DB::table('exception_monitor_delivery_attempts')->get()));
+        $this->assertStringNotContainsString('TOPSECRET', json_encode(DB::table('telescope_monitor_delivery_attempts')->get()));
     }
 
     public function test_destination_throttle_serializes_different_issues_and_waits_do_not_consume_attempts(): void
@@ -165,8 +165,8 @@ final class IntegrationsTest extends TestCase
         $this->process();
         $this->send();
         $this->assertCount(1, $this->http->requests);
-        $this->assertSame(1, DB::table('exception_monitor_deliveries')->where('status', 'pending')->count());
-        $this->assertSame(1, DB::table('exception_monitor_delivery_attempts')->count());
+        $this->assertSame(1, DB::table('telescope_monitor_deliveries')->where('status', 'pending')->count());
+        $this->assertSame(1, DB::table('telescope_monitor_delivery_attempts')->count());
         $this->travel(2)->seconds();
         $this->send();
         $this->assertCount(2, $this->http->requests);
@@ -179,11 +179,11 @@ final class IntegrationsTest extends TestCase
         $this->http->responses = [new HttpResult(429, 'token=PRIVATE_PROVIDER', ['retry-after' => '600'])];
         $this->issue();
         $this->send();
-        $d = DB::table('exception_monitor_deliveries')->first();
+        $d = DB::table('telescope_monitor_deliveries')->first();
         $this->assertSame('retrying', $d->status);
         $this->assertSame('2026-11-11 10:20:01.000000', $d->eligible_at);
-        $this->assertStringNotContainsString('PRIVATE_PROVIDER', json_encode(DB::table('exception_monitor_delivery_attempts')->get()));
-        $this->assertSame(429, DB::table('exception_monitor_delivery_attempts')->value('provider_status'));
+        $this->assertStringNotContainsString('PRIVATE_PROVIDER', json_encode(DB::table('telescope_monitor_delivery_attempts')->get()));
+        $this->assertSame(429, DB::table('telescope_monitor_delivery_attempts')->value('provider_status'));
     }
 
     public function test_webhook_retries_preserve_exact_bytes_and_logical_ids_but_refresh_timestamp_signature(): void
@@ -225,10 +225,10 @@ final class IntegrationsTest extends TestCase
     {
         $a = $this->create('webhook');
         $key = (string) Str::uuid();
-        $url = '/exception-monitor/api/v1/integrations/'.$a['id'].'/key.stage';
+        $url = '/telescope-monitor/api/v1/integrations/'.$a['id'].'/key.stage';
         $p = ['client_key' => $key, 'version' => 1];
-        $stage = $this->postJson($url, $p)->assertOk()->json('exception_monitor_private');
-        $this->postJson($url, $p)->assertOk()->assertJsonMissingPath('exception_monitor_private.once');
+        $stage = $this->postJson($url, $p)->assertOk()->json('telescope_monitor_private');
+        $this->postJson($url, $p)->assertOk()->assertJsonMissingPath('telescope_monitor_private.once');
         $this->command($a['id'], 'test', ['signing_key_id' => $stage['once']['key_id']])->assertStatus(202);
         $this->send();
         $r = $this->http->requests[0];
@@ -240,7 +240,7 @@ final class IntegrationsTest extends TestCase
         $this->assertSame($stage['once']['key_id'], app(Credentials::class)->target($c->fresh())['signing_key_id']);
         $this->travel(25)->hours();
         app(Credentials::class)->cleanup();
-        $this->assertNull(DB::table('exception_monitor_secrets')->where('key_id', $a['once']['key_id'])->value('ciphertext'));
+        $this->assertNull(DB::table('telescope_monitor_secrets')->where('key_id', $a['once']['key_id'])->value('ciphertext'));
     }
 
     public function test_url_policy_rejects_credentials_fragments_slack_lookalikes_and_unsupported_ports(): void
@@ -252,9 +252,9 @@ final class IntegrationsTest extends TestCase
             'https://hooks.example.test/a#x',
             'https://hooks.example.test:8443/a',
         ] as $url) {
-            $this->postJson('/exception-monitor/api/v1/integrations', ['client_key' => (string) Str::uuid(), 'provider' => 'webhook', 'name' => 'Bad', 'enabled' => true, 'endpoint' => $url])->assertUnprocessable();
+            $this->postJson('/telescope-monitor/api/v1/integrations', ['client_key' => (string) Str::uuid(), 'provider' => 'webhook', 'name' => 'Bad', 'enabled' => true, 'endpoint' => $url])->assertUnprocessable();
         }
-        $this->postJson('/exception-monitor/api/v1/integrations', [
+        $this->postJson('/telescope-monitor/api/v1/integrations', [
             'client_key' => (string) Str::uuid(),
             'provider' => 'slack',
             'name' => 'Bad',
@@ -278,13 +278,13 @@ final class IntegrationsTest extends TestCase
         $this->send();
         $this->assertCount(1, $this->http->requests);
         $this->assertSame('93.184.216.34', $this->http->requests[0]['destination']['ip']);
-        $this->assertSame('failed', DB::table('exception_monitor_deliveries')->orderByDesc('id')->value('status'));
+        $this->assertSame('failed', DB::table('telescope_monitor_deliveries')->orderByDesc('id')->value('status'));
     }
 
     public function test_private_destination_requires_exact_deployment_host_and_cidr_policy(): void
     {
         $this->dns->ips = ['10.12.3.4'];
-        config(['exception-monitor.integrations.webhooks.private_targets' => ['hooks.internal' => ['10.12.0.0/16']]]);
+        config(['telescope-monitor.integrations.webhooks.private_targets' => ['hooks.internal' => ['10.12.0.0/16']]]);
         $this->assertSame('10.12.3.4', app(DestinationPolicy::class)->pin('https://hooks.internal/x', 'webhook')['ip']);
         $this->expectException(\RuntimeException::class);
         app(DestinationPolicy::class)->pin('https://other.internal/x', 'webhook');
@@ -298,7 +298,7 @@ final class IntegrationsTest extends TestCase
         $b = $this->create('slack', ['endpoint' => 'https://hooks.slack.com/services/T2/B2/NEWSECRET', 'replaces' => $a['id'], 'replaces_version' => 1]);
         $this->send();
         $this->assertCount(0, $this->http->requests);
-        $this->assertSame('cancelled', DB::table('exception_monitor_deliveries')->value('status'));
+        $this->assertSame('cancelled', DB::table('telescope_monitor_deliveries')->value('status'));
         $this->assertNotSame($a['id'], $b['id']);
     }
 
@@ -309,9 +309,9 @@ final class IntegrationsTest extends TestCase
         $this->command($c['id'], 'test')->assertStatus(202);
         $this->send();
         $this->assertSame(['GET', 'GET'], array_column($this->http->requests, 'method'));
-        $this->assertDatabaseCount('exception_monitor_linked_issues', 0);
-        $this->assertSame(['bug'], json_decode(DB::table('exception_monitor_connections')->value('options'), true)['known_labels']);
-        $this->assertStringNotContainsString('fine_grained_PRIVATE', $this->getJson('/exception-monitor/api/v1/integrations')->getContent());
+        $this->assertDatabaseCount('telescope_monitor_linked_issues', 0);
+        $this->assertSame(['bug'], json_decode(DB::table('telescope_monitor_connections')->value('options'), true)['known_labels']);
+        $this->assertStringNotContainsString('fine_grained_PRIVATE', $this->getJson('/telescope-monitor/api/v1/integrations')->getContent());
     }
 
     public function test_manual_export_freezes_reviewed_bytes_and_duplicate_confirmation_reuses_reservation(): void
@@ -319,23 +319,23 @@ final class IntegrationsTest extends TestCase
         $c = $this->create('github');
         $issue = $this->issue();
         $p = $this->preview($issue, $c['id']);
-        $this->assertDatabaseCount('exception_monitor_deliveries', 0);
+        $this->assertDatabaseCount('telescope_monitor_deliveries', 0);
         $key = (string) Str::uuid();
-        $result = $this->createTicket($issue, $p, $key)->assertOk()->json('exception_monitor_private');
+        $result = $this->createTicket($issue, $p, $key)->assertOk()->json('telescope_monitor_private');
         $this->createTicket($issue, $p, $key)->assertOk();
         $this->createTicket($issue, $p)->assertOk();
-        $this->assertDatabaseCount('exception_monitor_linked_issues', 1);
-        $this->assertDatabaseCount('exception_monitor_deliveries', 1);
+        $this->assertDatabaseCount('telescope_monitor_linked_issues', 1);
+        $this->assertDatabaseCount('telescope_monitor_deliveries', 1);
         $this->http->responses = [$this->ticket()];
         $this->send();
-        $this->assertSame('linked', DB::table('exception_monitor_linked_issues')->value('state'));
+        $this->assertSame('linked', DB::table('telescope_monitor_linked_issues')->value('state'));
         $wire = json_decode($this->http->requests[0]['body'], true);
         $this->assertStringNotContainsString('PRIVATE', $wire['body']);
         $this->assertStringContainsString('telescope-monitor:', $wire['body']);
         $this->assertSame('Investigate this exception', $wire['title']);
         $this->assertSame(0, $this->http->requests[0]['transaction']);
         $this->assertFalse($this->http->requests[0]['recording']);
-        $this->assertSame('sent', DB::table('exception_monitor_deliveries')->value('status'));
+        $this->assertSame('sent', DB::table('telescope_monitor_deliveries')->value('status'));
     }
 
     public function test_changed_export_preview_is_rejected_without_a_delivery(): void
@@ -345,7 +345,7 @@ final class IntegrationsTest extends TestCase
         $p = $this->preview($issue, $c['id']);
         $p['title'] = 'Different unreviewed title';
         $this->createTicket($issue, $p)->assertConflict();
-        $this->assertDatabaseCount('exception_monitor_deliveries', 0);
+        $this->assertDatabaseCount('telescope_monitor_deliveries', 0);
     }
 
     public function test_lost_github_response_enters_review_and_missing_search_never_retries(): void
@@ -355,15 +355,15 @@ final class IntegrationsTest extends TestCase
         $this->createTicket($issue, $this->preview($issue, $c['id']))->assertOk();
         $this->http->responses = [new HttpResult];
         $this->send();
-        $this->assertSame('needs_review', DB::table('exception_monitor_deliveries')->value('status'));
+        $this->assertSame('needs_review', DB::table('telescope_monitor_deliveries')->value('status'));
         $this->assertSame(1, app(DeliveryLedger::class)->status()['needs_review']);
-        $link = DB::table('exception_monitor_linked_issues')->first();
+        $link = DB::table('telescope_monitor_linked_issues')->first();
         $this->travel(3)->minutes();
         $this->send();
         $this->assertCount(1, $this->http->requests);
         $this->http->responses = [new HttpResult(200, '[]')];
-        $this->postJson('/exception-monitor/api/v1/issues/'.$issue.'/github/inspect', ['client_key' => (string) Str::uuid(), 'link' => $link->public_id, 'version' => $link->row_version])->assertOk()->assertJsonPath('exception_monitor_private.complete', false);
-        $this->assertSame('needs_review', DB::table('exception_monitor_linked_issues')->value('state'));
+        $this->postJson('/telescope-monitor/api/v1/issues/'.$issue.'/github/inspect', ['client_key' => (string) Str::uuid(), 'link' => $link->public_id, 'version' => $link->row_version])->assertOk()->assertJsonPath('telescope_monitor_private.complete', false);
+        $this->assertSame('needs_review', DB::table('telescope_monitor_linked_issues')->value('state'));
         $this->assertSame(['POST', 'GET'], array_column($this->http->requests, 'method'));
     }
 
@@ -372,14 +372,14 @@ final class IntegrationsTest extends TestCase
         $c = $this->create('github');
         $issue = $this->issue();
         $this->createTicket($issue, $this->preview($issue, $c['id']))->assertOk();
-        $d = DB::table('exception_monitor_deliveries')->first();
+        $d = DB::table('telescope_monitor_deliveries')->first();
         $claim = app(DeliveryLedger::class)->claim($d->id, 1, true);
         $this->assertNotNull($claim);
         $this->travel(121)->seconds();
         $this->send();
-        $this->assertSame('needs_review', DB::table('exception_monitor_linked_issues')->value('state'));
+        $this->assertSame('needs_review', DB::table('telescope_monitor_linked_issues')->value('state'));
         $this->assertCount(0, $this->http->requests);
-        $this->assertSame('uncertain', DB::table('exception_monitor_delivery_attempts')->value('outcome'));
+        $this->assertSame('uncertain', DB::table('telescope_monitor_delivery_attempts')->value('outcome'));
     }
 
     public function test_acceptance_followed_by_local_commit_failure_recovers_to_review_not_recreation(): void
@@ -393,7 +393,7 @@ final class IntegrationsTest extends TestCase
             $armed = true;
         };
         DB::listen(function ($q) use (&$armed) {
-            if ($armed && preg_match('/^update [`"]exception_monitor_deliveries[`"]/', $q->sql)) {
+            if ($armed && preg_match('/^update [`"]telescope_monitor_deliveries[`"]/', $q->sql)) {
                 $armed = false;
                 throw new \RuntimeException('simulated outcome commit loss');
             }
@@ -406,7 +406,7 @@ final class IntegrationsTest extends TestCase
         }$this->travel(121)->seconds();
         $this->send();
         $this->assertCount(1, $this->http->requests);
-        $this->assertSame('needs_review', DB::table('exception_monitor_linked_issues')->value('state'));
+        $this->assertSame('needs_review', DB::table('telescope_monitor_linked_issues')->value('state'));
     }
 
     public function test_revoked_initiator_cancels_a_queued_manual_export(): void
@@ -417,14 +417,14 @@ final class IntegrationsTest extends TestCase
         $this->authorize(operate: false);
         $this->send();
         $this->assertCount(0, $this->http->requests);
-        $this->assertSame('cancelled', DB::table('exception_monitor_deliveries')->value('status'));
+        $this->assertSame('cancelled', DB::table('telescope_monitor_deliveries')->value('status'));
     }
 
     public function test_link_validation_rejects_pull_requests_and_unrelated_repositories(): void
     {
         $c = $this->create('github');
         $issue = $this->issue();
-        $url = '/exception-monitor/api/v1/issues/'.$issue.'/github/link';
+        $url = '/telescope-monitor/api/v1/issues/'.$issue.'/github/link';
         $this->postJson($url, [
             'client_key' => (string) Str::uuid(),
             'connection' => $c['id'],
@@ -433,7 +433,7 @@ final class IntegrationsTest extends TestCase
         ])->assertUnprocessable();
         $this->http->responses = [$this->ticket(42, ['pull_request' => ['url' => 'private']])];
         $this->postJson($url, ['client_key' => (string) Str::uuid(), 'connection' => $c['id'], 'version' => 0, 'number' => '42'])->assertConflict();
-        $this->assertDatabaseCount('exception_monitor_linked_issues', 0);
+        $this->assertDatabaseCount('telescope_monitor_linked_issues', 0);
     }
 
     public function test_explicit_link_refresh_and_unlink_never_write_or_close_remote_tickets(): void
@@ -441,31 +441,31 @@ final class IntegrationsTest extends TestCase
         $c = $this->create('github');
         $issue = $this->issue();
         $this->http->responses = [$this->ticket()];
-        $l = $this->postJson('/exception-monitor/api/v1/issues/'.$issue.'/github/link', ['client_key' => (string) Str::uuid(), 'connection' => $c['id'], 'version' => 0, 'number' => '42'])->assertOk()->json('exception_monitor_private');
+        $l = $this->postJson('/telescope-monitor/api/v1/issues/'.$issue.'/github/link', ['client_key' => (string) Str::uuid(), 'connection' => $c['id'], 'version' => 0, 'number' => '42'])->assertOk()->json('telescope_monitor_private');
         $this->http->responses = [new HttpResult(404)];
-        $r = $this->postJson('/exception-monitor/api/v1/issues/'.$issue.'/github/refresh', ['client_key' => (string) Str::uuid(), 'link' => $l['id'], 'version' => $l['version']])->assertOk()->json('exception_monitor_private');
+        $r = $this->postJson('/telescope-monitor/api/v1/issues/'.$issue.'/github/refresh', ['client_key' => (string) Str::uuid(), 'link' => $l['id'], 'version' => $l['version']])->assertOk()->json('telescope_monitor_private');
         $this->assertSame('unavailable', $r['state']);
-        $this->assertSame('open', DB::table('exception_monitor_linked_issues')->value('last_known_remote_state'));
-        $this->postJson('/exception-monitor/api/v1/issues/'.$issue.'/github/unlink', ['client_key' => (string) Str::uuid(), 'link' => $l['id'], 'version' => $r['version']])->assertOk();
+        $this->assertSame('open', DB::table('telescope_monitor_linked_issues')->value('last_known_remote_state'));
+        $this->postJson('/telescope-monitor/api/v1/issues/'.$issue.'/github/unlink', ['client_key' => (string) Str::uuid(), 'link' => $l['id'], 'version' => $r['version']])->assertOk();
         $this->assertSame(['GET', 'GET'], array_column($this->http->requests, 'method'));
-        $this->assertSame('unlinked', DB::table('exception_monitor_linked_issues')->value('state'));
+        $this->assertSame('unlinked', DB::table('telescope_monitor_linked_issues')->value('state'));
     }
 
     public function test_opt_in_automatic_creation_only_for_live_new_errors_and_keeps_association_on_regression(): void
     {
         $c = $this->create('github', ['automatic' => true, 'environments' => ['testing']]);
         $issue = $this->issue();
-        $this->assertDatabaseCount('exception_monitor_linked_issues', 1);
+        $this->assertDatabaseCount('telescope_monitor_linked_issues', 1);
         $this->http->responses = [$this->ticket()];
         $this->send();
-        $row = DB::table('exception_monitor_issues')->first();
-        $this->postJson('/exception-monitor/api/v1/issues/'.$issue.'/actions', ['client_key' => (string) Str::uuid(), 'version' => $row->state_version, 'action' => 'resolve'])->assertOk();
+        $row = DB::table('telescope_monitor_issues')->first();
+        $this->postJson('/telescope-monitor/api/v1/issues/'.$issue.'/actions', ['client_key' => (string) Str::uuid(), 'version' => $row->state_version, 'action' => 'resolve'])->assertOk();
         $this->travel(2)->seconds();
         $this->capture('regressed');
         $this->process();
         $this->send();
         $this->assertCount(1, $this->http->requests);
-        $this->assertDatabaseCount('exception_monitor_linked_issues', 1);
+        $this->assertDatabaseCount('telescope_monitor_linked_issues', 1);
     }
 
     public function test_runtime_credential_rotation_uses_current_secret_without_redirecting_repository(): void
@@ -486,8 +486,8 @@ final class IntegrationsTest extends TestCase
         $issue = $this->issue();
         $this->authorize(operate: false, manage: false);
         $this->command($c['id'], 'test')->assertForbidden();
-        $this->postJson('/exception-monitor/api/v1/issues/'.$issue.'/github/preview', ['connection' => $c['id'], 'preview_key' => (string) Str::uuid()])->assertForbidden();
-        $body = $this->getJson('/exception-monitor/api/v1/integrations')->assertOk()->getContent();
+        $this->postJson('/telescope-monitor/api/v1/issues/'.$issue.'/github/preview', ['connection' => $c['id'], 'preview_key' => (string) Str::uuid()])->assertForbidden();
+        $body = $this->getJson('/telescope-monitor/api/v1/integrations')->assertOk()->getContent();
         $this->assertStringNotContainsString('fine_grained_PRIVATE', $body);
         $this->assertStringNotContainsString('ciphertext', $body);
     }
@@ -501,16 +501,16 @@ final class IntegrationsTest extends TestCase
         $this->http->responses = [new HttpResult];
         $this->send();
         $new = $this->preview($issue, $c['id']);
-        $url = '/exception-monitor/api/v1/issues/'.$issue.'/github/recreate';
+        $url = '/telescope-monitor/api/v1/issues/'.$issue.'/github/recreate';
         $this->postJson($url, ['client_key' => (string) Str::uuid()] + $new)->assertConflict();
         $this->postJson($url, ['client_key' => (string) Str::uuid(), 'confirm_no_ticket' => true] + $new)->assertOk();
         $this->http->responses = [$this->ticket(43)];
         $this->send();
-        $this->assertDatabaseCount('exception_monitor_deliveries', 2);
+        $this->assertDatabaseCount('telescope_monitor_deliveries', 2);
         $this->assertNotSame($old['preview_key'], $new['preview_key']);
-        $this->assertSame((int) DB::table('exception_monitor_deliveries')->where('public_id', $old['preview_key'])->value('id'), (int) DB::table('exception_monitor_deliveries')->where('public_id', $new['preview_key'])->value('parent_delivery_id'));
-        $this->assertSame(43, DB::table('exception_monitor_linked_issues')->value('remote_number'));
-        $this->assertSame(1, DB::table('exception_monitor_activity')->where('event_type', 'integration.github.recreate')->count());
+        $this->assertSame((int) DB::table('telescope_monitor_deliveries')->where('public_id', $old['preview_key'])->value('id'), (int) DB::table('telescope_monitor_deliveries')->where('public_id', $new['preview_key'])->value('parent_delivery_id'));
+        $this->assertSame(43, DB::table('telescope_monitor_linked_issues')->value('remote_number'));
+        $this->assertSame(1, DB::table('telescope_monitor_activity')->where('event_type', 'integration.github.recreate')->count());
     }
 
     public function test_definitive_github_rejections_and_throttling_do_not_become_ambiguous_creation(): void
@@ -520,13 +520,13 @@ final class IntegrationsTest extends TestCase
         $this->createTicket($issue, $this->preview($issue, $c['id']))->assertOk();
         $this->http->responses = [new HttpResult(429, 'private', ['retry-after' => '900'])];
         $this->send();
-        $this->assertSame('retrying', DB::table('exception_monitor_deliveries')->value('status'));
-        $this->assertSame('reserved', DB::table('exception_monitor_linked_issues')->value('state'));
+        $this->assertSame('retrying', DB::table('telescope_monitor_deliveries')->value('status'));
+        $this->assertSame('reserved', DB::table('telescope_monitor_linked_issues')->value('state'));
         $this->travel(901)->seconds();
         $this->http->responses = [new HttpResult(422, 'private')];
         $this->send();
-        $this->assertSame('failed', DB::table('exception_monitor_deliveries')->value('status'));
-        $this->assertSame(2, DB::table('exception_monitor_delivery_attempts')->count());
+        $this->assertSame('failed', DB::table('telescope_monitor_deliveries')->value('status'));
+        $this->assertSame(2, DB::table('telescope_monitor_delivery_attempts')->count());
     }
 
     public function test_later_privacy_cancels_reviewed_github_export_before_provider_io(): void
@@ -534,10 +534,10 @@ final class IntegrationsTest extends TestCase
         $c = $this->create('github');
         $issue = $this->issue();
         $this->createTicket($issue, $this->preview($issue, $c['id'], ['title' => 'Investigate confidential']))->assertOk();
-        config(['exception-monitor.locked' => ['privacy.redact_patterns' => ['/confidential/']]]);
+        config(['telescope-monitor.locked' => ['privacy.redact_patterns' => ['/confidential/']]]);
         $this->send();
         $this->assertCount(0, $this->http->requests);
-        $this->assertSame('export_policy_changed', DB::table('exception_monitor_deliveries')->value('cancellation_reason'));
+        $this->assertSame('export_policy_changed', DB::table('telescope_monitor_deliveries')->value('cancellation_reason'));
     }
 
     public function test_webhook_selected_events_apply_during_planning_and_current_send_policy(): void
@@ -545,8 +545,8 @@ final class IntegrationsTest extends TestCase
         $c = $this->create('webhook', ['events' => ['error.regressed']]);
         $this->rule([$c['id']]);
         $this->issue();
-        $this->assertDatabaseCount('exception_monitor_deliveries', 0);
-        $this->patchJson('/exception-monitor/api/v1/integrations/'.$c['id'], [
+        $this->assertDatabaseCount('telescope_monitor_deliveries', 0);
+        $this->patchJson('/telescope-monitor/api/v1/integrations/'.$c['id'], [
             'client_key' => (string) Str::uuid(),
             'version' => 1,
             'name' => 'Webhook',
@@ -555,8 +555,8 @@ final class IntegrationsTest extends TestCase
         ])->assertOk();
         $this->capture('other', null, null, \LogicException::class);
         $this->process();
-        $this->assertDatabaseCount('exception_monitor_deliveries', 1);
-        $this->patchJson('/exception-monitor/api/v1/integrations/'.$c['id'], [
+        $this->assertDatabaseCount('telescope_monitor_deliveries', 1);
+        $this->patchJson('/telescope-monitor/api/v1/integrations/'.$c['id'], [
             'client_key' => (string) Str::uuid(),
             'version' => 2,
             'name' => 'Webhook',
@@ -565,27 +565,27 @@ final class IntegrationsTest extends TestCase
         ])->assertOk();
         $this->send();
         $this->assertCount(0, $this->http->requests);
-        $this->assertSame('cancelled', DB::table('exception_monitor_deliveries')->value('status'));
+        $this->assertSame('cancelled', DB::table('telescope_monitor_deliveries')->value('status'));
     }
 
     public function test_deployment_references_are_allowlisted_and_not_copied_into_database_ciphertext(): void
     {
         config([
-            'exception-monitor.integrations.credentials' => ['repository-key' => ['purpose' => 'github_token', 'value' => 'DEPLOYMENT_PRIVATE']],
+            'telescope-monitor.integrations.credentials' => ['repository-key' => ['purpose' => 'github_token', 'value' => 'DEPLOYMENT_PRIVATE']],
         ]);
         $c = $this->create('github', ['credential' => null, 'credential_reference' => 'repository-key']);
-        $this->assertNull(DB::table('exception_monitor_secrets')->where('secret_name', 'github_token')->value('ciphertext'));
+        $this->assertNull(DB::table('telescope_monitor_secrets')->where('secret_name', 'github_token')->value('ciphertext'));
         $issue = $this->issue();
         $this->createTicket($issue, $this->preview($issue, $c['id']))->assertOk();
-        config(['exception-monitor.integrations.credentials.repository-key.value' => 'ROTATED_PRIVATE']);
+        config(['telescope-monitor.integrations.credentials.repository-key.value' => 'ROTATED_PRIVATE']);
         $this->http->responses = [$this->ticket()];
         $this->send();
         $this->assertSame('Bearer ROTATED_PRIVATE', $this->http->requests[0]['headers']['Authorization']);
         $this->command($c['id'], 'secret.replace', ['version' => 1, 'credential' => 'new-controlled-token'])->assertOk();
         $this->travel(3)->minutes();
         app(Credentials::class)->cleanup();
-        $this->assertSame('retired', DB::table('exception_monitor_secrets')->where('deployment_reference', 'repository-key')->value('state'));
-        $this->postJson('/exception-monitor/api/v1/integrations', [
+        $this->assertSame('retired', DB::table('telescope_monitor_secrets')->where('deployment_reference', 'repository-key')->value('state'));
+        $this->postJson('/telescope-monitor/api/v1/integrations', [
             'client_key' => (string) Str::uuid(),
             'provider' => 'github',
             'name' => 'Unknown',
@@ -600,13 +600,13 @@ final class IntegrationsTest extends TestCase
     {
         $this->create('github', ['automatic' => true, 'environments' => ['testing']]);
         $this->capture();
-        DB::table('exception_monitor_capture_inbox')->where('state', 'pending')->update(['mode' => 'reconciliation']);
+        DB::table('telescope_monitor_capture_inbox')->where('state', 'pending')->update(['mode' => 'reconciliation']);
         $this->process();
-        $this->assertDatabaseCount('exception_monitor_linked_issues', 0);
+        $this->assertDatabaseCount('telescope_monitor_linked_issues', 0);
         $this->capture(class: 'SyntheticClass');
-        DB::table('exception_monitor_capture_inbox')->where('state', 'pending')->update(['mode' => 'synthetic_test']);
+        DB::table('telescope_monitor_capture_inbox')->where('state', 'pending')->update(['mode' => 'synthetic_test']);
         $this->process();
-        $this->assertDatabaseCount('exception_monitor_linked_issues', 0);
+        $this->assertDatabaseCount('telescope_monitor_linked_issues', 0);
     }
 
     public function test_expired_unattempted_or_definitively_failed_creation_releases_a_stale_reservation(): void
@@ -616,15 +616,15 @@ final class IntegrationsTest extends TestCase
         $this->createTicket($issue, $this->preview($issue, $c['id']))->assertOk();
         $this->travel(25)->hours();
         app(DeliveryLedger::class)->prune(100);
-        $this->assertSame('unavailable', DB::table('exception_monitor_linked_issues')->value('state'));
-        $this->assertSame('cancelled', DB::table('exception_monitor_deliveries')->value('status'));
+        $this->assertSame('unavailable', DB::table('telescope_monitor_linked_issues')->value('state'));
+        $this->assertSame('cancelled', DB::table('telescope_monitor_deliveries')->value('status'));
         $this->createTicket($issue, $this->preview($issue, $c['id']))->assertOk();
         $this->http->responses = [new HttpResult(422)];
         $this->send();
-        $this->assertSame('failed', DB::table('exception_monitor_deliveries')->latest('id')->value('status'));
+        $this->assertSame('failed', DB::table('telescope_monitor_deliveries')->latest('id')->value('status'));
         $this->travel(25)->hours();
         app(DeliveryLedger::class)->prune(100);
-        $this->assertSame('unavailable', DB::table('exception_monitor_linked_issues')->value('state'));
+        $this->assertSame('unavailable', DB::table('telescope_monitor_linked_issues')->value('state'));
         $this->assertCount(1, $this->http->requests);
     }
 }

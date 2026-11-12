@@ -10,10 +10,10 @@ return new class extends Migration
 {
     public function up(): void
     {
-        Schema::connection(Database::connectionName())->create('exception_monitor_capture_inbox', function (Blueprint $t) {
+        Schema::connection(Database::connectionName())->create('telescope_monitor_capture_inbox', function (Blueprint $t) {
             $t->id();
             $t->uuid('public_id')->unique();
-            $t->foreignId('installation_id')->constrained('exception_monitor_installations');
+            $t->foreignId('installation_id')->constrained('telescope_monitor_installations');
             $t->unsignedInteger('generation');
             $t->uuid('source_epoch');
             $t->string('capture_key', 64);
@@ -41,16 +41,16 @@ return new class extends Migration
             $t->dateTime('processed_at', 6)->nullable();
             $t->dateTime('completed_at', 6)->nullable();
             $t->string('last_error_code', 64)->nullable();
-            $t->unique(['installation_id', 'generation', 'capture_key'], 'em_capture_identity');
-            $t->index(['state', 'eligible_at', 'id'], 'em_capture_due');
-            $t->index(['state', 'lease_until'], 'em_capture_leases');
+            $t->unique(['installation_id', 'generation', 'capture_key'], 'tm_capture_identity');
+            $t->index(['state', 'eligible_at', 'id'], 'tm_capture_due');
+            $t->index(['state', 'lease_until'], 'tm_capture_leases');
             $t->index('completed_at');
             $t->timestamps(6);
         });
-        Schema::connection(Database::connectionName())->create('exception_monitor_issues', function (Blueprint $t) {
+        Schema::connection(Database::connectionName())->create('telescope_monitor_issues', function (Blueprint $t) {
             $t->id();
             $t->uuid('public_id')->unique();
-            $t->foreignId('installation_id')->constrained('exception_monitor_installations');
+            $t->foreignId('installation_id')->constrained('telescope_monitor_installations');
             $t->string('environment', 64);
             $t->boolean('is_test')->default(false);
             $t->unsignedInteger('grouping_version');
@@ -73,16 +73,16 @@ return new class extends Migration
             $t->string('assignee_lookup_hash', 64)->nullable();
             $t->unsignedInteger('state_version')->default(1);
             $t->boolean('recovered_only')->default(false);
-            $t->unique(['installation_id', 'environment', 'is_test', 'grouping_version', 'fingerprint_hash'], 'em_issue_group');
-            $t->index(['installation_id', 'environment', 'is_test', 'status', 'last_seen_at', 'id'], 'em_issue_inbox');
-            $t->index(['status', 'snoozed_until'], 'em_issue_snooze');
+            $t->unique(['installation_id', 'environment', 'is_test', 'grouping_version', 'fingerprint_hash'], 'tm_issue_group');
+            $t->index(['installation_id', 'environment', 'is_test', 'status', 'last_seen_at', 'id'], 'tm_issue_inbox');
+            $t->index(['status', 'snoozed_until'], 'tm_issue_snooze');
             $t->timestamps(6);
         });
-        Schema::connection(Database::connectionName())->create('exception_monitor_occurrences', function (Blueprint $t) {
+        Schema::connection(Database::connectionName())->create('telescope_monitor_occurrences', function (Blueprint $t) {
             $t->id();
             $t->uuid('public_id')->unique();
-            $t->foreignId('installation_id')->constrained('exception_monitor_installations');
-            $t->foreignId('issue_id')->constrained('exception_monitor_issues');
+            $t->foreignId('installation_id')->constrained('telescope_monitor_installations');
+            $t->foreignId('issue_id')->constrained('telescope_monitor_issues');
             $t->uuid('source_epoch');
             $t->uuid('source_uuid');
             $t->unsignedBigInteger('source_sequence')->nullable();
@@ -93,14 +93,14 @@ return new class extends Migration
             $t->string('origin', 16);
             $t->string('mode', 24);
             $t->boolean('is_test');
-            $t->unique(['installation_id', 'source_epoch', 'source_uuid'], 'em_occurrence_identity');
-            $t->index(['issue_id', 'occurred_at', 'id'], 'em_occurrence_history');
+            $t->unique(['installation_id', 'source_epoch', 'source_uuid'], 'tm_occurrence_identity');
+            $t->index(['issue_id', 'occurred_at', 'id'], 'tm_occurrence_history');
             $t->timestamps(6);
         });
-        Schema::connection(Database::connectionName())->create('exception_monitor_occurrence_evidence', function (Blueprint $t) {
+        Schema::connection(Database::connectionName())->create('telescope_monitor_occurrence_evidence', function (Blueprint $t) {
             $t->id();
-            $t->foreignId('occurrence_id')->unique()->constrained('exception_monitor_occurrences');
-            $t->foreignId('installation_id')->constrained('exception_monitor_installations');
+            $t->foreignId('occurrence_id')->unique()->constrained('telescope_monitor_occurrences');
+            $t->foreignId('installation_id')->constrained('telescope_monitor_installations');
             $t->unsignedInteger('evidence_version')->default(1);
             $t->unsignedBigInteger('privacy_revision');
             $t->longText('payload_ciphertext');
@@ -115,40 +115,40 @@ return new class extends Migration
             $t->string('impact_key_id', 64)->nullable();
             $t->json('coverage');
             $t->dateTime('expires_at', 6)->index();
-            $t->index(['installation_id', 'route_name', 'occurrence_id'], 'em_evidence_route');
-            $t->index(['installation_id', 'release', 'occurrence_id'], 'em_evidence_release');
+            $t->index(['installation_id', 'route_name', 'occurrence_id'], 'tm_evidence_route');
+            $t->index(['installation_id', 'release', 'occurrence_id'], 'tm_evidence_release');
             $t->timestamps(6);
         });
-        Schema::connection(Database::connectionName())->create('exception_monitor_evidence_tags', function (Blueprint $t) {
+        Schema::connection(Database::connectionName())->create('telescope_monitor_evidence_tags', function (Blueprint $t) {
             $t->id();
-            $t->foreignId('evidence_id')->constrained('exception_monitor_occurrence_evidence')->cascadeOnDelete();
-            $t->foreignId('installation_id')->constrained('exception_monitor_installations');
+            $t->foreignId('evidence_id')->constrained('telescope_monitor_occurrence_evidence')->cascadeOnDelete();
+            $t->foreignId('installation_id')->constrained('telescope_monitor_installations');
             $t->string('tag_key', 64);
             $t->string('tag_value', 64)->nullable();
             $t->string('tag_hash', 64);
-            $t->unique(['evidence_id', 'tag_hash'], 'em_evidence_tag');
-            $t->index(['installation_id', 'tag_hash', 'evidence_id'], 'em_tag_lookup');
+            $t->unique(['evidence_id', 'tag_hash'], 'tm_evidence_tag');
+            $t->index(['installation_id', 'tag_hash', 'evidence_id'], 'tm_tag_lookup');
             $t->timestamps(6);
         });
-        Schema::connection(Database::connectionName())->create('exception_monitor_metric_buckets', function (Blueprint $t) {
+        Schema::connection(Database::connectionName())->create('telescope_monitor_metric_buckets', function (Blueprint $t) {
             $t->id();
-            $t->foreignId('installation_id')->constrained('exception_monitor_installations');
-            $t->foreignId('issue_id')->constrained('exception_monitor_issues');
+            $t->foreignId('installation_id')->constrained('telescope_monitor_installations');
+            $t->foreignId('issue_id')->constrained('telescope_monitor_issues');
             $t->string('resolution', 4);
             $t->dateTime('bucket_start_at', 6);
             $t->unsignedBigInteger('occurrence_count')->default(0);
             $t->unsignedBigInteger('new_group_count')->default(0);
             $t->unsignedBigInteger('regression_count')->default(0);
             $t->dateTime('expires_at', 6)->index();
-            $t->unique(['issue_id', 'resolution', 'bucket_start_at'], 'em_metric_bucket');
-            $t->index(['installation_id', 'resolution', 'bucket_start_at'], 'em_metric_range');
+            $t->unique(['issue_id', 'resolution', 'bucket_start_at'], 'tm_metric_bucket');
+            $t->index(['installation_id', 'resolution', 'bucket_start_at'], 'tm_metric_range');
             $t->timestamps(6);
         });
-        Schema::connection(Database::connectionName())->create('exception_monitor_activity', function (Blueprint $t) {
+        Schema::connection(Database::connectionName())->create('telescope_monitor_activity', function (Blueprint $t) {
             $t->id();
             $t->uuid('public_id')->unique();
-            $t->foreignId('installation_id')->constrained('exception_monitor_installations');
-            $t->foreignId('issue_id')->nullable()->constrained('exception_monitor_issues');
+            $t->foreignId('installation_id')->constrained('telescope_monitor_installations');
+            $t->foreignId('issue_id')->nullable()->constrained('telescope_monitor_issues');
             $t->string('event_type', 64);
             $t->string('actor_kind', 16);
             $t->string('actor_key', 191)->nullable();
@@ -158,19 +158,19 @@ return new class extends Migration
             $t->dateTime('occurred_at', 6);
             $t->json('metadata');
             $t->dateTime('expires_at', 6)->index();
-            $t->unique(['installation_id', 'action_public_id', 'event_type', 'subject_public_id'], 'em_activity_action');
+            $t->unique(['installation_id', 'action_public_id', 'event_type', 'subject_public_id'], 'tm_activity_action');
             $t->timestamps(6);
         });
-        Schema::connection(Database::connectionName())->create('exception_monitor_alert_events', function (Blueprint $t) {
+        Schema::connection(Database::connectionName())->create('telescope_monitor_alert_events', function (Blueprint $t) {
             $t->id();
             $t->uuid('public_id')->unique();
-            $t->foreignId('installation_id')->constrained('exception_monitor_installations');
-            $t->foreignId('issue_id')->nullable()->constrained('exception_monitor_issues');
+            $t->foreignId('installation_id')->constrained('telescope_monitor_installations');
+            $t->foreignId('issue_id')->nullable()->constrained('telescope_monitor_issues');
             $t->unsignedInteger('generation');
             $t->string('event_type', 64);
             $t->unsignedInteger('event_version')->default(1);
             $t->string('event_key', 64);
-            $t->foreignId('occurrence_id')->nullable()->constrained('exception_monitor_occurrences');
+            $t->foreignId('occurrence_id')->nullable()->constrained('telescope_monitor_occurrences');
             $t->uuid('action_public_id')->nullable();
             $t->unsignedInteger('issue_state_version');
             $t->unsignedInteger('alert_generation');
@@ -183,13 +183,13 @@ return new class extends Migration
             $t->string('payload_digest', 64);
             $t->string('planning_state', 24)->default('disabled');
             $t->dateTime('expires_at', 6)->index();
-            $t->unique(['installation_id', 'generation', 'event_key'], 'em_event_identity');
+            $t->unique(['installation_id', 'generation', 'event_key'], 'tm_event_identity');
             $t->timestamps(6);
         });
-        Schema::connection(Database::connectionName())->create('exception_monitor_secrets', function (Blueprint $t) {
+        Schema::connection(Database::connectionName())->create('telescope_monitor_secrets', function (Blueprint $t) {
             $t->id();
             $t->uuid('public_id')->unique();
-            $t->foreignId('installation_id')->constrained('exception_monitor_installations');
+            $t->foreignId('installation_id')->constrained('telescope_monitor_installations');
             $t->unsignedBigInteger('connection_id')->nullable();
             $t->string('owner_key', 64);
             $t->string('secret_name', 64);
@@ -203,14 +203,14 @@ return new class extends Migration
             $t->dateTime('activated_at', 6)->nullable();
             $t->dateTime('retire_after', 6)->nullable();
             $t->string('created_by_actor_key', 191)->nullable();
-            $t->unique(['installation_id', 'owner_key', 'secret_name', 'revision'], 'em_secret_revision');
+            $t->unique(['installation_id', 'owner_key', 'secret_name', 'revision'], 'tm_secret_revision');
             $t->timestamps(6);
         });
-        Schema::connection(Database::connectionName())->table('exception_monitor_action_receipts', function (Blueprint $t) {
+        Schema::connection(Database::connectionName())->table('telescope_monitor_action_receipts', function (Blueprint $t) {
             $t->uuid('public_id')->nullable()->unique();
             $t->unsignedInteger('generation')->default(1);
         });
-        Database::connection()->table('exception_monitor_installations')->insertOrIgnore([
+        Database::connection()->table('telescope_monitor_installations')->insertOrIgnore([
             'public_id' => (string) Str::uuid(),
             'singleton_key' => 'default',
             'source_epoch' => (string) Str::uuid(),
@@ -218,28 +218,28 @@ return new class extends Migration
             'created_at' => now('UTC')->format('Y-m-d H:i:s.u'),
             'updated_at' => now('UTC')->format('Y-m-d H:i:s.u'),
         ]);
-        Database::connection()->table('exception_monitor_installations')->update(['schema_version' => 2]);
+        Database::connection()->table('telescope_monitor_installations')->update(['schema_version' => 2]);
     }
 
     public function down(): void
     {
-        if (Schema::connection(Database::connectionName())->hasColumn('exception_monitor_action_receipts', 'public_id')) {
-            Schema::connection(Database::connectionName())->table('exception_monitor_action_receipts', function (Blueprint $t) {
+        if (Schema::connection(Database::connectionName())->hasColumn('telescope_monitor_action_receipts', 'public_id')) {
+            Schema::connection(Database::connectionName())->table('telescope_monitor_action_receipts', function (Blueprint $t) {
                 $t->dropUnique(['public_id']);
                 $t->dropColumn(['public_id', 'generation']);
             });
         }
-        Schema::connection(Database::connectionName())->dropIfExists('exception_monitor_secrets');
-        Schema::connection(Database::connectionName())->dropIfExists('exception_monitor_alert_events');
-        Schema::connection(Database::connectionName())->dropIfExists('exception_monitor_activity');
-        Schema::connection(Database::connectionName())->dropIfExists('exception_monitor_metric_buckets');
-        Schema::connection(Database::connectionName())->dropIfExists('exception_monitor_evidence_tags');
-        Schema::connection(Database::connectionName())->dropIfExists('exception_monitor_occurrence_evidence');
-        Schema::connection(Database::connectionName())->dropIfExists('exception_monitor_occurrences');
-        Schema::connection(Database::connectionName())->dropIfExists('exception_monitor_issues');
-        Schema::connection(Database::connectionName())->dropIfExists('exception_monitor_capture_inbox');
-        if (Schema::connection(Database::connectionName())->hasTable('exception_monitor_installations')) {
-            Database::connection()->table('exception_monitor_installations')->update(['schema_version' => 1]);
+        Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_secrets');
+        Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_alert_events');
+        Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_activity');
+        Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_metric_buckets');
+        Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_evidence_tags');
+        Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_occurrence_evidence');
+        Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_occurrences');
+        Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_issues');
+        Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_capture_inbox');
+        if (Schema::connection(Database::connectionName())->hasTable('telescope_monitor_installations')) {
+            Database::connection()->table('telescope_monitor_installations')->update(['schema_version' => 1]);
         }
     }
 };

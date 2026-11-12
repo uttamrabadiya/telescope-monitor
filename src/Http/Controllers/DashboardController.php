@@ -11,7 +11,7 @@ final class DashboardController
 {
     public function __invoke(Request $request, DashboardAssets $assets, PackagePath $path): View
     {
-        return view('exception-monitor::shell', [
+        return view('telescope-monitor::shell', [
             'entry' => $assets->entry(),
             'build' => $assets->build(),
             'base' => $path->base(),

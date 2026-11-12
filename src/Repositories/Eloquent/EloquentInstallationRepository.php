@@ -12,11 +12,11 @@ final class EloquentInstallationRepository implements InstallationRepository
 {
     public function storageState(): string
     {
-        if (! Database::schema()->hasTable('exception_monitor_installations')) {
-            return Database::schema()->hasTable('exception_monitor_issues') ? 'prototype_detected' : 'missing_migrations';
+        if (! Database::schema()->hasTable('telescope_monitor_installations')) {
+            return Database::schema()->hasTable('telescope_monitor_issues') ? 'prototype_detected' : 'missing_migrations';
         }
         foreach (['settings', 'health_checks', 'action_receipts'] as $suffix) {
-            if (! Database::schema()->hasTable('exception_monitor_'.$suffix)) {
+            if (! Database::schema()->hasTable('telescope_monitor_'.$suffix)) {
                 return 'missing_migrations';
             }
         }
@@ -34,7 +34,7 @@ final class EloquentInstallationRepository implements InstallationRepository
     private function schemaVersion(): int
     {
         foreach (['purge_runs' => 6, 'linked_issues' => 5, 'deliveries' => 4, 'notes' => 3, 'capture_inbox' => 2] as $table => $version) {
-            if (Database::schema()->hasTable('exception_monitor_'.$table)) {
+            if (Database::schema()->hasTable('telescope_monitor_'.$table)) {
                 return $version;
             }
         }

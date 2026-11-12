@@ -7,7 +7,7 @@ use TelescopeMonitor\Services\HealthService;
 
 final class DiagnoseCommand extends Command
 {
-    protected $signature = 'exception-monitor:diagnose {--json}';
+    protected $signature = 'telescope-monitor:diagnose {--json}';
 
     protected $description = 'Inspect actual configuration and observed readiness without claiming unverified processing health.';
 

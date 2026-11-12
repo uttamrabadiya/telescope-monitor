@@ -33,7 +33,7 @@ final class InvestigationController
 
     private function response(array $data, int $status = 200): JsonResponse
     {
-        return response()->json(['exception_monitor_private' => $data], $status)->header('Cache-Control', 'private, no-store');
+        return response()->json(['telescope_monitor_private' => $data], $status)->header('Cache-Control', 'private, no-store');
     }
 
     public function inbox(InvestigationRequest $r): JsonResponse

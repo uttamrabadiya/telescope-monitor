@@ -43,11 +43,11 @@ use TelescopeMonitor\Repositories\Contracts;
 use TelescopeMonitor\Repositories\Eloquent;
 use TelescopeMonitor\Telescope\StoredExceptionAdapter;
 
-final class ExceptionMonitorServiceProvider extends ServiceProvider
+final class TelescopeMonitorServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        $this->mergeConfigFrom(__DIR__.'/../config/exception-monitor.php', 'exception-monitor');
+        $this->mergeConfigFrom(__DIR__.'/../config/telescope-monitor.php', 'telescope-monitor');
         $this->app->bind(ActorResolver::class, HostActorResolver::class);
         $this->app->bind(Contracts\InstallationRepository::class, Eloquent\EloquentInstallationRepository::class);
         $this->app->bind(Contracts\SettingRepository::class, Eloquent\EloquentSettingRepository::class);
@@ -119,7 +119,7 @@ final class ExceptionMonitorServiceProvider extends ServiceProvider
         });
         $this->app->booting(function () {
             $path = $this->app->make(PackagePath::class);
-            if (config('exception-monitor.enabled') && $path->valid()) {
+            if (config('telescope-monitor.enabled') && $path->valid()) {
                 $this->app['config']->set('telescope.ignore_paths', array_values(array_unique(array_merge(
                     config('telescope.ignore_paths', []),
                     [$path->prefix(), $path->prefix().'/*']
@@ -127,40 +127,40 @@ final class ExceptionMonitorServiceProvider extends ServiceProvider
                 $this->app['config']->set('telescope.ignore_commands', array_values(array_unique(array_merge(
                     config('telescope.ignore_commands', []),
                     [
-                        'exception-monitor:backfill',
-                        'exception-monitor:import',
-                        'exception-monitor:install',
-                        'exception-monitor:migrate',
-                        'exception-monitor:diagnose',
-                        'exception-monitor:process',
-                        'exception-monitor:recover',
-                        'exception-monitor:reconcile',
-                        'exception-monitor:prune',
-                        'exception-monitor:expire-snoozes',
-                        'exception-monitor:deliver',
-                        'exception-monitor:recover-deliveries',
-                        'exception-monitor:prune-deliveries',
-                        'exception-monitor:purge',
-                        'exception-monitor:source-baseline',
-                        'exception-monitor:heartbeat',
-                        'exception-monitor:rewrap',
+                        'telescope-monitor:backfill',
+                        'telescope-monitor:import',
+                        'telescope-monitor:install',
+                        'telescope-monitor:migrate',
+                        'telescope-monitor:diagnose',
+                        'telescope-monitor:process',
+                        'telescope-monitor:recover',
+                        'telescope-monitor:reconcile',
+                        'telescope-monitor:prune',
+                        'telescope-monitor:expire-snoozes',
+                        'telescope-monitor:deliver',
+                        'telescope-monitor:recover-deliveries',
+                        'telescope-monitor:prune-deliveries',
+                        'telescope-monitor:purge',
+                        'telescope-monitor:source-baseline',
+                        'telescope-monitor:heartbeat',
+                        'telescope-monitor:rewrap',
                     ]
                 ))));
-                Telescope::hideRequestParameters(['exception_monitor_private']);
-                Telescope::hideResponseParameters(['exception_monitor_private']);
+                Telescope::hideRequestParameters(['telescope_monitor_private']);
+                Telescope::hideResponseParameters(['telescope_monitor_private']);
             }
         });
     }
 
     public function boot(): void
     {
-        $this->loadViewsFrom(__DIR__.'/../resources/views', 'exception-monitor');
+        $this->loadViewsFrom(__DIR__.'/../resources/views', 'telescope-monitor');
         $this->publishes([
-            __DIR__.'/../config/exception-monitor.php' => config_path('exception-monitor.php'),
-        ], 'exception-monitor-config');
+            __DIR__.'/../config/telescope-monitor.php' => config_path('telescope-monitor.php'),
+        ], 'telescope-monitor-config');
         $this->publishesMigrations([
             __DIR__.'/../database/migrations' => database_path('migrations'),
-        ], 'exception-monitor-migrations');
+        ], 'telescope-monitor-migrations');
         $this->app['events']->listen(MessageLogged::class, function ($event) {
             if (($event->context['exception'] ?? null) instanceof \Throwable) {
                 $context = $this->app->make(CaptureContext::class);
@@ -171,7 +171,7 @@ final class ExceptionMonitorServiceProvider extends ServiceProvider
                 }
             }
         });
-        if (config('exception-monitor.enabled') && $this->app->make(PackagePath::class)->valid()) {
+        if (config('telescope-monitor.enabled') && $this->app->make(PackagePath::class)->valid()) {
             $this->loadRoutesFrom(__DIR__.'/../routes/web.php');
         }
         if ($this->app->runningInConsole()) {

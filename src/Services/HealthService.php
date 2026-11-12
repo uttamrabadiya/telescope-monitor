@@ -28,7 +28,7 @@ final class HealthService
         $storage = $this->installations->storageState();
         $watcher = config('telescope.watchers.'.ExceptionWatcher::class, false);
         $enabled = config('telescope.enabled') && (is_array($watcher) ? ($watcher['enabled'] ?? true) : (bool) $watcher);
-        $connection = config('exception-monitor.queues.connection') ?? config('queue.default');
+        $connection = config('telescope-monitor.queues.connection') ?? config('queue.default');
         $driver = config('queue.connections.'.$connection.'.driver');
         $available = $storage === 'ready' && $this->inbox->ready();
         $status = $available ? $this->inbox->status() : [
@@ -45,7 +45,7 @@ final class HealthService
             $this->check('storage', 'Package storage', $storage === 'ready' ? 'passed' : 'failed', 'observation', match ($storage) {
                 'ready' => 'Foundation schema is available.',
                 'prototype_detected' => 'Prototype tables detected. Back up and review conversion or use a fresh database.',
-                default => 'Run exception-monitor:install, then exception-monitor:migrate.',
+                default => 'Run telescope-monitor:install, then telescope-monitor:migrate.',
             }),
             $this->check('telescope', 'Telescope ExceptionWatcher', $enabled ? 'passed' : 'warning', 'configuration', $enabled ? 'Configured as enabled; host filters still determine acceptance.' : 'Enable Telescope and its ExceptionWatcher in host configuration.'),
             $this->check('queue', 'Queue connection', in_array($driver, ['database', 'redis'], true) ? 'passed' : 'warning', 'configuration', in_array($driver, ['database', 'redis'], true) ? 'Asynchronous driver configured. This does not prove worker activity.' : 'Configure an asynchronous database or Redis queue before enabling background processing.'),
@@ -72,10 +72,10 @@ final class HealthService
             try {
                 app(RetentionPolicy::class)->bounds();
             } catch (Throwable) {
-                $checks[] = $this->check('retention_limits', 'Retention deployment limits', 'failed', 'configuration', 'Fix exception-monitor.retention_limits: minimum and maximum must form a supported range. No weaker limit is silently substituted.');
+                $checks[] = $this->check('retention_limits', 'Retention deployment limits', 'failed', 'configuration', 'Fix telescope-monitor.retention_limits: minimum and maximum must form a supported range. No weaker limit is silently substituted.');
             }
             $schema = $operations->schema();
-            $checks[] = $this->check('complete_schema', 'Complete package schema', $schema['ready'] ? 'passed' : 'failed', 'configuration', $schema['ready'] ? 'All 25 logical tables are available.' : 'Run exception-monitor:install and host migrations. Missing: '.implode(', ', $schema['missing']));
+            $checks[] = $this->check('complete_schema', 'Complete package schema', $schema['ready'] ? 'passed' : 'failed', 'configuration', $schema['ready'] ? 'All 25 logical tables are available.' : 'Run telescope-monitor:install and host migrations. Missing: '.implode(', ', $schema['missing']));
             if ($schema['ready']) {
                 $source = $operations->source();
                 $keys = $operations->credentials();

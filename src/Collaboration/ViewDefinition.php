@@ -43,7 +43,7 @@ final class ViewDefinition
         if (isset($filters['assignee']) && ! $this->assignments->enabled()) {
             throw ValidationException::withMessages(['filters.assignee' => 'Assignments are disabled. Remove the assignee filter or enable the host provider.']);
         }
-        if (isset($filters['tag']) && ! in_array(explode(':', $filters['tag'], 2)[0], config('exception-monitor.capture.allowed_tags', []), true)) {
+        if (isset($filters['tag']) && ! in_array(explode(':', $filters['tag'], 2)[0], config('telescope-monitor.capture.allowed_tags', []), true)) {
             throw ValidationException::withMessages(['filters.tag' => 'This tag is no longer permitted.']);
         }
         if (isset($filters['include_tests'])) {

@@ -70,11 +70,11 @@ final class ApiController
 
     public function redaction(RedactionPreviewRequest $request, RedactionService $redaction, SettingsService $settings): JsonResponse
     {
-        $values = $request->validated('exception_monitor_private');
+        $values = $request->validated('telescope_monitor_private');
         $patterns = $values['patterns'] ?? $settings->group('privacy')['values']['redact_patterns'];
 
         return response()->json([
-            'exception_monitor_private' => [
+            'telescope_monitor_private' => [
                 'text' => $redaction->text($values['text'], $patterns),
             ],
         ])->header('Cache-Control', 'private, no-store');

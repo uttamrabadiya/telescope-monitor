@@ -9,7 +9,7 @@ use TelescopeMonitor\Operations\PurgeOperations;
 
 final class SourceBaselineCommand extends Command
 {
-    protected $signature = 'exception-monitor:source-baseline {installation} {--confirm=} {--preview}';
+    protected $signature = 'telescope-monitor:source-baseline {installation} {--confirm=} {--preview}';
 
     protected $description = 'Explicitly rebaseline replaced/reset Telescope storage without silently removing time protection.';
 

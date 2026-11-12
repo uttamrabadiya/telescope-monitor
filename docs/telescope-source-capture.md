@@ -16,37 +16,37 @@ No new migration is required. Deploy the code, refresh the configuration cache i
 Run a **separately supervised process**:
 
 ```sh
-php artisan exception-monitor:import --watch --process --limit=100 --sleep=2
+php artisan telescope-monitor:import --watch --process --limit=100 --sleep=2
 ```
 
-`--process` processes a bounded set of due inbox records in the monitoring process, including retries; it works without an asynchronous capture queue. Without it, run the existing `exception-monitor-capture` queue worker or explicit `exception-monitor:process` command. When an asynchronous queue is configured, import may also dispatch capture jobs; duplicate claims remain safe. Queued synthetic capture checks still require the capture queue worker. Keep the separate delivery worker running for email/integrations.
+`--process` processes a bounded set of due inbox records in the monitoring process, including retries; it works without an asynchronous capture queue. Without it, run the existing `telescope-monitor-capture` queue worker or explicit `telescope-monitor:process` command. When an asynchronous queue is configured, import may also dispatch capture jobs; duplicate claims remain safe. Queued synthetic capture checks still require the capture queue worker. Keep the separate delivery worker running for email/integrations.
 
 A single deliberate pass is:
 
 ```sh
-php artisan exception-monitor:import --limit=100 --process
+php artisan telescope-monitor:import --limit=100 --process
 ```
 
 Alternatively, schedule that explicit monitoring command every minute with `withoutOverlapping()`. This intentionally runs monitoring queries in the dedicated monitoring command, not in unrelated application commands or tasks. Do not call the importer from request middleware, host job handlers, termination callbacks or synchronous dispatch. Watch mode handles termination signals where pcntl is available and exits nonzero on missing migrations; supervisors should restart it. Other failed passes report safe guidance and retry after the polling interval. Restart the importer explicitly after deployment; `queue:restart` only restarts Laravel queue workers.
 
-Keep `exception-monitor:recover` and retention maintenance for existing buffered work/probes. `exception-monitor:reconcile` remains an explicitly non-alerting repair scan, and shares the source checkpoint with import. Normal ingestion should use `import`; running reconcile first can intentionally classify an unimported backlog as recovered instead of live.
+Keep `telescope-monitor:recover` and retention maintenance for existing buffered work/probes. `telescope-monitor:reconcile` remains an explicitly non-alerting repair scan, and shares the source checkpoint with import. Normal ingestion should use `import`; running reconcile first can intentionally classify an unimported backlog as recovered instead of live.
 
 ## Signing and rotation
 
-`exception-monitor.capture.signing_key` / `EXCEPTION_MONITOR_CAPTURE_KEY` is optional. Null derives a domain-separated signing key from `APP_KEY`; no secret-table read is needed. An explicit key must contain at least 32 bytes, either raw or `base64:` encoded. Distribute the same configuration to all producers and importers. Keep keys in deployment secret storage, never the dashboard.
+`telescope-monitor.capture.signing_key` / `TELESCOPE_MONITOR_CAPTURE_KEY` is optional. Null derives a domain-separated signing key from `APP_KEY`; no secret-table read is needed. An explicit key must contain at least 32 bytes, either raw or `base64:` encoded. Distribute the same configuration to all producers and importers. Keep keys in deployment secret storage, never the dashboard.
 
 Configure previous keys explicitly during rotation:
 
 ```php
 'capture' => [
-    'signing_key' => env('EXCEPTION_MONITOR_CAPTURE_KEY'),
+    'signing_key' => env('TELESCOPE_MONITOR_CAPTURE_KEY'),
     'signing_previous_keys' => [/* previous deployment signing key(s) */],
 ],
 ```
 
 Retain verification keys until all relevant Telescope source has been imported or aged out. If using APP_KEY fallback, preserve its old value in this signing allowlist as well as Laravel's encryption previous-key configuration. These serve different purposes. Removing a verification key makes its old proofs unverifiable; automatic capture never falls back to unsigned import. Invalid current key configuration is reported by the importer. If signing failed at capture, the Telescope exception remains available but cannot later gain automatic proof of reportability; explicit historical backfill remains a separate, non-alerting operation.
 
-The new `em3|…` proof binds the UUID and selected exception/metadata fields. Tampering or transplanting it invalidates the proof. Legacy `em2c`/`em2g` database-key proofs remain verifiable by the importer and are recovered with non-live semantics. Existing encrypted inbox items remain processable unchanged. Backfill skips both marker versions.
+The new `tm3|…` proof binds the UUID and selected exception/metadata fields. Tampering or transplanting it invalidates the proof. Legacy `tm2c`/`tm2g` database-key proofs remain verifiable by the importer and are recovered with non-live semantics. Existing encrypted inbox items remain processable unchanged. Backfill skips both marker versions.
 
 Grouping callbacks run only in the importer. Keep producer/importer grouping versions and configuration aligned and drain before changing grouping policy. A valid source proof with a different grouping version stops checkpoint advancement for explicit configuration repair; it is not silently regrouped.
 

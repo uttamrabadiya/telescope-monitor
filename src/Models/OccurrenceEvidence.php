@@ -30,7 +30,7 @@ final class OccurrenceEvidence extends Model
 
     protected $dateFormat = 'Y-m-d H:i:s.u';
 
-    protected $table = 'exception_monitor_occurrence_evidence';
+    protected $table = 'telescope_monitor_occurrence_evidence';
 
     protected $guarded = [];
 

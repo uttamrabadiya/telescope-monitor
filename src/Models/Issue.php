@@ -40,7 +40,7 @@ final class Issue extends Model
 
     protected $dateFormat = 'Y-m-d H:i:s.u';
 
-    protected $table = 'exception_monitor_issues';
+    protected $table = 'telescope_monitor_issues';
 
     protected $guarded = [];
 

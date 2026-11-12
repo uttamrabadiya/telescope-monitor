@@ -39,7 +39,7 @@ async function save() {
   } catch (e) { if (e instanceof ApiError) { errors.value = e.fields; conflict.value = e.status === 409; failure.value = e.message } else failure.value = 'Preferences could not be saved. Your draft is preserved.' } finally { saving.value = false }
 }
 async function reloadLatest() { if (window.confirm('Replace your unsaved draft with the latest saved values?')) await load() }
-async function preview() { previewing.value = true; try { const result = await api<{text:string}>('/privacy/preview', 'POST', {exception_monitor_private:{text:previewInput.value,patterns:patterns.value.split('\n').map(x=>x.trim()).filter(Boolean)}}); previewText.value = result.text } catch(e) { notify(e instanceof Error ? e.message : 'Preview failed.',true) } finally { previewing.value = false } }
+async function preview() { previewing.value = true; try { const result = await api<{text:string}>('/privacy/preview', 'POST', {telescope_monitor_private:{text:previewInput.value,patterns:patterns.value.split('\n').map(x=>x.trim()).filter(Boolean)}}); previewText.value = result.text } catch(e) { notify(e instanceof Error ? e.message : 'Preview failed.',true) } finally { previewing.value = false } }
 function beforeUnload(e: BeforeUnloadEvent) { if (dirty.value) { e.preventDefault(); e.returnValue = '' } }
 window.addEventListener('beforeunload', beforeUnload)
 onBeforeUnmount(() => { requestVersion++; window.removeEventListener('beforeunload', beforeUnload) })

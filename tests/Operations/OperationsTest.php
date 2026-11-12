@@ -62,7 +62,7 @@ final class OperationsTest extends TestCase
     {
         parent::setUp();
         $this->authorize();
-        config(['exception-monitor.alerts.allowed_environments' => ['testing']]);
+        config(['telescope-monitor.alerts.allowed_environments' => ['testing']]);
         $this->travelTo(CarbonImmutable::parse('2026-11-11T10:10:01Z'));
         Telescope::startRecording(false);
         $this->mail = new MaintenanceTransport;
@@ -79,17 +79,17 @@ final class OperationsTest extends TestCase
         $this->capture('Account failed token=PRIVATE', at: $at);
         $this->process();
 
-        return DB::table('exception_monitor_issues')->latest('id')->first();
+        return DB::table('telescope_monitor_issues')->latest('id')->first();
     }
 
     private function destination(): string
     {
-        return $this->postJson('/exception-monitor/api/v1/alerting/email', ['client_key' => (string) Str::uuid(), 'name' => 'On call', 'email' => 'oncall@example.test', 'enabled' => true])->assertOk()->json('exception_monitor_private.id');
+        return $this->postJson('/telescope-monitor/api/v1/alerting/email', ['client_key' => (string) Str::uuid(), 'name' => 'On call', 'email' => 'oncall@example.test', 'enabled' => true])->assertOk()->json('telescope_monitor_private.id');
     }
 
     private function rule(string $id): void
     {
-        $this->postJson('/exception-monitor/api/v1/alerting/rules', [
+        $this->postJson('/telescope-monitor/api/v1/alerting/rules', [
             'client_key' => (string) Str::uuid(),
             'name' => 'New errors',
             'enabled' => true,
@@ -149,7 +149,7 @@ final class OperationsTest extends TestCase
 
     public function test_fresh_installation_metadata_tracks_the_complete_schema(): void
     {
-        DB::table('exception_monitor_installations')->delete();
+        DB::table('telescope_monitor_installations')->delete();
         $i = $this->installation();
         $this->assertSame(0, (int) $i->schema_version);
         $this->assertSame('ready', app(\TelescopeMonitor\Repositories\Contracts\InstallationRepository::class)->storageState());
@@ -161,11 +161,11 @@ final class OperationsTest extends TestCase
     {
         $this->captureIssue();
         $i = $this->installation();
-        $before = DB::table('exception_monitor_issues')->count();
-        $this->artisan('exception-monitor:purge', ['installation' => $i->public_id, '--preview' => true])->assertSuccessful();
-        $this->assertDatabaseCount('exception_monitor_purge_runs', 0);
-        $this->artisan('exception-monitor:purge', ['installation' => $i->public_id])->assertFailed();
-        $this->assertSame($before, DB::table('exception_monitor_issues')->count());
+        $before = DB::table('telescope_monitor_issues')->count();
+        $this->artisan('telescope-monitor:purge', ['installation' => $i->public_id, '--preview' => true])->assertSuccessful();
+        $this->assertDatabaseCount('telescope_monitor_purge_runs', 0);
+        $this->artisan('telescope-monitor:purge', ['installation' => $i->public_id])->assertFailed();
+        $this->assertSame($before, DB::table('telescope_monitor_issues')->count());
         $this->assertSame('active', $this->installation()->state);
     }
 
@@ -173,12 +173,12 @@ final class OperationsTest extends TestCase
     {
         $this->rule($this->destination());
         $this->captureIssue();
-        $d = DB::table('exception_monitor_deliveries')->first();
+        $d = DB::table('telescope_monitor_deliveries')->first();
         $claim = app(DeliveryLedger::class)->claim($d->id, 1, true);
         $run = $this->begin()['run']['id'];
         $this->assertSame('draining', $this->resume($run)['run']['state']);
         $this->assertNull(app(DeliveryLedger::class)->claim($d->id, 1, true));
-        $this->assertSame('processing', DB::table('exception_monitor_deliveries')->value('status'));
+        $this->assertSame('processing', DB::table('telescope_monitor_deliveries')->value('status'));
         $this->assertTrue(app(DeliveryLedger::class)->finish($d->id, $claim['token'], Outcome::accepted()));
         $this->assertSame('purging', $this->resume($run)['run']['state']);
         $this->complete($run);
@@ -188,14 +188,14 @@ final class OperationsTest extends TestCase
     {
         $this->rule($this->destination());
         $this->captureIssue();
-        $d = DB::table('exception_monitor_deliveries')->first();
+        $d = DB::table('telescope_monitor_deliveries')->first();
         $claim = app(DeliveryLedger::class)->claim($d->id, 1, true);
         $run = $this->begin()['run']['id'];
         $this->travel(121)->seconds();
         $this->resume($run);
         $this->assertSame(2, $this->installation()->generation);
         $this->assertFalse(app(DeliveryLedger::class)->finish($d->id, $claim['token'], Outcome::accepted()));
-        $this->assertNull(DB::table('exception_monitor_deliveries')->value('sent_at'));
+        $this->assertNull(DB::table('telescope_monitor_deliveries')->value('sent_at'));
         $this->complete($run);
         $this->assertFalse(app(DeliverySender::class)->send($d->id, 1));
         $this->assertCount(0, $this->mail->calls);
@@ -210,10 +210,10 @@ final class OperationsTest extends TestCase
             $run = $this->begin()['run']['id'];
             $this->assertSame('draining', $this->resume($run)['run']['state']);
         };
-        $d = DB::table('exception_monitor_deliveries')->first();
+        $d = DB::table('telescope_monitor_deliveries')->first();
         $this->assertTrue(app(DeliverySender::class)->send($d->id, 1));
         $this->assertSame([['transaction' => 0, 'recording' => false]], $this->mail->calls);
-        $this->assertSame('sent', DB::table('exception_monitor_deliveries')->value('status'));
+        $this->assertSame('sent', DB::table('telescope_monitor_deliveries')->value('status'));
         $this->complete($run);
     }
 
@@ -225,13 +225,13 @@ final class OperationsTest extends TestCase
         $collab = $this->collaborations($issue);
         $settings = app(SettingsService::class)->group('general');
         app(SettingsService::class)->save('general', ['display_name' => 'Preserved application'], $settings['version']);
-        $secrets = DB::table('exception_monitor_secrets')->pluck('ciphertext', 'id')->all();
+        $secrets = DB::table('telescope_monitor_secrets')->pluck('ciphertext', 'id')->all();
         $identity = $this->installation()->public_id;
         LinkedIssue::query()->create([
             'public_id' => (string) Str::uuid(),
             'installation_id' => $issue->installation_id,
             'issue_id' => $issue->id,
-            'connection_id' => DB::table('exception_monitor_connections')->value('id'),
+            'connection_id' => DB::table('telescope_monitor_connections')->value('id'),
             'repository_fingerprint' => str_repeat('a', 64),
             'repository_owner' => 'acme',
             'repository_name' => 'app',
@@ -254,16 +254,16 @@ final class OperationsTest extends TestCase
             $this->assertContains($table, $seen);
         }
         foreach (PurgeOperations::TABLES as $table) {
-            $this->assertSame(0, DB::table('exception_monitor_'.$table)->count(), $table);
+            $this->assertSame(0, DB::table('telescope_monitor_'.$table)->count(), $table);
         }
         $this->assertSame($identity, $this->installation()->public_id);
         $this->assertSame('Preserved application', app(SettingsService::class)->group('general')['values']['display_name']);
-        $this->assertSame($secrets, DB::table('exception_monitor_secrets')->pluck('ciphertext', 'id')->all());
-        $this->assertDatabaseCount('exception_monitor_connections', 1);
-        $this->assertDatabaseCount('exception_monitor_alert_rules', 1);
-        $this->assertDatabaseCount('exception_monitor_saved_views', 1);
-        $this->assertDatabaseCount('exception_monitor_view_preferences', 1);
-        $this->assertGreaterThan(0, DB::table('exception_monitor_action_receipts')->count());
+        $this->assertSame($secrets, DB::table('telescope_monitor_secrets')->pluck('ciphertext', 'id')->all());
+        $this->assertDatabaseCount('telescope_monitor_connections', 1);
+        $this->assertDatabaseCount('telescope_monitor_alert_rules', 1);
+        $this->assertDatabaseCount('telescope_monitor_saved_views', 1);
+        $this->assertDatabaseCount('telescope_monitor_view_preferences', 1);
+        $this->assertGreaterThan(0, DB::table('telescope_monitor_action_receipts')->count());
         $this->assertSame($collab['view']['id'], app(CollaborationRepository::class)->preferences()['default_view_ref']);
     }
 
@@ -276,10 +276,10 @@ final class OperationsTest extends TestCase
             if ($s['run']['step'] === 'occurrences') {
                 break;
             }
-        }$before = DB::table('exception_monitor_occurrences')->count();
+        }$before = DB::table('telescope_monitor_occurrences')->count();
         $armed = true;
         DB::listen(function ($q) use (&$armed) {
-            if ($armed && preg_match('/^delete from [`"]exception_monitor_occurrences[`"]/', $q->sql)) {
+            if ($armed && preg_match('/^delete from [`"]telescope_monitor_occurrences[`"]/', $q->sql)) {
                 $armed = false;
                 throw new \RuntimeException('private database diagnostic');
             }
@@ -289,9 +289,9 @@ final class OperationsTest extends TestCase
             $this->fail('Expected injected failure');
         } catch (MaintenanceFailure $e) {
             $this->assertSame('purge_step_failed', $e->getMessage());
-        }$this->assertSame($before, DB::table('exception_monitor_occurrences')->count());
+        }$this->assertSame($before, DB::table('telescope_monitor_occurrences')->count());
         $this->assertSame('occurrences', app(PurgeOperations::class)->status($run)['run']['step']);
-        $this->assertStringNotContainsString('private database diagnostic', json_encode(DB::table('exception_monitor_purge_runs')->get()));
+        $this->assertStringNotContainsString('private database diagnostic', json_encode(DB::table('telescope_monitor_purge_runs')->get()));
         $this->assertSame('completed', $this->complete($run)['run']['state']);
     }
 
@@ -299,21 +299,21 @@ final class OperationsTest extends TestCase
     {
         $this->rule($this->destination());
         $old = $this->captureIssue();
-        $oldInbox = DB::table('exception_monitor_capture_inbox')->value('id');
+        $oldInbox = DB::table('telescope_monitor_capture_inbox')->value('id');
         $run = $this->begin()['run']['id'];
         $this->resume($run);
         $this->travel(2)->seconds();
         $uuid = $this->capture('New post-cutoff exception', class: \LogicException::class, import: false);
-        $this->assertSame(1, DB::table('exception_monitor_issues')->count());
+        $this->assertSame(1, DB::table('telescope_monitor_issues')->count());
         $this->complete($run);
         $this->assertFalse(app(CaptureProcessor::class)->process($oldInbox, 1));
         app(CaptureOperations::class)->reconcile(100);
         $this->process();
-        $this->assertDatabaseCount('exception_monitor_issues', 1);
-        $this->assertSame($uuid, DB::table('exception_monitor_occurrences')->value('source_uuid'));
-        $this->assertDatabaseCount('exception_monitor_deliveries', 0);
-        $this->assertTrue((bool) DB::table('exception_monitor_issues')->value('recovered_only'));
-        $this->assertNotSame($old->public_id, DB::table('exception_monitor_issues')->value('public_id'));
+        $this->assertDatabaseCount('telescope_monitor_issues', 1);
+        $this->assertSame($uuid, DB::table('telescope_monitor_occurrences')->value('source_uuid'));
+        $this->assertDatabaseCount('telescope_monitor_deliveries', 0);
+        $this->assertTrue((bool) DB::table('telescope_monitor_issues')->value('recovered_only'));
+        $this->assertNotSame($old->public_id, DB::table('telescope_monitor_issues')->value('public_id'));
     }
 
     public function test_abort_is_only_available_before_the_generation_fence(): void
@@ -335,11 +335,11 @@ final class OperationsTest extends TestCase
     {
         $this->captureIssue();
         $this->begin();
-        $this->getJson('/exception-monitor/api/v1/issues')->assertConflict();
-        $this->postJson('/exception-monitor/api/v1/alerting/tests', ['client_key' => (string) Str::uuid(), 'connections' => [(string) Str::uuid()]])->assertConflict();
-        $this->patchJson('/exception-monitor/api/v1/settings/general', ['version' => 0, 'values' => ['display_name' => 'Wrong']])->assertConflict();
-        $this->getJson('/exception-monitor/api/v1/operations')->assertOk()->assertJsonPath('data.state', 'draining');
-        $this->getJson('/exception-monitor/api/v1/bootstrap')->assertOk()->assertJsonPath('data.installation.state', 'draining');
+        $this->getJson('/telescope-monitor/api/v1/issues')->assertConflict();
+        $this->postJson('/telescope-monitor/api/v1/alerting/tests', ['client_key' => (string) Str::uuid(), 'connections' => [(string) Str::uuid()]])->assertConflict();
+        $this->patchJson('/telescope-monitor/api/v1/settings/general', ['version' => 0, 'values' => ['display_name' => 'Wrong']])->assertConflict();
+        $this->getJson('/telescope-monitor/api/v1/operations')->assertOk()->assertJsonPath('data.state', 'draining');
+        $this->getJson('/telescope-monitor/api/v1/bootstrap')->assertOk()->assertJsonPath('data.installation.state', 'draining');
     }
 
     public function test_source_reset_requires_explicit_rebaseline_and_preserves_purge_time_protection(): void
@@ -351,21 +351,21 @@ final class OperationsTest extends TestCase
         $cutoff = $old->purged_through_at->toISOString();
         DB::connection(config('telescope.storage.database.connection'))->table('telescope_entries')->delete();
         $this->assertSame('failed', app(OperationalStatus::class)->source()['state']);
-        $this->artisan('exception-monitor:source-baseline', ['installation' => $old->public_id])->assertFailed();
-        $this->artisan('exception-monitor:source-baseline', ['installation' => $old->public_id, '--confirm' => $old->public_id])->assertSuccessful();
+        $this->artisan('telescope-monitor:source-baseline', ['installation' => $old->public_id])->assertFailed();
+        $this->artisan('telescope-monitor:source-baseline', ['installation' => $old->public_id, '--confirm' => $old->public_id])->assertSuccessful();
         $current = $this->installation();
         $this->assertNotSame($old->source_epoch, $current->source_epoch);
         $this->assertGreaterThanOrEqual($cutoff, $current->purged_through_at->toISOString());
         $this->assertSame(0, (int) $current->source_sequence_floor);
         $this->travel(2)->seconds();
         $this->captureIssue();
-        $this->assertDatabaseCount('exception_monitor_issues', 1);
+        $this->assertDatabaseCount('telescope_monitor_issues', 1);
     }
 
     public function test_retention_reduction_expires_reads_immediately_and_increase_never_rehydrates(): void
     {
         $issue = $this->captureIssue(CarbonImmutable::now('UTC')->subDays(10));
-        $occ = DB::table('exception_monitor_occurrences')->value('public_id');
+        $occ = DB::table('telescope_monitor_occurrences')->value('public_id');
         $this->assertSame('available', app(EvidenceReader::class)->read($occ)['evidence_state']);
         $settings = app(SettingsService::class)->group('retention');
         app(SettingsService::class)->save('retention', ['occurrence_days' => 1], $settings['version']);
@@ -373,11 +373,11 @@ final class OperationsTest extends TestCase
         $this->travel(3)->days();
         app(SettingsService::class)->save('retention', ['occurrence_days' => 30], 1);
         $this->assertSame('expired', app(EvidenceReader::class)->read($occ)['evidence_state']);
-        $this->assertDatabaseCount('exception_monitor_occurrence_evidence', 1);
+        $this->assertDatabaseCount('telescope_monitor_occurrence_evidence', 1);
         app(RetentionSweep::class)->run(1);
-        $this->assertDatabaseCount('exception_monitor_occurrence_evidence', 0);
-        $this->assertDatabaseCount('exception_monitor_occurrences', 1);
-        $this->assertSame(1, DB::table('exception_monitor_issues')->value('lifetime_count'));
+        $this->assertDatabaseCount('telescope_monitor_occurrence_evidence', 0);
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 1);
+        $this->assertSame(1, DB::table('telescope_monitor_issues')->value('lifetime_count'));
     }
 
     public function test_bounded_retention_preserves_counts_notes_views_links_and_replay_identity(): void
@@ -409,22 +409,22 @@ final class OperationsTest extends TestCase
             'operation_public_id' => (string) Str::uuid(),
             'remote_number' => 42,
         ]);
-        $uuid = DB::table('exception_monitor_occurrences')->value('source_uuid');
+        $uuid = DB::table('telescope_monitor_occurrences')->value('source_uuid');
         $this->travel(100)->days();
         $stats = app(RetentionSweep::class)->run(1);
         foreach ($stats as $n) {
             $this->assertLessThanOrEqual(1, $n);
-        }$this->assertDatabaseCount('exception_monitor_notes', 1);
-        $this->assertDatabaseCount('exception_monitor_saved_views', 1);
-        $this->assertDatabaseCount('exception_monitor_linked_issues', 1);
-        $this->assertDatabaseCount('exception_monitor_occurrences', 3);
-        $this->assertDatabaseCount('exception_monitor_occurrence_evidence', 2);
-        $this->assertSame(0, DB::table('exception_monitor_capture_inbox')->where('state', 'failed')->count());
+        }$this->assertDatabaseCount('telescope_monitor_notes', 1);
+        $this->assertDatabaseCount('telescope_monitor_saved_views', 1);
+        $this->assertDatabaseCount('telescope_monitor_linked_issues', 1);
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 3);
+        $this->assertDatabaseCount('telescope_monitor_occurrence_evidence', 2);
+        $this->assertSame(0, DB::table('telescope_monitor_capture_inbox')->where('state', 'failed')->count());
         app(CaptureOperations::class)->reconcile(100, 3000);
         $this->process();
-        $this->assertSame(3, DB::table('exception_monitor_issues')->value('lifetime_count'));
-        $this->assertSame($uuid, DB::table('exception_monitor_occurrences')->value('source_uuid'));
-        $detail = $this->getJson('/exception-monitor/api/v1/issues/'.$issue->public_id)->assertOk()->json('exception_monitor_private');
+        $this->assertSame(3, DB::table('telescope_monitor_issues')->value('lifetime_count'));
+        $this->assertSame($uuid, DB::table('telescope_monitor_occurrences')->value('source_uuid'));
+        $detail = $this->getJson('/telescope-monitor/api/v1/issues/'.$issue->public_id)->assertOk()->json('telescope_monitor_private');
         $this->assertSame('expired', $detail['selected']['evidence_state']);
         $this->assertSame('3', $detail['occurrences']['total']);
     }
@@ -433,20 +433,20 @@ final class OperationsTest extends TestCase
     {
         $this->captureIssue(CarbonImmutable::now('UTC')->subDays(5));
         $version = app(SettingsService::class)->group('retention')['version'];
-        $p = $this->postJson('/exception-monitor/api/v1/retention/preview', ['values' => ['occurrence_days' => 1]])->assertOk()->json('data');
+        $p = $this->postJson('/telescope-monitor/api/v1/retention/preview', ['values' => ['occurrence_days' => 1]])->assertOk()->json('data');
         $this->assertSame(1, $p['counts']['occurrence_days']['eligible_count']);
         $this->assertStringContainsString('no future run is guaranteed', $p['next_prune']);
         $this->assertSame($version, app(SettingsService::class)->group('retention')['version']);
-        $this->assertDatabaseCount('exception_monitor_occurrence_evidence', 1);
+        $this->assertDatabaseCount('telescope_monitor_occurrence_evidence', 1);
     }
 
     public function test_deployment_limits_and_locks_are_enforced_at_the_service_and_api(): void
     {
-        config(['exception-monitor.retention_limits.occurrence_days' => ['max' => 7]]);
-        $this->patchJson('/exception-monitor/api/v1/settings/retention', ['version' => 0, 'values' => ['occurrence_days' => 8]])->assertUnprocessable();
+        config(['telescope-monitor.retention_limits.occurrence_days' => ['max' => 7]]);
+        $this->patchJson('/telescope-monitor/api/v1/settings/retention', ['version' => 0, 'values' => ['occurrence_days' => 8]])->assertUnprocessable();
         $this->assertSame(7, app(SettingsService::class)->group('retention')['values']['occurrence_days']);
-        config(['exception-monitor.locked' => ['retention.occurrence_days' => 3]]);
-        $this->patchJson('/exception-monitor/api/v1/settings/retention', ['version' => 0, 'values' => ['occurrence_days' => 2]])->assertUnprocessable();
+        config(['telescope-monitor.locked' => ['retention.occurrence_days' => 3]]);
+        $this->patchJson('/telescope-monitor/api/v1/settings/retention', ['version' => 0, 'values' => ['occurrence_days' => 2]])->assertUnprocessable();
         $this->assertSame(3, app(RetentionPolicy::class)->effective()['occurrence_days']);
     }
 
@@ -463,14 +463,14 @@ final class OperationsTest extends TestCase
     public function test_live_capture_buffer_payload_is_not_removed_by_retention(): void
     {
         $this->capture();
-        DB::table('exception_monitor_capture_inbox')->update([
+        DB::table('telescope_monitor_capture_inbox')->update([
             'state' => 'processing',
             'lease_until' => CarbonImmutable::now('UTC')->addMinutes(2)->format('Y-m-d H:i:s.u'),
             'received_at' => CarbonImmutable::now('UTC')->subDays(40)->format('Y-m-d H:i:s.u'),
         ]);
         app(RetentionSweep::class)->run(1);
-        $this->assertNotNull(DB::table('exception_monitor_capture_inbox')->value('payload_ciphertext'));
-        $this->assertSame('processing', DB::table('exception_monitor_capture_inbox')->value('state'));
+        $this->assertNotNull(DB::table('telescope_monitor_capture_inbox')->value('payload_ciphertext'));
+        $this->assertSame('processing', DB::table('telescope_monitor_capture_inbox')->value('state'));
     }
 
     public function test_maintenance_history_separates_started_success_failed_and_safe_error_data(): void
@@ -501,7 +501,7 @@ final class OperationsTest extends TestCase
         $this->assertSame('warning', $rows['capture_worker']['state']);
         $this->assertFalse($rows['capture_worker']['fresh']);
         $this->assertNull($rows['capture_worker']['last_success_at']);
-        $this->artisan('exception-monitor:heartbeat')->assertSuccessful();
+        $this->artisan('telescope-monitor:heartbeat')->assertSuccessful();
         $rows = collect(app(OperationalStatus::class)->observations())->keyBy('key');
         $this->assertTrue($rows['heartbeat']['fresh']);
         $this->assertStringContainsString('does not prove every', $rows['heartbeat']['detail']);
@@ -510,25 +510,25 @@ final class OperationsTest extends TestCase
     public function test_key_loss_is_visible_without_deleting_credentials_or_replacing_capture_identity(): void
     {
         $this->destination();
-        $before = DB::table('exception_monitor_secrets')->pluck('ciphertext', 'id')->all();
+        $before = DB::table('telescope_monitor_secrets')->pluck('ciphertext', 'id')->all();
         Crypt::swap(new Encrypter(str_repeat('x', 32), 'AES-256-CBC'));
-        $this->getJson('/exception-monitor/api/v1/operations')->assertOk()->assertJsonPath('data.credentials.state', 'failed');
-        $this->assertSame($before, DB::table('exception_monitor_secrets')->pluck('ciphertext', 'id')->all());
+        $this->getJson('/telescope-monitor/api/v1/operations')->assertOk()->assertJsonPath('data.credentials.state', 'failed');
+        $this->assertSame($before, DB::table('telescope_monitor_secrets')->pluck('ciphertext', 'id')->all());
     }
 
     public function test_setup_requires_current_capture_reviews_and_explicit_notification_choice(): void
     {
-        $this->postJson('/exception-monitor/api/v1/setup/finish')->assertConflict();
+        $this->postJson('/telescope-monitor/api/v1/setup/finish')->assertConflict();
         $i = $this->installation();
         foreach (['application', 'privacy', 'operations'] as $ack) {
-            $this->patchJson('/exception-monitor/api/v1/setup', ['step' => 7, 'acknowledge' => $ack, 'config_revision' => $this->installation()->config_revision])->assertOk();
-        }$this->patchJson('/exception-monitor/api/v1/setup', ['step' => 7, 'notification_choice' => 'skip'])->assertOk();
+            $this->patchJson('/telescope-monitor/api/v1/setup', ['step' => 7, 'acknowledge' => $ack, 'config_revision' => $this->installation()->config_revision])->assertOk();
+        }$this->patchJson('/telescope-monitor/api/v1/setup', ['step' => 7, 'notification_choice' => 'skip'])->assertOk();
         $probe = app(CaptureProbes::class)->request((string) Str::uuid());
         app(CaptureProbes::class)->execute($probe['id'], 1);
         $this->process();
-        $state = $this->getJson('/exception-monitor/api/v1/setup/status')->assertOk()->json('data');
+        $state = $this->getJson('/telescope-monitor/api/v1/setup/status')->assertOk()->json('data');
         $this->assertTrue($state['requirements']['capture']);
-        $this->postJson('/exception-monitor/api/v1/setup/finish')->assertOk()->assertJsonPath('data.complete', true);
+        $this->postJson('/telescope-monitor/api/v1/setup/finish')->assertOk()->assertJsonPath('data.complete', true);
         $run = $this->begin()['run']['id'];
         $this->complete($run);
         $this->assertFalse(app(OperationalStatus::class)->setup()['complete']);
@@ -538,47 +538,47 @@ final class OperationsTest extends TestCase
     public function test_viewers_and_operators_cannot_change_operational_administration(): void
     {
         $this->authorize(manage: false);
-        $this->getJson('/exception-monitor/api/v1/operations')->assertForbidden();
-        $this->postJson('/exception-monitor/api/v1/retention/preview', ['values' => ['occurrence_days' => 1]])->assertForbidden();
-        $this->postJson('/exception-monitor/api/v1/setup/finish')->assertForbidden();
+        $this->getJson('/telescope-monitor/api/v1/operations')->assertForbidden();
+        $this->postJson('/telescope-monitor/api/v1/retention/preview', ['values' => ['occurrence_days' => 1]])->assertForbidden();
+        $this->postJson('/telescope-monitor/api/v1/setup/finish')->assertForbidden();
     }
 
     public function test_large_retention_preview_caps_counts_and_sweeps_only_a_bounded_page(): void
     {
         $issue = $this->captureIssue(CarbonImmutable::now('UTC')->subDays(5));
-        $o = (array) DB::table('exception_monitor_occurrences')->first();
-        $e = (array) DB::table('exception_monitor_occurrence_evidence')->first();
+        $o = (array) DB::table('telescope_monitor_occurrences')->first();
+        $e = (array) DB::table('telescope_monitor_occurrence_evidence')->first();
         unset($o['id'],$e['id']);
         DB::transaction(function () use ($o, $e) {
             for ($n = 0; $n < 151; $n++) {
                 $copy = $o;
                 $copy['public_id'] = (string) Str::uuid();
                 $copy['source_uuid'] = (string) Str::uuid();
-                $id = DB::table('exception_monitor_occurrences')->insertGetId($copy);
-                DB::table('exception_monitor_occurrence_evidence')->insert(array_replace($e, ['occurrence_id' => $id]));
+                $id = DB::table('telescope_monitor_occurrences')->insertGetId($copy);
+                DB::table('telescope_monitor_occurrence_evidence')->insert(array_replace($e, ['occurrence_id' => $id]));
             }
         });
-        DB::table('exception_monitor_issues')->where('id', $issue->id)->update(['lifetime_count' => 152]);
-        config(['exception-monitor.operations.preview_limit' => 100]);
+        DB::table('telescope_monitor_issues')->where('id', $issue->id)->update(['lifetime_count' => 152]);
+        config(['telescope-monitor.operations.preview_limit' => 100]);
         $preview = app(RetentionSweep::class)->preview(['occurrence_days' => 1]);
         $this->assertSame(100, $preview['counts']['occurrence_days']['eligible_count']);
         $this->assertTrue($preview['counts']['occurrence_days']['at_least']);
         app(SettingsService::class)->save('retention', ['occurrence_days' => 1], 0);
         $stats = app(RetentionSweep::class)->run(10);
         $this->assertSame(10, $stats['evidence']);
-        $this->assertDatabaseCount('exception_monitor_occurrence_evidence', 142);
-        $this->assertDatabaseCount('exception_monitor_occurrences', 152);
-        $this->assertSame(152, DB::table('exception_monitor_issues')->value('lifetime_count'));
+        $this->assertDatabaseCount('telescope_monitor_occurrence_evidence', 142);
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 152);
+        $this->assertSame(152, DB::table('telescope_monitor_issues')->value('lifetime_count'));
     }
 
     public function test_a_delayed_capture_job_cannot_ingest_an_expired_buffer(): void
     {
         $this->capture();
-        DB::table('exception_monitor_capture_inbox')->update(['received_at' => CarbonImmutable::now('UTC')->subDays(40)->format('Y-m-d H:i:s.u')]);
+        DB::table('telescope_monitor_capture_inbox')->update(['received_at' => CarbonImmutable::now('UTC')->subDays(40)->format('Y-m-d H:i:s.u')]);
         $this->process();
-        $this->assertDatabaseCount('exception_monitor_issues', 0);
-        $this->assertSame('buffer_retention_expired', DB::table('exception_monitor_capture_inbox')->value('last_error_code'));
-        $this->assertNull(DB::table('exception_monitor_capture_inbox')->value('payload_ciphertext'));
+        $this->assertDatabaseCount('telescope_monitor_issues', 0);
+        $this->assertSame('buffer_retention_expired', DB::table('telescope_monitor_capture_inbox')->value('last_error_code'));
+        $this->assertNull(DB::table('telescope_monitor_capture_inbox')->value('payload_ciphertext'));
     }
 
     public function test_aborting_drain_allows_recovery_of_its_retained_source_markers(): void
@@ -586,13 +586,13 @@ final class OperationsTest extends TestCase
         $this->captureIssue();
         $run = $this->begin()['run']['id'];
         $this->capture('During drain', import: false);
-        $this->assertSame(1, DB::table('exception_monitor_occurrences')->count());
+        $this->assertSame(1, DB::table('telescope_monitor_occurrences')->count());
         $i = $this->installation();
         app(PurgeOperations::class)->abort($i->public_id, $i->public_id, $run);
         app(CaptureOperations::class)->reconcile(100);
         $this->process();
-        $this->assertSame(2, DB::table('exception_monitor_occurrences')->count());
-        $this->assertDatabaseCount('exception_monitor_deliveries', 0);
+        $this->assertSame(2, DB::table('telescope_monitor_occurrences')->count());
+        $this->assertDatabaseCount('telescope_monitor_deliveries', 0);
     }
 
     public function test_host_key_rewrap_preserves_plaintext_digest_revisions_and_unreadable_values(): void
@@ -600,15 +600,15 @@ final class OperationsTest extends TestCase
         $this->rule($this->destination());
         $issue = $this->captureIssue();
         $this->collaborations($issue);
-        $d = DB::table('exception_monitor_deliveries')->first();
+        $d = DB::table('telescope_monitor_deliveries')->first();
         $claim = app(DeliveryLedger::class)->claim($d->id, 1, true);
         app(DeliveryLedger::class)->finish($d->id, $claim['token'], Outcome::permanent());
         $before = [];
         foreach (KeyRewrap::TARGETS as $target => [$suffix,$column]) {
-            $before[$target] = DB::table('exception_monitor_'.$suffix)->whereNotNull($column)->get()->mapWithKeys(fn ($row) => [$row->id => Crypt::decryptString($row->{$column})])->all();
+            $before[$target] = DB::table('telescope_monitor_'.$suffix)->whereNotNull($column)->get()->mapWithKeys(fn ($row) => [$row->id => Crypt::decryptString($row->{$column})])->all();
         }
-        $keys = DB::table('exception_monitor_secrets')->pluck('key_id', 'id')->all();
-        $digest = DB::table('exception_monitor_deliveries')->value('payload_digest');
+        $keys = DB::table('telescope_monitor_secrets')->pluck('key_id', 'id')->all();
+        $digest = DB::table('telescope_monitor_deliveries')->value('payload_digest');
         $new = new Encrypter(str_repeat('n', 32), 'AES-256-CBC');
         $new->previousKeys([str_repeat('t', 32)]);
         Crypt::swap($new);
@@ -626,24 +626,24 @@ final class OperationsTest extends TestCase
         }
         Crypt::swap(new Encrypter(str_repeat('n', 32), 'AES-256-CBC'));
         foreach (KeyRewrap::TARGETS as $target => [$suffix,$column]) {
-            $after = DB::table('exception_monitor_'.$suffix)->whereNotNull($column)->get()->mapWithKeys(fn ($row) => [$row->id => Crypt::decryptString($row->{$column})])->all();
+            $after = DB::table('telescope_monitor_'.$suffix)->whereNotNull($column)->get()->mapWithKeys(fn ($row) => [$row->id => Crypt::decryptString($row->{$column})])->all();
             $this->assertSame($before[$target], $after);
         }
-        $this->assertSame($keys, DB::table('exception_monitor_secrets')->pluck('key_id', 'id')->all());
-        $this->assertSame($digest, DB::table('exception_monitor_deliveries')->value('payload_digest'));
-        $this->assertSame(1, DB::table('exception_monitor_notes')->value('row_version'));
-        $this->assertSame('available', app(EvidenceReader::class)->read(DB::table('exception_monitor_occurrences')->value('public_id'))['evidence_state']);
+        $this->assertSame($keys, DB::table('telescope_monitor_secrets')->pluck('key_id', 'id')->all());
+        $this->assertSame($digest, DB::table('telescope_monitor_deliveries')->value('payload_digest'));
+        $this->assertSame(1, DB::table('telescope_monitor_notes')->value('row_version'));
+        $this->assertSame('available', app(EvidenceReader::class)->read(DB::table('telescope_monitor_occurrences')->value('public_id'))['evidence_state']);
     }
 
     public function test_failed_key_rewrap_never_blanks_the_original_ciphertext(): void
     {
         $this->destination();
-        $row = DB::table('exception_monitor_secrets')->first();
-        DB::table('exception_monitor_secrets')->where('id', $row->id)->update(['ciphertext' => 'intentionally unreadable']);
+        $row = DB::table('telescope_monitor_secrets')->first();
+        DB::table('telescope_monitor_secrets')->where('id', $row->id)->update(['ciphertext' => 'intentionally unreadable']);
         $i = $this->installation();
-        $this->artisan('exception-monitor:rewrap', ['installation' => $i->public_id, 'target' => 'secrets', '--confirm' => $i->public_id, '--limit' => 100])->assertFailed();
-        $this->assertSame('intentionally unreadable', DB::table('exception_monitor_secrets')->where('id', $row->id)->value('ciphertext'));
-        $this->assertSame('warning', DB::table('exception_monitor_health_checks')->where('check_key', 'key_rewrap')->value('state'));
+        $this->artisan('telescope-monitor:rewrap', ['installation' => $i->public_id, 'target' => 'secrets', '--confirm' => $i->public_id, '--limit' => 100])->assertFailed();
+        $this->assertSame('intentionally unreadable', DB::table('telescope_monitor_secrets')->where('id', $row->id)->value('ciphertext'));
+        $this->assertSame('warning', DB::table('telescope_monitor_health_checks')->where('check_key', 'key_rewrap')->value('state'));
     }
 
     public function test_setup_delivery_verification_uses_the_current_active_signing_key(): void
@@ -652,7 +652,7 @@ final class OperationsTest extends TestCase
         $c = $service->command('connection.create', null, (string) Str::uuid(), ['provider' => 'webhook', 'name' => 'Webhook', 'enabled' => true, 'endpoint' => 'https://hooks.example.test/events']);
         $stage = $service->command('key.stage', $c['id'], (string) Str::uuid(), ['version' => 1]);
         $test = $service->command('test', $c['id'], (string) Str::uuid(), ['signing_key_id' => $stage['once']['key_id']]);
-        $d = DB::table('exception_monitor_deliveries')->first();
+        $d = DB::table('telescope_monitor_deliveries')->first();
         app(DeliverySender::class)->send($d->id);
         $this->assertFalse(app(OperationalStatus::class)->setup()['delivery_verified']);
         $service->command('key.activate', $c['id'], (string) Str::uuid(), ['version' => 2, 'key_id' => $stage['once']['key_id']]);
@@ -664,14 +664,14 @@ final class OperationsTest extends TestCase
         app(SettingsService::class)->save('retention', ['activity_days' => 120], 0);
         $issue = $this->captureIssue();
         $expected = CarbonImmutable::now('UTC')->addDays(120)->format('Y-m-d H:i:s.u');
-        $this->assertSame($expected, DB::table('exception_monitor_activity')->where('issue_id', $issue->id)->value('expires_at'));
+        $this->assertSame($expected, DB::table('telescope_monitor_activity')->where('issue_id', $issue->id)->value('expires_at'));
         app(CollaborationRepository::class)->command('note.create', $issue->public_id, (string) Str::uuid(), ['body' => 'Retained note']);
-        $this->assertSame($expected, DB::table('exception_monitor_activity')->where('event_type', 'note.added')->value('expires_at'));
+        $this->assertSame($expected, DB::table('telescope_monitor_activity')->where('event_type', 'note.added')->value('expires_at'));
     }
 
     public function test_incompatible_deployment_limits_fail_visibly_instead_of_being_weakened(): void
     {
-        config(['exception-monitor.retention_limits.aggregate_days' => ['max' => 7]]);
+        config(['telescope-monitor.retention_limits.aggregate_days' => ['max' => 7]]);
         $health = collect(app(HealthService::class)->inspect())->keyBy('key');
         $this->assertSame('failed', $health['retention_limits']['state']);
         $this->expectException(MaintenanceFailure::class);

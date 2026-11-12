@@ -15,7 +15,7 @@ final class Credentials
     public function value(Secret $secret): string
     {
         if ($secret->source === 'deployment') {
-            $registry = config('exception-monitor.integrations.credentials', []);
+            $registry = config('telescope-monitor.integrations.credentials', []);
             $record = $registry[$secret->deployment_reference] ?? null;
             if (! is_array($record) || ($record['purpose'] ?? null) !== $secret->secret_name || ! is_string($record['value'] ?? null) || $record['value'] === '') {
                 throw new \RuntimeException('credential_unavailable');

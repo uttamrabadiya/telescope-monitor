@@ -45,8 +45,8 @@ final class EloquentAlertEventRepository implements AlertEventRepository
     public function prune(int $limit): int
     {
         $query = AlertEvent::query()->whereIn('planning_state', ['disabled', 'cancelled'])->where('expires_at', '<=', now('UTC')->format('Y-m-d H:i:s.u'));
-        if (Database::schema()->hasTable('exception_monitor_deliveries')) {
-            $query->whereNotExists(fn ($q) => $q->selectRaw('1')->from('exception_monitor_deliveries')->whereColumn('event_id', 'exception_monitor_alert_events.id'))->whereNotExists(fn ($q) => $q->selectRaw('1')->from('exception_monitor_delivery_rules')->whereColumn('matching_event_id', 'exception_monitor_alert_events.id'));
+        if (Database::schema()->hasTable('telescope_monitor_deliveries')) {
+            $query->whereNotExists(fn ($q) => $q->selectRaw('1')->from('telescope_monitor_deliveries')->whereColumn('event_id', 'telescope_monitor_alert_events.id'))->whereNotExists(fn ($q) => $q->selectRaw('1')->from('telescope_monitor_delivery_rules')->whereColumn('matching_event_id', 'telescope_monitor_alert_events.id'));
         }
         $ids = $query->orderBy('id')->limit($limit)->pluck('id');
 

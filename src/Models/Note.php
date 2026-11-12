@@ -23,7 +23,7 @@ final class Note extends Model
 {
     use UsesUtcTimestamps;
 
-    protected $table = 'exception_monitor_notes';
+    protected $table = 'telescope_monitor_notes';
 
     protected $guarded = [];
 

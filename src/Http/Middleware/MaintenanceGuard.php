@@ -21,7 +21,7 @@ final class MaintenanceGuard
             return $next($request);
         }
         $path = trim($request->path(), '/');
-        $base = trim(config('exception-monitor.path'), '/').'/api/v1/';
+        $base = trim(config('telescope-monitor.path'), '/').'/api/v1/';
         $relative = str_starts_with($path, $base) ? substr($path, strlen($base)) : '';
         $readable = in_array($relative, ['bootstrap', 'operations', 'health', 'setup/status'], true) || str_starts_with($relative, 'settings/');
         $preview = in_array($relative, ['health/check', 'retention/preview', 'privacy/preview'], true);

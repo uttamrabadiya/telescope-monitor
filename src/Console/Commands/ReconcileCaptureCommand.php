@@ -8,7 +8,7 @@ use TelescopeMonitor\Repositories\Contracts\CaptureInboxRepository;
 
 final class ReconcileCaptureCommand extends Command
 {
-    protected $signature = 'exception-monitor:reconcile {--limit=100} {--hours=}';
+    protected $signature = 'telescope-monitor:reconcile {--limit=100} {--hours=}';
 
     protected $description = 'Replay marked Telescope exceptions without retroactive alerts.';
 

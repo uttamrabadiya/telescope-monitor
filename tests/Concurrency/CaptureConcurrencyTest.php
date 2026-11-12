@@ -46,11 +46,11 @@ final class CaptureConcurrencyTest extends TestCase
             $this->assertSame(0, pcntl_wexitstatus($status));
         }
         DB::purge();
-        $this->assertDatabaseCount('exception_monitor_capture_inbox', 12);
-        $this->assertSame((int) DB::table('telescope_entries')->max('sequence'), (int) DB::table('exception_monitor_installations')->value('source_sequence_checkpoint'));
+        $this->assertDatabaseCount('telescope_monitor_capture_inbox', 12);
+        $this->assertSame((int) DB::table('telescope_entries')->max('sequence'), (int) DB::table('telescope_monitor_installations')->value('source_sequence_checkpoint'));
         $this->process();
-        $this->assertDatabaseCount('exception_monitor_occurrences', 12);
-        $this->assertSame(12, (int) DB::table('exception_monitor_issues')->value('lifetime_count'));
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 12);
+        $this->assertSame(12, (int) DB::table('telescope_monitor_issues')->value('lifetime_count'));
     }
 
     public function test_concurrent_first_occurrences_and_duplicate_claims_count_exactly_once(): void
@@ -61,7 +61,7 @@ final class CaptureConcurrencyTest extends TestCase
         for ($i = 0; $i < 12; $i++) {
             $this->capture('Concurrent '.$i);
         }
-        $ids = DB::table('exception_monitor_capture_inbox')->pluck('id')->all();
+        $ids = DB::table('telescope_monitor_capture_inbox')->pluck('id')->all();
         DB::disconnect();
         $children = [];
         for ($worker = 0; $worker < 6; $worker++) {
@@ -87,12 +87,12 @@ final class CaptureConcurrencyTest extends TestCase
         DB::purge();
         $this->travel(2)->minutes();
         $this->process();
-        $this->assertDatabaseCount('exception_monitor_issues', 1);
-        $this->assertDatabaseCount('exception_monitor_occurrences', 12);
-        $this->assertSame(12, (int) DB::table('exception_monitor_issues')->value('lifetime_count'));
-        $this->assertSame(12, (int) DB::table('exception_monitor_metric_buckets')->where('resolution', '1h')->sum('occurrence_count'));
-        $this->assertSame(1, (int) DB::table('exception_monitor_metric_buckets')->where('resolution', '1h')->sum('new_group_count'));
-        $this->assertDatabaseCount('exception_monitor_alert_events', 1);
+        $this->assertDatabaseCount('telescope_monitor_issues', 1);
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 12);
+        $this->assertSame(12, (int) DB::table('telescope_monitor_issues')->value('lifetime_count'));
+        $this->assertSame(12, (int) DB::table('telescope_monitor_metric_buckets')->where('resolution', '1h')->sum('occurrence_count'));
+        $this->assertSame(1, (int) DB::table('telescope_monitor_metric_buckets')->where('resolution', '1h')->sum('new_group_count'));
+        $this->assertDatabaseCount('telescope_monitor_alert_events', 1);
     }
 
     public function test_concurrent_historical_imports_count_each_source_uuid_once_without_alert_intents(): void
@@ -139,11 +139,11 @@ final class CaptureConcurrencyTest extends TestCase
         }
         DB::purge();
         $this->process();
-        $this->assertDatabaseCount('exception_monitor_occurrences', 12);
-        $this->assertDatabaseCount('exception_monitor_issues', 1);
-        $this->assertSame(12, (int) DB::table('exception_monitor_issues')->value('lifetime_count'));
-        $this->assertSame(12, (int) DB::table('exception_monitor_metric_buckets')->where('resolution', '1h')->sum('occurrence_count'));
-        $this->assertDatabaseCount('exception_monitor_alert_events', 0);
-        $this->assertDatabaseCount('exception_monitor_deliveries', 0);
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 12);
+        $this->assertDatabaseCount('telescope_monitor_issues', 1);
+        $this->assertSame(12, (int) DB::table('telescope_monitor_issues')->value('lifetime_count'));
+        $this->assertSame(12, (int) DB::table('telescope_monitor_metric_buckets')->where('resolution', '1h')->sum('occurrence_count'));
+        $this->assertDatabaseCount('telescope_monitor_alert_events', 0);
+        $this->assertDatabaseCount('telescope_monitor_deliveries', 0);
     }
 }

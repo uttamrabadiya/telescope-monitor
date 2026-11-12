@@ -7,7 +7,7 @@ use TelescopeMonitor\Services\InstallationService;
 
 final class InstallCommand extends Command
 {
-    protected $signature = 'exception-monitor:install';
+    protected $signature = 'telescope-monitor:install';
 
     protected $description = 'Publish the replacement configuration and migrations without overwriting consumer files.';
 
@@ -18,7 +18,7 @@ final class InstallCommand extends Command
 
             return self::FAILURE;
         }
-        $this->info('Published missing files. Run exception-monitor:migrate and define view/operate/manage authorization gates.');
+        $this->info('Published missing files. Run telescope-monitor:migrate and define view/operate/manage authorization gates.');
 
         return self::SUCCESS;
     }

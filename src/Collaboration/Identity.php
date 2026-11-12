@@ -53,7 +53,7 @@ final class Identity
             $user = $this->actors->resolve(new Actor($key, ''));
             if (! $user) {
                 return $this->labels[$key] = 'Former user';
-            }$formatter = config('exception-monitor.actor_label');
+            }$formatter = config('telescope-monitor.actor_label');
             $label = is_callable($formatter) ? $formatter($user) : data_get($user, 'name');
 
             return $this->labels[$key] = is_string($label) && $label !== '' ? mb_substr($label, 0, 120) : 'Host user';

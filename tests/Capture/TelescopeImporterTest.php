@@ -24,14 +24,14 @@ final class TelescopeImporterTest extends TestCase
         for ($n = 0; $n < 3; $n++) {
             $this->capture(import: false);
         }
-        $this->artisan('exception-monitor:import', ['--limit' => 2, '--process' => true])->assertSuccessful();
-        $this->assertDatabaseCount('exception_monitor_occurrences', 2);
-        $this->artisan('exception-monitor:import', ['--limit' => 2, '--process' => true])->assertSuccessful();
-        $this->artisan('exception-monitor:import', ['--limit' => 2, '--process' => true])->assertSuccessful();
-        $this->assertDatabaseCount('exception_monitor_occurrences', 3);
-        $this->assertSame(3, DB::table('exception_monitor_occurrences')->where('mode', 'live')->count());
-        $this->assertSame(1, DB::table('exception_monitor_alert_events')->where('event_type', 'error.created')->count());
-        $this->assertSame((int) DB::table('telescope_entries')->max('sequence'), (int) DB::table('exception_monitor_installations')->value('source_sequence_checkpoint'));
+        $this->artisan('telescope-monitor:import', ['--limit' => 2, '--process' => true])->assertSuccessful();
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 2);
+        $this->artisan('telescope-monitor:import', ['--limit' => 2, '--process' => true])->assertSuccessful();
+        $this->artisan('telescope-monitor:import', ['--limit' => 2, '--process' => true])->assertSuccessful();
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 3);
+        $this->assertSame(3, DB::table('telescope_monitor_occurrences')->where('mode', 'live')->count());
+        $this->assertSame(1, DB::table('telescope_monitor_alert_events')->where('event_type', 'error.created')->count());
+        $this->assertSame((int) DB::table('telescope_entries')->max('sequence'), (int) DB::table('telescope_monitor_installations')->value('source_sequence_checkpoint'));
     }
 
     public function test_interrupted_page_does_not_advance_checkpoint_and_restart_deduplicates_buffered_rows(): void
@@ -56,12 +56,12 @@ final class TelescopeImporterTest extends TestCase
         } finally {
             $this->app->instance(CaptureInboxRepository::class, $original);
         }
-        $this->assertSame(0, (int) DB::table('exception_monitor_installations')->value('source_sequence_checkpoint'));
-        $this->assertDatabaseCount('exception_monitor_capture_inbox', 1);
+        $this->assertSame(0, (int) DB::table('telescope_monitor_installations')->value('source_sequence_checkpoint'));
+        $this->assertDatabaseCount('telescope_monitor_capture_inbox', 1);
         $this->importSource();
         $this->process();
-        $this->assertDatabaseCount('exception_monitor_occurrences', 2);
-        $this->assertSame(2, (int) DB::table('exception_monitor_issues')->value('lifetime_count'));
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 2);
+        $this->assertSame(2, (int) DB::table('telescope_monitor_issues')->value('lifetime_count'));
     }
 
     public function test_tampered_source_payload_cannot_reuse_a_valid_proof(): void
@@ -73,8 +73,8 @@ final class TelescopeImporterTest extends TestCase
         $good = $this->capture(import: false);
         $this->importSource();
         $this->process();
-        $this->assertDatabaseCount('exception_monitor_occurrences', 1);
-        $this->assertSame($good, DB::table('exception_monitor_occurrences')->value('source_uuid'));
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 1);
+        $this->assertSame($good, DB::table('telescope_monitor_occurrences')->value('source_uuid'));
     }
 
     public function test_previous_deployment_key_can_verify_retained_source_after_rotation(): void
@@ -82,21 +82,21 @@ final class TelescopeImporterTest extends TestCase
         $old = config('app.key');
         $uuid = $this->capture(import: false);
         config([
-            'exception-monitor.capture.signing_key' => str_repeat('n', 32),
-            'exception-monitor.capture.signing_previous_keys' => [$old],
+            'telescope-monitor.capture.signing_key' => str_repeat('n', 32),
+            'telescope-monitor.capture.signing_previous_keys' => [$old],
         ]);
         $this->importSource();
         $this->process();
-        $this->assertSame($uuid, DB::table('exception_monitor_occurrences')->value('source_uuid'));
+        $this->assertSame($uuid, DB::table('telescope_monitor_occurrences')->value('source_uuid'));
     }
 
     public function test_signer_failure_has_no_database_fallback_and_keeps_telescope_exception(): void
     {
-        config(['exception-monitor.capture.signing_key' => 'invalid']);
+        config(['telescope-monitor.capture.signing_key' => 'invalid']);
         $uuid = $this->capture(import: false);
         $this->assertTrue(DB::table('telescope_entries')->where('uuid', $uuid)->exists());
-        $this->assertSame(0, DB::table('telescope_entries_tags')->where('entry_uuid', $uuid)->where('tag', 'like', 'em3|%')->count());
-        $this->assertDatabaseCount('exception_monitor_capture_inbox', 0);
+        $this->assertSame(0, DB::table('telescope_entries_tags')->where('entry_uuid', $uuid)->where('tag', 'like', 'tm3|%')->count());
+        $this->assertDatabaseCount('telescope_monitor_capture_inbox', 0);
         $this->expectException(CaptureFailure::class);
         $this->expectExceptionMessage('source_signing_key_invalid');
         $this->importSource();
@@ -106,22 +106,22 @@ final class TelescopeImporterTest extends TestCase
     {
         $calls = 0;
         config([
-            'exception-monitor.capture.grouping_callback' => function ($input) use (&$calls) {
+            'telescope-monitor.capture.grouping_callback' => function ($input) use (&$calls) {
                 $calls++;
                 return json_encode($input);
             },
         ]);
         $this->capture(import: false);
         $this->assertSame(0, $calls);
-        config(['exception-monitor.capture.grouping_version' => 2]);
+        config(['telescope-monitor.capture.grouping_version' => 2]);
         try {
             $this->importSource();
             $this->fail('Expected grouping version mismatch.');
         } catch (CaptureFailure $e) {
             $this->assertSame('source_grouping_version_unavailable', $e->getMessage());
         }
-        $this->assertSame(0, (int) DB::table('exception_monitor_installations')->value('source_sequence_checkpoint'));
-        config(['exception-monitor.capture.grouping_version' => 1]);
+        $this->assertSame(0, (int) DB::table('telescope_monitor_installations')->value('source_sequence_checkpoint'));
+        config(['telescope-monitor.capture.grouping_version' => 1]);
         $this->importSource();
         $this->assertGreaterThan(0, $calls);
     }
@@ -144,8 +144,8 @@ final class TelescopeImporterTest extends TestCase
         }
         $this->importSource();
         $this->process();
-        $this->assertSame('reconciliation', DB::table('exception_monitor_occurrences')->value('mode'));
-        $this->assertSame('disabled', DB::table('exception_monitor_alert_events')->value('planning_state'));
+        $this->assertSame('reconciliation', DB::table('telescope_monitor_occurrences')->value('mode'));
+        $this->assertSame('disabled', DB::table('telescope_monitor_alert_events')->value('planning_state'));
     }
 
     public function test_delayed_commit_after_purge_cannot_resurrect_a_pre_purge_stamp_even_with_future_event_time(): void
@@ -170,25 +170,25 @@ final class TelescopeImporterTest extends TestCase
         Telescope::store(app(EntriesRepository::class));
         $this->importSource();
         $this->process();
-        $this->assertDatabaseCount('exception_monitor_occurrences', 0);
-        $this->assertDatabaseCount('exception_monitor_deliveries', 0);
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 0);
+        $this->assertDatabaseCount('telescope_monitor_deliveries', 0);
         $this->travel(2)->seconds();
         $fresh = $this->capture(import: false);
         $this->importSource();
         $this->process();
-        $this->assertSame($fresh, DB::table('exception_monitor_occurrences')->value('source_uuid'));
+        $this->assertSame($fresh, DB::table('telescope_monitor_occurrences')->value('source_uuid'));
     }
 
     public function test_pause_during_drain_does_not_consume_the_source_checkpoint(): void
     {
         $this->capture(import: false);
         $i = app(InstallationRepository::class)->current();
-        DB::table('exception_monitor_installations')->update(['state' => 'draining']);
+        DB::table('telescope_monitor_installations')->update(['state' => 'draining']);
         $this->assertTrue($this->importSource()['paused']);
-        $this->assertSame(0, (int) DB::table('exception_monitor_installations')->value('source_sequence_checkpoint'));
-        DB::table('exception_monitor_installations')->update(['state' => 'active']);
+        $this->assertSame(0, (int) DB::table('telescope_monitor_installations')->value('source_sequence_checkpoint'));
+        DB::table('telescope_monitor_installations')->update(['state' => 'active']);
         $this->importSource();
         $this->process();
-        $this->assertDatabaseCount('exception_monitor_occurrences', 1);
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 1);
     }
 }

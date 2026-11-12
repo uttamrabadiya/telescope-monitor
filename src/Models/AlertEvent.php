@@ -34,7 +34,7 @@ final class AlertEvent extends Model
 
     protected $dateFormat = 'Y-m-d H:i:s.u';
 
-    protected $table = 'exception_monitor_alert_events';
+    protected $table = 'telescope_monitor_alert_events';
 
     protected $guarded = [];
 

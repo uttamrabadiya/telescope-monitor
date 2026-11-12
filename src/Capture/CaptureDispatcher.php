@@ -14,7 +14,7 @@ final class CaptureDispatcher
 
     public function asynchronous(): bool
     {
-        $connection = config('exception-monitor.queues.connection') ?? config('queue.default');
+        $connection = config('telescope-monitor.queues.connection') ?? config('queue.default');
 
         return in_array(config('queue.connections.'.$connection.'.driver'), ['database', 'redis'], true);
     }
@@ -27,7 +27,7 @@ final class CaptureDispatcher
 
         return Telescope::withoutRecording(function () use ($id, $generation) {
             try {
-                Bus::dispatch((new ProcessCapture($id, $generation))->onConnection(config('exception-monitor.queues.connection'))->onQueue(config('exception-monitor.queues.capture')));
+                Bus::dispatch((new ProcessCapture($id, $generation))->onConnection(config('telescope-monitor.queues.connection'))->onQueue(config('telescope-monitor.queues.capture')));
 
                 return true;
             } catch (Throwable) {

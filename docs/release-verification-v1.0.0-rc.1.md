@@ -77,7 +77,7 @@ A 100-report local SQLite diagnostic measured host Telescope storage plus a boun
 
 ## Rendered QA
 
-Browser plugin not available; Playwright fallback used. Local fresh host: `http://127.0.0.1:8200/exception-monitor/`. Title: Telescope Monitor. Viewports: 1440×1000, 768×1024 and 390×844. Setup, overview, inbox, error details, alert rules, integrations and general settings showed meaningful content, no framework overlay and no page-wide horizontal overflow. Screenshot evidence is in the companion bundle. Empty destinations/notifications were kept truthful; no fabricated production alerts were enabled.
+Browser plugin not available; Playwright fallback used. Local fresh host: `http://127.0.0.1:8200/telescope-monitor/`. Title: Telescope Monitor. Viewports: 1440×1000, 768×1024 and 390×844. Setup, overview, inbox, error details, alert rules, integrations and general settings showed meaningful content, no framework overlay and no page-wide horizontal overflow. Screenshot evidence is in the companion bundle. Empty destinations/notifications were kept truthful; no fabricated production alerts were enabled.
 
 Verified interactions: resolve/reopen with control/state change and activity; add a plain-text note containing literal script syntax and safe link; save/reload a personal view; save/reload settings; open mobile navigation. Keyboard Enter on the skip link initially failed to transfer focus. Adding `tabindex=-1` to the main region corrected it: focus becomes `tm-main`, then Tab advances to General. Mechanical detector returned no findings. No application console errors/warnings were observed in the exercised journeys. This is Chromium/emulated viewport evidence; it does not certify complete keyboard, screen-reader, zoom or physical-device coverage.
 

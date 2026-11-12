@@ -6,8 +6,8 @@ final class SourceSnapshot
 {
     public function capture(): ?array
     {
-        $release = config('exception-monitor.capture.release');
-        $template = config('exception-monitor.capture.source_link_template');
+        $release = config('telescope-monitor.capture.release');
+        $template = config('telescope-monitor.capture.source_link_template');
         if (! is_string($release) || $release === '' || strlen($release) > 191) {
             return null;
         }

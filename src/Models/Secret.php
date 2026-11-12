@@ -29,7 +29,7 @@ final class Secret extends Model
 
     protected $dateFormat = 'Y-m-d H:i:s.u';
 
-    protected $table = 'exception_monitor_secrets';
+    protected $table = 'telescope_monitor_secrets';
 
     protected $guarded = [];
 

@@ -1,6 +1,6 @@
 import { reactive, ref } from 'vue'
 import type { Bootstrap } from '../types'
-const mount = document.getElementById('exception-monitor-app')!
+const mount = document.getElementById('telescope-monitor-app')!
 export const base = mount.dataset.base!
 const apiBase = mount.dataset.api!
 export const bootstrap = ref<Bootstrap | null>(null)
@@ -18,6 +18,6 @@ export async function api<T>(path: string, method = 'GET', body?: unknown, signa
   })
   const data = await response.json().catch(() => ({}))
   if (!response.ok) throw new ApiError(response.status, data.error?.message ?? data.message ?? 'The request could not be completed. Try again.', data.errors ?? {})
-  return (data.data ?? data.exception_monitor_private) as T
+  return (data.data ?? data.telescope_monitor_private) as T
 }
 export async function loadBootstrap() { bootstrap.value = await api<Bootstrap>('/bootstrap') }

@@ -31,7 +31,7 @@ final class KeyRewrap
 
         return $this->journal->run('key_rewrap', function () use ($i, $target, $limit, $after) {
             [$suffix,$field] = self::TARGETS[$target];
-            $q = fn () => Database::connection()->table('exception_monitor_'.$suffix)->where('installation_id', $i->id)->whereNotNull($field);
+            $q = fn () => Database::connection()->table('telescope_monitor_'.$suffix)->where('installation_id', $i->id)->whereNotNull($field);
             $ids = $q()->where('id', '>', $after)->orderBy('id')->limit($limit)->pluck('id');
             $rewrapped = 0;
             $failed = 0;
@@ -40,7 +40,7 @@ final class KeyRewrap
                     $current = $this->installations->fence();
                     if ($current->state !== 'active' || $current->generation !== $i->generation) {
                         throw new MaintenanceFailure('maintenance_in_progress');
-                    }$row = Database::connection()->table('exception_monitor_'.$suffix)->where('installation_id', $i->id)->where('id', $id)->lockForUpdate()->first(['id', $field]);
+                    }$row = Database::connection()->table('telescope_monitor_'.$suffix)->where('installation_id', $i->id)->where('id', $id)->lockForUpdate()->first(['id', $field]);
                     if (! $row || $row->{$field} === null) {
                         return true;
                     }try {
@@ -48,7 +48,7 @@ final class KeyRewrap
                         $encrypted = Crypt::encryptString($plain);
                     } catch (\Throwable) {
                         return false;
-                    }Database::connection()->table('exception_monitor_'.$suffix)->where('id', $id)->update([$field => $encrypted]);
+                    }Database::connection()->table('telescope_monitor_'.$suffix)->where('id', $id)->update([$field => $encrypted]);
 
                     return true;
                 }, 5);

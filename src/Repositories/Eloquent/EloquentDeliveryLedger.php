@@ -69,13 +69,13 @@ final class EloquentDeliveryLedger implements DeliveryLedger
         if (! $issue || ! $this->matcher->allowed($issue)) {
             return ['valid' => false, 'cooldown' => 0];
         }
-        $refs = Database::connection()->table('exception_monitor_delivery_rules')->where('delivery_id', $d->id)->get();
+        $refs = Database::connection()->table('telescope_monitor_delivery_rules')->where('delivery_id', $d->id)->get();
         $valid = false;
         $cooldown = 0;
         foreach ($refs as $ref) {
             $rule = AlertRule::query()->where('installation_id', $d->installation_id)->find($ref->rule_id);
             $event = AlertEvent::query()->where('installation_id', $d->installation_id)->find($ref->matching_event_id);
-            if (! $rule || ! $event || ! Database::connection()->table('exception_monitor_rule_connections')->where('rule_id', $rule->id)->where('connection_id', $d->connection_id)->exists()) {
+            if (! $rule || ! $event || ! Database::connection()->table('telescope_monitor_rule_connections')->where('rule_id', $rule->id)->where('connection_id', $d->connection_id)->exists()) {
                 continue;
             }
             if (EventCatalog::canonical($event->event_type) === 'error.threshold_reached' && $rule->row_version !== (int) $ref->rule_version) {
@@ -246,7 +246,7 @@ final class EloquentDeliveryLedger implements DeliveryLedger
 
                 return null;
             }
-            if (! config('exception-monitor.alerts.enabled', true)) {
+            if (! config('telescope-monitor.alerts.enabled', true)) {
                 $this->cancel($d, 'delivery_disabled');
 
                 return null;
@@ -480,12 +480,12 @@ final class EloquentDeliveryLedger implements DeliveryLedger
             $links = LinkedIssue::query()->where('installation_id', $this->installations->current()->id)->where('state', 'reserved')->whereIn('create_delivery_id', $expired())->orderBy('id')->limit($limit)->pluck('id');
             LinkedIssue::query()->whereKey($links)->where('state', 'reserved')->whereIn('create_delivery_id', $expired())->update(['state' => 'unavailable', 'row_version' => Database::connection()->raw('row_version + 1')]);
         }
-        $ids = Delivery::query()->whereNotExists(fn ($q) => $q->selectRaw('1')->from('exception_monitor_deliveries as children')->whereColumn('children.parent_delivery_id', 'exception_monitor_deliveries.id'))->whereIn('status', ['sent', 'cancelled', 'failed'])->where('completed_at', '<', now('UTC')->subDays($days)->format('Y-m-d H:i:s.u'))->orderBy('id')->limit($limit)->pluck('id');
+        $ids = Delivery::query()->whereNotExists(fn ($q) => $q->selectRaw('1')->from('telescope_monitor_deliveries as children')->whereColumn('children.parent_delivery_id', 'telescope_monitor_deliveries.id'))->whereIn('status', ['sent', 'cancelled', 'failed'])->where('completed_at', '<', now('UTC')->subDays($days)->format('Y-m-d H:i:s.u'))->orderBy('id')->limit($limit)->pluck('id');
         if (app(GitHubIssues::class)->ready()) {
             $ids = $ids->diff(LinkedIssue::query()->whereIn('state', ['reserved', 'creating', 'needs_review'])->whereIn('create_delivery_id', $ids)->pluck('create_delivery_id'));
         }
         $removed = Delivery::query()->whereKey($ids)->delete();
-        $eventIds = AlertEvent::query()->where('expires_at', '<=', now('UTC')->format('Y-m-d H:i:s.u'))->whereNotExists(fn ($q) => $q->selectRaw('1')->from('exception_monitor_deliveries')->whereColumn('event_id', 'exception_monitor_alert_events.id'))->whereNotExists(fn ($q) => $q->selectRaw('1')->from('exception_monitor_delivery_rules')->whereColumn('matching_event_id', 'exception_monitor_alert_events.id'))->orderBy('id')->limit($limit)->pluck('id');
+        $eventIds = AlertEvent::query()->where('expires_at', '<=', now('UTC')->format('Y-m-d H:i:s.u'))->whereNotExists(fn ($q) => $q->selectRaw('1')->from('telescope_monitor_deliveries')->whereColumn('event_id', 'telescope_monitor_alert_events.id'))->whereNotExists(fn ($q) => $q->selectRaw('1')->from('telescope_monitor_delivery_rules')->whereColumn('matching_event_id', 'telescope_monitor_alert_events.id'))->orderBy('id')->limit($limit)->pluck('id');
         $events = AlertEvent::query()->whereKey($eventIds)->delete();
 
         app(Credentials::class)->cleanup();

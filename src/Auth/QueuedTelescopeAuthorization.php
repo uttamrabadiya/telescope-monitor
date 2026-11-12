@@ -21,10 +21,10 @@ final class QueuedTelescopeAuthorization
         $originalGate = Gate::getFacadeRoot();
         $originalRequest = app('request');
         $originalUserResolver = $originalRequest->getUserResolver();
-        $guard = config('exception-monitor.guard') ?? config('auth.defaults.guard');
+        $guard = config('telescope-monitor.guard') ?? config('auth.defaults.guard');
         // No synthetic loopback address, browser headers, cookies or session.
         $request = new Request(server: ['REQUEST_METHOD' => 'CLI']);
-        $request->attributes->set('exception-monitor.worker', true);
+        $request->attributes->set('telescope-monitor.worker', true);
         $scopedAuth = new class (app(), $user, $request, $guard) extends AuthManager
         {
             public function __construct($app, private ?Authenticatable $actor, private Request $context, private string $actorGuard)

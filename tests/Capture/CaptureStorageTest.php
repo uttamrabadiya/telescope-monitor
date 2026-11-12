@@ -18,7 +18,7 @@ final class CaptureStorageTest extends TestCase
 
     public function test_first_and_subsequent_host_captures_never_query_monitor_storage(): void
     {
-        DB::table('exception_monitor_installations')->delete();
+        DB::table('telescope_monitor_installations')->delete();
         DB::connection()->enableQueryLog();
         DB::connection()->flushQueryLog();
         $first = $this->capture(import: false);
@@ -26,14 +26,14 @@ final class CaptureStorageTest extends TestCase
         $queries = DB::connection()->getQueryLog();
         DB::connection()->disableQueryLog();
         foreach ($queries as $query) {
-            $this->assertDoesNotMatchRegularExpression('/exception_monitor_|sqlite_(master|schema)|information_schema|pg_catalog|pragma|show\s+(tables|columns)/i', $query['query']);
+            $this->assertDoesNotMatchRegularExpression('/telescope_monitor_|sqlite_(master|schema)|information_schema|pg_catalog|pragma|show\s+(tables|columns)/i', $query['query']);
         }
         $this->assertTrue(DB::table('telescope_entries')->where('uuid', $first)->exists());
-        $this->assertDatabaseCount('exception_monitor_installations', 0);
-        $this->assertDatabaseCount('exception_monitor_capture_inbox', 0);
+        $this->assertDatabaseCount('telescope_monitor_installations', 0);
+        $this->assertDatabaseCount('telescope_monitor_capture_inbox', 0);
         $this->assertGreaterThanOrEqual(2, $this->importSource()['buffered']);
         $this->process();
-        $this->assertDatabaseCount('exception_monitor_occurrences', 2);
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 2);
     }
 
     public function test_empty_and_non_exception_batches_do_not_touch_storage(): void
@@ -55,7 +55,7 @@ final class CaptureStorageTest extends TestCase
     {
         config([
             'database.connections.unmigrated_monitor' => ['driver' => 'sqlite', 'database' => ':memory:', 'prefix' => ''],
-            'exception-monitor.database.connection' => 'unmigrated_monitor',
+            'telescope-monitor.database.connection' => 'unmigrated_monitor',
         ]);
         try {
             $uuid = $this->capture(import: false);
@@ -64,18 +64,18 @@ final class CaptureStorageTest extends TestCase
             $checks = collect(app(HealthService::class)->inspect());
             $this->assertSame('failed', $checks->firstWhere('key', 'storage')['state']);
         } finally {
-            config(['exception-monitor.database.connection' => null]);
+            config(['telescope-monitor.database.connection' => null]);
         }
         $this->importSource();
         $this->process();
-        $this->assertSame($uuid, DB::table('exception_monitor_occurrences')->value('source_uuid'));
+        $this->assertSame($uuid, DB::table('telescope_monitor_occurrences')->value('source_uuid'));
     }
 
     public function test_unreachable_monitor_connection_is_never_queried_by_host_capture(): void
     {
         config([
             'database.connections.unreachable_monitor' => ['driver' => 'sqlite', 'database' => '/missing-monitor-directory/database.sqlite', 'prefix' => ''],
-            'exception-monitor.database.connection' => 'unreachable_monitor',
+            'telescope-monitor.database.connection' => 'unreachable_monitor',
         ]);
         $attempts = [];
         DB::connection('unreachable_monitor')->beforeExecuting(function ($sql) use (&$attempts) {
@@ -86,14 +86,14 @@ final class CaptureStorageTest extends TestCase
             $this->assertSame([], $attempts);
             $this->assertTrue(DB::table('telescope_entries')->where('uuid', $uuid)->exists());
         } finally {
-            config(['exception-monitor.database.connection' => null]);
+            config(['telescope-monitor.database.connection' => null]);
         }
     }
 
     public function test_partial_storage_failure_is_confined_to_importer_and_health_still_checks_schema(): void
     {
         app(InstallationRepository::class)->current();
-        Database::schema()->drop('exception_monitor_capture_inbox');
+        Database::schema()->drop('telescope_monitor_capture_inbox');
         $uuid = $this->capture(import: false);
         $this->assertTrue(DB::table('telescope_entries')->where('uuid', $uuid)->exists());
         $this->assertFalse(app(CaptureInboxRepository::class)->ready());

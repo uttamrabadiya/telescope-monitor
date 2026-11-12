@@ -11,7 +11,7 @@ use TelescopeMonitor\Repositories\Contracts\DeliveryLedger;
 
 final class RecoverDeliveriesCommand extends Command
 {
-    protected $signature = 'exception-monitor:recover-deliveries {--limit=100}';
+    protected $signature = 'telescope-monitor:recover-deliveries {--limit=100}';
 
     protected $description = 'Redispatch eligible durable email work.';
 

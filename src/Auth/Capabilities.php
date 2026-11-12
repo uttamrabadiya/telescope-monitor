@@ -19,14 +19,14 @@ final class Capabilities
         if (! $actor || ! ($user = $this->actors->resolve($actor))) {
             return false;
         }
-        $driver = config('exception-monitor.authorization.driver', 'telescope');
+        $driver = config('telescope-monitor.authorization.driver', 'telescope');
         if ($driver === 'telescope') {
             return app(TelescopeAccess::class)->allows($user, $actor->key === TelescopeAccess::SHARED_KEY, $current?->key === $actor->key);
         }
         if ($driver !== 'gates') {
             return false;
         }
-        $gate = config('exception-monitor.capabilities.'.$capability);
+        $gate = config('telescope-monitor.capabilities.'.$capability);
 
         return is_string($gate) && Gate::has($gate) && Gate::forUser($user)->allows($gate);
     }

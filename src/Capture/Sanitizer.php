@@ -70,7 +70,7 @@ final class Sanitizer
             } elseif ($type === 'query' && $policy['privacy']['retain_execution_context']) {
                 $duration = is_numeric($c['time'] ?? null) && is_finite((float) $c['time']) ? max(0, (float) $c['time']) : null;
                 $sql = ($policy['privacy']['retain_sql_templates'] ?? false)
-                    ? app(SqlTemplate::class)->capture($c['sql'] ?? null, $c['driver'] ?? null, (int) config('exception-monitor.capture.sql_max_bytes', 2048))
+                    ? app(SqlTemplate::class)->capture($c['sql'] ?? null, $c['driver'] ?? null, (int) config('telescope-monitor.capture.sql_max_bytes', 2048))
                     : ['sql_state' => 'disabled'];
                 $event = ['type' => 'query', 'connection' => $this->text($c['connection'] ?? '', $policy, 64), 'duration_ms' => $duration] + $sql;
                 if ($duration === null) {
@@ -117,7 +117,7 @@ final class Sanitizer
     {
         $policy = $marker['policy'];
         unset($marker['policy']);
-        $origin = $content['exception_monitor_origin'] ?? [];
+        $origin = $content['telescope_monitor_origin'] ?? [];
         $kind = ($batch['origin'] ?? 'unknown') !== 'unknown' ? $batch['origin'] : (in_array($origin['kind'] ?? null, ['job', 'command', 'web'], true) ? $origin['kind'] : 'unknown');
         $coverage = [
             'trace' => $policy['privacy']['retain_stack_trace'] ? 'available' : 'excluded',
@@ -158,10 +158,10 @@ final class Sanitizer
             $execution = ['command' => $this->commandName($origin['command'])];
             $coverage['execution'] = 'available';
         }
-        if ($policy['privacy']['retain_execution_context'] && is_array($content['exception_monitor_route'] ?? null)) {
+        if ($policy['privacy']['retain_execution_context'] && is_array($content['telescope_monitor_route'] ?? null)) {
             foreach (['name' => 'route_name', 'template' => 'path_template'] as $source => $target) {
-                if (is_string($content['exception_monitor_route'][$source] ?? null)) {
-                    $execution[$target] = $this->text($content['exception_monitor_route'][$source], $policy, $target === 'route_name' ? 191 : 2048);
+                if (is_string($content['telescope_monitor_route'][$source] ?? null)) {
+                    $execution[$target] = $this->text($content['telescope_monitor_route'][$source], $policy, $target === 'route_name' ? 191 : 2048);
                 }
             }
         }
@@ -175,11 +175,11 @@ final class Sanitizer
         }
         $allowed = [];
         foreach ($tags as $tag) {
-            if (! is_string($tag) || str_starts_with($tag, 'em2') || str_starts_with($tag, 'em3|')) {
+            if (! is_string($tag) || str_starts_with($tag, 'tm2') || str_starts_with($tag, 'tm3|')) {
                 continue;
             }
             [$key,$value] = array_pad(explode(':', $tag, 2), 2, '');
-            if (in_array($key, config('exception-monitor.capture.allowed_tags', []), true) && count($allowed) < 20) {
+            if (in_array($key, config('telescope-monitor.capture.allowed_tags', []), true) && count($allowed) < 20) {
                 $allowed[$this->text($key, $policy, 64)] = $this->text($value, $policy, 64);
             }
         }
@@ -211,7 +211,7 @@ final class Sanitizer
             'timeline' => $batch['timeline'] ?? [],
             'tags' => $allowed,
             'impact' => $impact,
-            'source' => is_array($content['exception_monitor_source'] ?? null) ? $content['exception_monitor_source'] : null,
+            'source' => is_array($content['telescope_monitor_source'] ?? null) ? $content['telescope_monitor_source'] : null,
             'coverage' => array_replace($coverage, $batch['coverage'] ?? []),
         ];
 
@@ -276,7 +276,7 @@ final class Sanitizer
             }
         }
         unset($event);
-        $envelope['tags'] = array_intersect_key($envelope['tags'], array_flip(config('exception-monitor.capture.allowed_tags', [])));
+        $envelope['tags'] = array_intersect_key($envelope['tags'], array_flip(config('telescope-monitor.capture.allowed_tags', [])));
         foreach ($envelope['queries'] as &$query) {
             $query = $this->restrictQuery($query, $policy);
             if (isset($query['connection'])) {
@@ -310,7 +310,7 @@ final class Sanitizer
                 $query['sql_state'] = 'disabled';
             }
         } elseif (isset($query['sql_template'])) {
-            $normalized = app(SqlTemplate::class)->capture($query['sql_template'], 'mysql', (int) config('exception-monitor.capture.sql_max_bytes', 2048));
+            $normalized = app(SqlTemplate::class)->capture($query['sql_template'], 'mysql', (int) config('telescope-monitor.capture.sql_max_bytes', 2048));
             unset($query['sql_template']);
             $query = array_replace($query, $normalized);
             if (isset($query['sql_template'])) {

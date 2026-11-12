@@ -51,13 +51,13 @@ final class CollaborationConcurrencyTest extends TestCase
         $this->authorize();
         $this->capture();
         $this->process();
-        $issue = DB::table('exception_monitor_issues')->value('public_id');
+        $issue = DB::table('telescope_monitor_issues')->value('public_id');
         $key = (string) Str::uuid();
         $job = fn () => app(CollaborationRepository::class)->command('note.create', $issue, $key, ['body' => 'Concurrent investigation']);
         $this->assertSame([0, 0], $this->fork([$job, $job]));
-        $this->assertDatabaseCount('exception_monitor_notes', 1);
-        $this->assertSame(1, DB::table('exception_monitor_activity')->where('event_type', 'note.added')->count());
-        $this->assertSame(1, DB::table('exception_monitor_alert_events')->where('event_type', 'note.added')->count());
+        $this->assertDatabaseCount('telescope_monitor_notes', 1);
+        $this->assertSame(1, DB::table('telescope_monitor_activity')->where('event_type', 'note.added')->count());
+        $this->assertSame(1, DB::table('telescope_monitor_alert_events')->where('event_type', 'note.added')->count());
     }
 
     public function test_view_edits_and_preference_initialization_reject_stale_versions(): void
@@ -69,12 +69,12 @@ final class CollaborationConcurrencyTest extends TestCase
         foreach (['First', 'Second'] as $name) {
             $jobs[] = fn () => app(CollaborationRepository::class)->command('view.rename', $id, (string) Str::uuid(), ['version' => 1, 'name' => $name]);
         }$this->assertSame([0, 1], $this->fork($jobs));
-        $this->assertSame(2, (int) DB::table('exception_monitor_saved_views')->value('row_version'));
+        $this->assertSame(2, (int) DB::table('telescope_monitor_saved_views')->value('row_version'));
         $jobs = [];
         foreach (['builtin:resolved', 'builtin:ignored'] as $ref) {
             $jobs[] = fn () => app(CollaborationRepository::class)->command('preferences', null, (string) Str::uuid(), ['version' => 0, 'shortcuts' => [['ref' => $ref, 'favorite' => true, 'position' => 0]], 'default_view_ref' => $ref]);
         }$this->assertSame([0, 1], $this->fork($jobs));
-        $this->assertDatabaseCount('exception_monitor_view_preferences', 1);
-        $this->assertSame(1, (int) DB::table('exception_monitor_view_preferences')->value('row_version'));
+        $this->assertDatabaseCount('telescope_monitor_view_preferences', 1);
+        $this->assertSame(1, (int) DB::table('telescope_monitor_view_preferences')->value('row_version'));
     }
 }

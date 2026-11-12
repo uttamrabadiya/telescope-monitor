@@ -6,7 +6,7 @@ final class PackagePath
 {
     public function prefix(): string
     {
-        return trim((string) config('exception-monitor.path', 'exception-monitor'), '/');
+        return trim((string) config('telescope-monitor.path', 'telescope-monitor'), '/');
     }
 
     public function valid(): bool

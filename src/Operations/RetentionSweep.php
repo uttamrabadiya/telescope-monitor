@@ -27,7 +27,7 @@ final class RetentionSweep
 
     private function table(string $name, int $i)
     {
-        return Database::connection()->table('exception_monitor_'.$name)->where('installation_id', $i);
+        return Database::connection()->table('telescope_monitor_'.$name)->where('installation_id', $i);
     }
 
     private function erase($query, int $limit): int
@@ -41,7 +41,7 @@ final class RetentionSweep
     {
         $floor = $this->policy->floors()['evidence'];
 
-        return $this->table('occurrence_evidence', $i)->where(fn ($q) => $q->where('expires_at', '<=', now('UTC')->format('Y-m-d H:i:s.u'))->orWhereExists(fn ($q) => $q->selectRaw('1')->from('exception_monitor_occurrences as o')->whereColumn('o.id', 'exception_monitor_occurrence_evidence.occurrence_id')->where('o.occurred_at', '<=', $floor)));
+        return $this->table('occurrence_evidence', $i)->where(fn ($q) => $q->where('expires_at', '<=', now('UTC')->format('Y-m-d H:i:s.u'))->orWhereExists(fn ($q) => $q->selectRaw('1')->from('telescope_monitor_occurrences as o')->whereColumn('o.id', 'telescope_monitor_occurrence_evidence.occurrence_id')->where('o.occurred_at', '<=', $floor)));
     }
 
     private function metrics(int $i)
@@ -58,12 +58,12 @@ final class RetentionSweep
 
     private function terminalDeliveries(int $i)
     {
-        return $this->table('deliveries', $i)->whereIn('status', ['sent', 'cancelled', 'failed'])->where('completed_at', '<=', $this->policy->floors()['deliveries'])->whereNotExists(fn ($q) => $q->selectRaw('1')->from('exception_monitor_deliveries as children')->whereColumn('children.parent_delivery_id', 'exception_monitor_deliveries.id'))->whereNotExists(fn ($q) => $q->selectRaw('1')->from('exception_monitor_linked_issues as links')->whereColumn('links.create_delivery_id', 'exception_monitor_deliveries.id')->whereIn('links.state', ['reserved', 'creating', 'needs_review']));
+        return $this->table('deliveries', $i)->whereIn('status', ['sent', 'cancelled', 'failed'])->where('completed_at', '<=', $this->policy->floors()['deliveries'])->whereNotExists(fn ($q) => $q->selectRaw('1')->from('telescope_monitor_deliveries as children')->whereColumn('children.parent_delivery_id', 'telescope_monitor_deliveries.id'))->whereNotExists(fn ($q) => $q->selectRaw('1')->from('telescope_monitor_linked_issues as links')->whereColumn('links.create_delivery_id', 'telescope_monitor_deliveries.id')->whereIn('links.state', ['reserved', 'creating', 'needs_review']));
     }
 
     private function events(int $i)
     {
-        return $this->table('alert_events', $i)->where(fn ($q) => $q->where('expires_at', '<=', now('UTC')->format('Y-m-d H:i:s.u'))->orWhere('recorded_at', '<=', $this->policy->floors()['deliveries']))->whereNotExists(fn ($q) => $q->selectRaw('1')->from('exception_monitor_deliveries as d')->whereColumn('d.event_id', 'exception_monitor_alert_events.id'))->whereNotExists(fn ($q) => $q->selectRaw('1')->from('exception_monitor_delivery_rules as refs')->whereColumn('refs.matching_event_id', 'exception_monitor_alert_events.id'));
+        return $this->table('alert_events', $i)->where(fn ($q) => $q->where('expires_at', '<=', now('UTC')->format('Y-m-d H:i:s.u'))->orWhere('recorded_at', '<=', $this->policy->floors()['deliveries']))->whereNotExists(fn ($q) => $q->selectRaw('1')->from('telescope_monitor_deliveries as d')->whereColumn('d.event_id', 'telescope_monitor_alert_events.id'))->whereNotExists(fn ($q) => $q->selectRaw('1')->from('telescope_monitor_delivery_rules as refs')->whereColumn('refs.matching_event_id', 'telescope_monitor_alert_events.id'));
     }
 
     public function deliveries(int $limit): array
@@ -89,8 +89,8 @@ final class RetentionSweep
         $probes = $this->table('action_receipts', $i)->where('operation', 'capture_probe')->whereIn('state', ['pending', 'captured'])->where('expires_at', '<=', $now)->orderBy('id')->limit($limit)->pluck('id');
         $this->table('action_receipts', $i)->whereIn('id', $probes)->update(['state' => 'expired', 'completed_at' => $now]);
         $q = $this->table('action_receipts', $i)->whereNotIn('state', ['pending', 'captured'])->where('expires_at', '<=', $now)->where('created_at', '<=', now('UTC')->subDay()->format('Y-m-d H:i:s.u'));
-        $q->whereNotExists(fn ($q) => $q->selectRaw('1')->from('exception_monitor_deliveries as d')->join('exception_monitor_alert_events as e', 'e.id', '=', 'd.event_id')->whereIn('d.status', ['pending', 'processing', 'retrying', 'needs_review'])->where(fn ($q) => $q->whereColumn('e.action_public_id', 'exception_monitor_action_receipts.public_id')->orWhereColumn('e.action_public_id', 'exception_monitor_action_receipts.result_public_id')->orWhereColumn('d.public_id', 'exception_monitor_action_receipts.result_public_id')));
-        $q->whereNotExists(fn ($q) => $q->selectRaw('1')->from('exception_monitor_linked_issues as l')->join('exception_monitor_deliveries as d', 'd.id', '=', 'l.create_delivery_id')->whereColumn('l.public_id', 'exception_monitor_action_receipts.result_public_id')->whereIn('d.status', ['pending', 'processing', 'retrying', 'needs_review']));
+        $q->whereNotExists(fn ($q) => $q->selectRaw('1')->from('telescope_monitor_deliveries as d')->join('telescope_monitor_alert_events as e', 'e.id', '=', 'd.event_id')->whereIn('d.status', ['pending', 'processing', 'retrying', 'needs_review'])->where(fn ($q) => $q->whereColumn('e.action_public_id', 'telescope_monitor_action_receipts.public_id')->orWhereColumn('e.action_public_id', 'telescope_monitor_action_receipts.result_public_id')->orWhereColumn('d.public_id', 'telescope_monitor_action_receipts.result_public_id')));
+        $q->whereNotExists(fn ($q) => $q->selectRaw('1')->from('telescope_monitor_linked_issues as l')->join('telescope_monitor_deliveries as d', 'd.id', '=', 'l.create_delivery_id')->whereColumn('l.public_id', 'telescope_monitor_action_receipts.result_public_id')->whereIn('d.status', ['pending', 'processing', 'retrying', 'needs_review']));
 
         return $this->erase($q, $limit);
     }
@@ -126,7 +126,7 @@ final class RetentionSweep
         $before = $this->policy->effective();
         $proposed = $this->policy->effective(array_replace($before, $draft));
         $i = $this->installations->current()->id;
-        $cap = max(100, min(100000, (int) config('exception-monitor.operations.preview_limit', 10000)));
+        $cap = max(100, min(100000, (int) config('telescope-monitor.operations.preview_limit', 10000)));
         $values = [];
         foreach ([
             'occurrence_days' => ['occurrence_evidence', 'occurrence_id'],
@@ -137,7 +137,7 @@ final class RetentionSweep
             $floor = now('UTC')->subDays($proposed[$key])->format('Y-m-d H:i:s.u');
             $q = $this->table($table, $i);
             if ($table === 'occurrence_evidence') {
-                $q->whereExists(fn ($q) => $q->selectRaw('1')->from('exception_monitor_occurrences as o')->whereColumn('o.id', 'exception_monitor_occurrence_evidence.occurrence_id')->where('o.occurred_at', '<=', $floor));
+                $q->whereExists(fn ($q) => $q->selectRaw('1')->from('telescope_monitor_occurrences as o')->whereColumn('o.id', 'telescope_monitor_occurrence_evidence.occurrence_id')->where('o.occurred_at', '<=', $floor));
             } else {
                 $q->where($column, '<=', $floor);
             }

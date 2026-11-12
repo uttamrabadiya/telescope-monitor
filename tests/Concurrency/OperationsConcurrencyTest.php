@@ -23,7 +23,7 @@ final class OperationsConcurrencyTest extends TestCase
         if (DB::getDriverName() !== 'mysql' || ! function_exists('pcntl_fork')) {
             $this->markTestSkipped('Requires MySQL/MariaDB and pcntl.');
         }$this->authorize();
-        config(['exception-monitor.alerts.allowed_environments' => ['testing']]);
+        config(['telescope-monitor.alerts.allowed_environments' => ['testing']]);
         $this->travelTo(CarbonImmutable::parse('2026-11-11T10:10:01Z'));
     }
 
@@ -68,7 +68,7 @@ final class OperationsConcurrencyTest extends TestCase
     {
         $this->prepare();
         $this->capture();
-        $id = DB::table('exception_monitor_capture_inbox')->value('id');
+        $id = DB::table('telescope_monitor_capture_inbox')->value('id');
         $i = app(InstallationRepository::class)->current();
         $run = app(PurgeOperations::class)->begin($i->public_id, $i->public_id)['run']['id'];
         $results = $this->race([
@@ -77,8 +77,8 @@ final class OperationsConcurrencyTest extends TestCase
         ]);
         $this->assertSame([0, 1], $results);
         $this->finish($run);
-        $this->assertDatabaseCount('exception_monitor_issues', 0);
-        $this->assertDatabaseCount('exception_monitor_occurrences', 0);
+        $this->assertDatabaseCount('telescope_monitor_issues', 0);
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 0);
     }
 
     public function test_a_provider_claim_and_drain_serialize_without_losing_a_live_lease(): void
@@ -97,7 +97,7 @@ final class OperationsConcurrencyTest extends TestCase
         ]);
         $this->capture();
         $this->process();
-        $d = DB::table('exception_monitor_deliveries')->value('id');
+        $d = DB::table('telescope_monitor_deliveries')->value('id');
         $i = app(InstallationRepository::class)->current();
         $results = $this->race([
             fn () => app(DeliveryLedger::class)->claim($d, 1, true),
@@ -111,13 +111,13 @@ final class OperationsConcurrencyTest extends TestCase
         $i = app(InstallationRepository::class)->current();
         $run = app(PurgeOperations::class)->status()['run']['id'];
         if ($i->generation === 1) {
-            $this->assertSame('processing', DB::table('exception_monitor_deliveries')->value('status'));
+            $this->assertSame('processing', DB::table('telescope_monitor_deliveries')->value('status'));
             $this->assertSame(1, app(PurgeOperations::class)->liveLeases($i->id));
         } else {
-            $this->assertSame(0, DB::table('exception_monitor_delivery_attempts')->count());
+            $this->assertSame(0, DB::table('telescope_monitor_delivery_attempts')->count());
         }$this->travel(121)->seconds();
         $this->finish($run);
-        $this->assertDatabaseCount('exception_monitor_deliveries', 0);
+        $this->assertDatabaseCount('telescope_monitor_deliveries', 0);
     }
 
     public function test_concurrent_resumers_count_each_deleted_row_once(): void

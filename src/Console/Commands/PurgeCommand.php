@@ -8,7 +8,7 @@ use TelescopeMonitor\Operations\PurgeOperations;
 
 final class PurgeCommand extends Command
 {
-    protected $signature = 'exception-monitor:purge {installation} {--confirm=} {--resume=} {--preview} {--status} {--abort} {--limit=500} {--batches=1} {--label=deployment}';
+    protected $signature = 'telescope-monitor:purge {installation} {--confirm=} {--resume=} {--preview} {--status} {--abort} {--limit=500} {--batches=1} {--label=deployment}';
 
     protected $description = 'Explicitly confirm, drain, fence and resume a bounded whole-installation error-data purge.';
 

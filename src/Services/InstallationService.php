@@ -16,9 +16,9 @@ final class InstallationService
             return false;
         }
         Artisan::call('vendor:publish', [
-            '--tag' => 'exception-monitor-config',
+            '--tag' => 'telescope-monitor-config',
         ]);
-        $directory = database_path('migrations').(Database::connectionName() === config('database.default') ? '' : '/exception-monitor');
+        $directory = database_path('migrations').(Database::connectionName() === config('database.default') ? '' : '/telescope-monitor');
         if (! is_dir($directory)) {
             mkdir($directory, 0755, true);
         }
@@ -45,7 +45,7 @@ final class InstallationService
         foreach (glob(__DIR__.'/../../database/migrations/*.php') as $source) {
             $published = $this->published(substr(basename($source), 18));
             if (count($published) !== 1) {
-                throw new \RuntimeException('Publish exactly one copy of each monitoring migration using exception-monitor:install.');
+                throw new \RuntimeException('Publish exactly one copy of each monitoring migration using telescope-monitor:install.');
             }
             $paths[] = $published[0];
         }
@@ -56,6 +56,6 @@ final class InstallationService
     /** @return list<string> */
     private function published(string $suffix): array
     {
-        return array_merge(glob(database_path('migrations').'/*'.$suffix), glob(database_path('migrations/exception-monitor').'/*'.$suffix));
+        return array_merge(glob(database_path('migrations').'/*'.$suffix), glob(database_path('migrations/telescope-monitor').'/*'.$suffix));
     }
 }

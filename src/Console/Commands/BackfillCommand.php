@@ -9,7 +9,7 @@ use TelescopeMonitor\Capture\HistoricalBackfill;
 
 final class BackfillCommand extends Command
 {
-    protected $signature = 'exception-monitor:backfill {--environment= : Required original environment for legacy records} {--after=0 : Exclusive source sequence cursor} {--through= : Inclusive fixed source sequence ceiling} {--limit=100 : Maximum rows per page, 1–1000} {--dry-run : Inspect candidates without writing monitoring data} {--json : Output machine-readable JSON}';
+    protected $signature = 'telescope-monitor:backfill {--environment= : Required original environment for legacy records} {--after=0 : Exclusive source sequence cursor} {--through= : Inclusive fixed source sequence ceiling} {--limit=100 : Maximum rows per page, 1–1000} {--dry-run : Inspect candidates without writing monitoring data} {--json : Output machine-readable JSON}';
 
     protected $description = 'Import one bounded page of unmarked Telescope exceptions as sanitized history, without alerts.';
 
@@ -102,7 +102,7 @@ final class BackfillCommand extends Command
     {
         $environment = preg_match('/^[A-Za-z0-9_.-]+$/D', $result['environment']) ? $result['environment'] : escapeshellarg($result['environment']);
 
-        $command = 'php artisan exception-monitor:backfill --environment='.$environment.' --after='.$after.' --through='.$result['through'].' --limit='.$limit.($dry ? ' --dry-run' : '');
+        $command = 'php artisan telescope-monitor:backfill --environment='.$environment.' --after='.$after.' --through='.$result['through'].' --limit='.$limit.($dry ? ' --dry-run' : '');
         $runtime = $this->option('env');
         if (is_string($runtime) && $runtime !== '') {
             $command .= ' --env='.(preg_match('/^[A-Za-z0-9_.-]+$/D', $runtime) ? $runtime : escapeshellarg($runtime));

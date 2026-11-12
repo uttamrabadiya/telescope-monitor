@@ -27,11 +27,11 @@ final class ProbeTest extends TestCase
         app(CaptureProbes::class)->execute($a['id'], 1);
         $this->process();
         $this->assertSame('completed', app(CaptureProbes::class)->status($a['id'])['state']);
-        $this->assertSame('synthetic_test', DB::table('exception_monitor_occurrences')->value('mode'));
-        $this->assertDatabaseCount('exception_monitor_alert_events', 0);
+        $this->assertSame('synthetic_test', DB::table('telescope_monitor_occurrences')->value('mode'));
+        $this->assertDatabaseCount('telescope_monitor_alert_events', 0);
         app(CaptureProbes::class)->execute($a['id'], 1);
         $this->process();
-        $this->assertDatabaseCount('exception_monitor_occurrences', 1);
+        $this->assertDatabaseCount('telescope_monitor_occurrences', 1);
     }
 
     public function test_probe_respects_paused_recording_and_revoked_access(): void
@@ -46,7 +46,7 @@ final class ProbeTest extends TestCase
         $this->authorize(manage: false);
         app(CaptureProbes::class)->execute($b['id'], 1);
         $this->assertSame('cancelled', app(CaptureProbes::class)->status($b['id'])['state']);
-        $this->assertDatabaseCount('exception_monitor_capture_inbox', 0);
+        $this->assertDatabaseCount('telescope_monitor_capture_inbox', 0);
     }
 
     public function test_filtered_probe_does_not_bypass_host_policy_or_leak_trust_to_following_exception(): void
@@ -59,17 +59,17 @@ final class ProbeTest extends TestCase
         Telescope::$filterUsing = [];
         $this->capture();
         $this->process();
-        $this->assertSame('live', DB::table('exception_monitor_occurrences')->value('mode'));
+        $this->assertSame('live', DB::table('telescope_monitor_occurrences')->value('mode'));
     }
 
     public function test_capture_api_enforces_manage_and_view_and_private_evidence_response(): void
     {
         $this->authorize(manage: false);
-        $this->postJson('/exception-monitor/api/v1/capture/probes', ['client_key' => (string) Str::uuid()])->assertForbidden();
+        $this->postJson('/telescope-monitor/api/v1/capture/probes', ['client_key' => (string) Str::uuid()])->assertForbidden();
         $this->capture();
         $this->process();
-        $id = DB::table('exception_monitor_occurrences')->value('public_id');
-        $this->getJson('/exception-monitor/api/v1/capture/occurrences/'.$id)->assertOk()->assertHeader('Cache-Control', 'no-store, private')->assertJsonPath('exception_monitor_private.evidence_state', 'available');
-        $this->getJson('/exception-monitor/api/v1/capture/occurrences/'.Str::uuid())->assertNotFound();
+        $id = DB::table('telescope_monitor_occurrences')->value('public_id');
+        $this->getJson('/telescope-monitor/api/v1/capture/occurrences/'.$id)->assertOk()->assertHeader('Cache-Control', 'no-store, private')->assertJsonPath('telescope_monitor_private.evidence_state', 'available');
+        $this->getJson('/telescope-monitor/api/v1/capture/occurrences/'.Str::uuid())->assertNotFound();
     }
 }

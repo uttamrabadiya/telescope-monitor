@@ -27,7 +27,7 @@ final class EloquentAlertPlanner implements AlertPlanning
 
     public function ready(): bool
     {
-        return $this->available ??= Database::schema()->hasTable('exception_monitor_deliveries') && Database::schema()->hasTable('exception_monitor_alert_rules') && Database::schema()->hasTable('exception_monitor_notification_gates');
+        return $this->available ??= Database::schema()->hasTable('telescope_monitor_deliveries') && Database::schema()->hasTable('telescope_monitor_alert_rules') && Database::schema()->hasTable('telescope_monitor_notification_gates');
     }
 
     public function event(AlertEvent $event, Issue $issue): void
@@ -48,7 +48,7 @@ final class EloquentAlertPlanner implements AlertPlanning
 
     private function plan(AlertEvent $event, Issue $issue, AlertRule $rule): void
     {
-        $connections = Connection::query()->join('exception_monitor_rule_connections as rc', 'rc.connection_id', '=', 'exception_monitor_connections.id')->where('rc.rule_id', $rule->id)->where('installation_id', $issue->installation_id)->where('enabled', true)->whereNull('disconnected_at')->get(['exception_monitor_connections.*']);
+        $connections = Connection::query()->join('telescope_monitor_rule_connections as rc', 'rc.connection_id', '=', 'telescope_monitor_connections.id')->where('rc.rule_id', $rule->id)->where('installation_id', $issue->installation_id)->where('enabled', true)->whereNull('disconnected_at')->get(['telescope_monitor_connections.*']);
         foreach ($connections as $connection) {
             if (! ConnectionEvents::allows($connection, $event->event_type)) {
                 continue;
@@ -72,9 +72,9 @@ final class EloquentAlertPlanner implements AlertPlanning
                 'alert_generation' => $event->alert_generation,
                 'status' => 'pending',
                 'eligible_at' => CarbonImmutable::now('UTC'),
-                'expires_at' => CarbonImmutable::now('UTC')->addSeconds(max(60, min(86400, (int) config('exception-monitor.alerts.pending_seconds', 86400)))),
+                'expires_at' => CarbonImmutable::now('UTC')->addSeconds(max(60, min(86400, (int) config('telescope-monitor.alerts.pending_seconds', 86400)))),
             ]);
-            Database::connection()->table('exception_monitor_delivery_rules')->insertOrIgnore([
+            Database::connection()->table('telescope_monitor_delivery_rules')->insertOrIgnore([
                 'delivery_id' => $delivery->id,
                 'rule_id' => $rule->id,
                 'rule_public_id' => $rule->public_id,

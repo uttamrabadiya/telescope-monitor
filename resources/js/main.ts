@@ -28,4 +28,4 @@ const router = createRouter({ history: createWebHistory(base + '/'), routes: [
   { path: '/integrations', component: Integrations },
   { path: '/settings/:section?', component: Settings },
 ] })
-createApp(App).use(router).mount('#exception-monitor-app')
+createApp(App).use(router).mount('#telescope-monitor-app')

@@ -41,7 +41,7 @@ final class OperationalStatus
         ]);
         $missing = [];
         foreach ($expected as $table) {
-            if (! Database::schema()->hasTable('exception_monitor_'.$table)) {
+            if (! Database::schema()->hasTable('telescope_monitor_'.$table)) {
                 $missing[] = $table;
             }
         }
@@ -100,8 +100,8 @@ final class OperationalStatus
     {
         $i = $this->installations->current();
         $checks = $this->health->latest($i->id);
-        $fresh = max(30, min(86400, (int) config('exception-monitor.operations.freshness_seconds', 300)));
-        $maintenance = max(60, min(604800, (int) config('exception-monitor.operations.maintenance_seconds', 3600)));
+        $fresh = max(30, min(86400, (int) config('telescope-monitor.operations.freshness_seconds', 300)));
+        $maintenance = max(60, min(604800, (int) config('telescope-monitor.operations.maintenance_seconds', 3600)));
         $capture = app(CaptureInboxRepository::class)->status();
         $delivery = app(DeliveryLedger::class)->status();
         $out = [];
@@ -139,7 +139,7 @@ final class OperationalStatus
                 $backlog = $isCapture ? $capture : $delivery;
                 $table = $isCapture ? 'capture_inbox' : 'deliveries';
                 $column = $isCapture ? 'state' : 'status';
-                $expired = Database::connection()->table('exception_monitor_'.$table)->where('installation_id', $i->id)->where($column, 'processing')->where('lease_until', '<=', CarbonImmutable::now('UTC')->format('Y-m-d H:i:s.u'))->count();
+                $expired = Database::connection()->table('telescope_monitor_'.$table)->where('installation_id', $i->id)->where($column, 'processing')->where('lease_until', '<=', CarbonImmutable::now('UTC')->format('Y-m-d H:i:s.u'))->count();
                 $review = $backlog['needs_review'] ?? 0;
                 $detail = $backlog['pending'].' pending; '.$backlog['failed'].' failed; '.$review.' require review; '.$expired.' expired leases. '.$detail;
                 $oldest = $backlog[$isCapture ? 'oldest_pending_at' : 'oldest_pending_at'] ?? null;
@@ -186,13 +186,13 @@ final class OperationalStatus
         $accepted = false;
         $verifiedId = null;
         $verifiedDestination = null;
-        $tests = Database::connection()->table('exception_monitor_deliveries as d')->join('exception_monitor_connections as c', 'c.id', '=', 'd.connection_id')->where('d.installation_id', $i->id)->where('d.generation', $i->generation)->where('d.action', 'connection_test')->where('d.status', 'sent')->whereIn('c.provider', ['email', 'slack', 'webhook'])->where('c.enabled', true)->whereNull('c.disconnected_at')->where('d.completed_at', '>=', CarbonImmutable::now('UTC')->subDay()->format('Y-m-d H:i:s.u'))->orderByDesc('d.id')->limit(25)->get(['d.id', 'd.public_id', 'd.connection_id', 'c.display_name']);
+        $tests = Database::connection()->table('telescope_monitor_deliveries as d')->join('telescope_monitor_connections as c', 'c.id', '=', 'd.connection_id')->where('d.installation_id', $i->id)->where('d.generation', $i->generation)->where('d.action', 'connection_test')->where('d.status', 'sent')->whereIn('c.provider', ['email', 'slack', 'webhook'])->where('c.enabled', true)->whereNull('c.disconnected_at')->where('d.completed_at', '>=', CarbonImmutable::now('UTC')->subDay()->format('Y-m-d H:i:s.u'))->orderByDesc('d.id')->limit(25)->get(['d.id', 'd.public_id', 'd.connection_id', 'c.display_name']);
         foreach ($tests as $test) {
             try {
                 $connection = Connection::query()->findOrFail($test->connection_id);
                 $target = app(Credentials::class)->target($connection);
                 $key = $target['signing_key_id'] ?? $target['key_id'];
-                if (Database::connection()->table('exception_monitor_delivery_attempts')->where('delivery_id', $test->id)->where('outcome', 'accepted')->where('used_secret_key_id', $key)->exists()) {
+                if (Database::connection()->table('telescope_monitor_delivery_attempts')->where('delivery_id', $test->id)->where('outcome', 'accepted')->where('used_secret_key_id', $key)->exists()) {
                     $accepted = true;
                     $verifiedId = $test->public_id;
                     $verifiedDestination = $test->display_name;
@@ -211,7 +211,7 @@ final class OperationalStatus
             'operations' => ($ack['operations'] ?? false) === true,
         ];
         $complete = isset($state['completed_at']) && ($state['completed_generation'] ?? null) === $i->generation && ($state['completed_epoch'] ?? null) === $i->source_epoch;
-        $rules = Database::connection()->table('exception_monitor_alert_rules')->where('installation_id', $i->id)->where('enabled', true)->whereNull('deleted_at')->count();
+        $rules = Database::connection()->table('telescope_monitor_alert_rules')->where('installation_id', $i->id)->where('enabled', true)->whereNull('deleted_at')->count();
 
         return [
             'requirements' => $requirements,
@@ -224,7 +224,7 @@ final class OperationalStatus
             'delivery_destination' => $verifiedDestination,
             'capture_probe' => $probeId,
             'active_rules' => $rules,
-            'optional' => ['automatic_alerts' => $rules > 0, 'assignments' => (bool) config('exception-monitor.assignments.enabled', false)],
+            'optional' => ['automatic_alerts' => $rules > 0, 'assignments' => (bool) config('telescope-monitor.assignments.enabled', false)],
             'note' => 'Completion records your review and current-generation tests, not independent uptime monitoring. Optional notifications and assignments can remain unconfigured.',
         ];
     }
@@ -277,7 +277,7 @@ final class OperationalStatus
     {
         $i = $this->installations->current();
 
-        $connection = config('exception-monitor.queues.connection') ?? config('queue.default');
+        $connection = config('telescope-monitor.queues.connection') ?? config('queue.default');
         $worker = 'php artisan queue:work '.escapeshellarg((string) $connection).' --queue=';
 
         return [
@@ -294,15 +294,15 @@ final class OperationalStatus
             'limits' => $this->retention->bounds(),
             'as_of' => CarbonImmutable::now('UTC')->toISOString(),
             'commands' => [
-                'capture_worker' => $worker.escapeshellarg((string) config('exception-monitor.queues.capture', 'exception-monitor-capture')).' --timeout=60 --tries=1',
-                'delivery_worker' => $worker.escapeshellarg((string) config('exception-monitor.queues.delivery', 'exception-monitor-deliveries')).' --timeout=45 --tries=1',
-                'heartbeat' => 'php artisan exception-monitor:heartbeat',
-                'retention' => 'php artisan exception-monitor:prune --limit=1000',
-                'recovery' => 'php artisan exception-monitor:recover --limit=100',
-                'delivery_recovery' => 'php artisan exception-monitor:recover-deliveries --limit=100',
-                'key_rewrap' => 'php artisan exception-monitor:rewrap '.$i->public_id.' secrets --confirm='.$i->public_id.' --limit=100',
-                'source_baseline' => 'php artisan exception-monitor:source-baseline '.$i->public_id.' --confirm='.$i->public_id,
-                'purge_preview' => 'php artisan exception-monitor:purge '.$i->public_id.' --preview',
+                'capture_worker' => $worker.escapeshellarg((string) config('telescope-monitor.queues.capture', 'telescope-monitor-capture')).' --timeout=60 --tries=1',
+                'delivery_worker' => $worker.escapeshellarg((string) config('telescope-monitor.queues.delivery', 'telescope-monitor-deliveries')).' --timeout=45 --tries=1',
+                'heartbeat' => 'php artisan telescope-monitor:heartbeat',
+                'retention' => 'php artisan telescope-monitor:prune --limit=1000',
+                'recovery' => 'php artisan telescope-monitor:recover --limit=100',
+                'delivery_recovery' => 'php artisan telescope-monitor:recover-deliveries --limit=100',
+                'key_rewrap' => 'php artisan telescope-monitor:rewrap '.$i->public_id.' secrets --confirm='.$i->public_id.' --limit=100',
+                'source_baseline' => 'php artisan telescope-monitor:source-baseline '.$i->public_id.' --confirm='.$i->public_id,
+                'purge_preview' => 'php artisan telescope-monitor:purge '.$i->public_id.' --preview',
             ],
             'offline_note' => 'This package shares its host database, application and queues. Detecting a completely offline host requires an external observer.',
         ];

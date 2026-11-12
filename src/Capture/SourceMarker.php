@@ -19,7 +19,7 @@ final class SourceMarker
         $key = $this->keys->forInstallation($installation);
         $time = CarbonImmutable::parse($time)->utc()->format('Uu');
         $core = implode('|', [
-            'em2c',
+            'tm2c',
             $installation->public_id,
             $installation->generation,
             $installation->source_epoch,
@@ -28,8 +28,8 @@ final class SourceMarker
             $key['id'],
         ]);
         $group = implode('|', [
-            'em2g',
-            (int) config('exception-monitor.capture.grouping_version', 1),
+            'tm2g',
+            (int) config('telescope-monitor.capture.grouping_version', 1),
             $this->fingerprint->hash($environment, $content),
             $probe ?? '-',
         ]);
@@ -46,7 +46,7 @@ final class SourceMarker
         if (! Str::isUuid($uuid)) {
             return null;
         }
-        if (array_filter($tags, fn ($tag) => is_string($tag) && str_starts_with($tag, 'em3|'))) {
+        if (array_filter($tags, fn ($tag) => is_string($tag) && str_starts_with($tag, 'tm3|'))) {
             if ($content === null || ! ($m = app(SourceStamp::class)->read($uuid, $content, $tags))) {
                 return null;
             }
@@ -65,8 +65,8 @@ final class SourceMarker
                 'probe_id' => $m['probe_id'],
             ];
         }
-        $core = array_values(array_filter($tags, fn ($t) => is_string($t) && str_starts_with($t, 'em2c|')));
-        $group = array_values(array_filter($tags, fn ($t) => is_string($t) && str_starts_with($t, 'em2g|')));
+        $core = array_values(array_filter($tags, fn ($t) => is_string($t) && str_starts_with($t, 'tm2c|')));
+        $group = array_values(array_filter($tags, fn ($t) => is_string($t) && str_starts_with($t, 'tm2g|')));
         if (count($core) !== 1 || count($group) !== 1) {
             return null;
         }

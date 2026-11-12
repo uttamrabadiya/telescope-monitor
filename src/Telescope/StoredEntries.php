@@ -48,7 +48,7 @@ final class StoredEntries
     public function exceptions(int $after, int $limit, ?string $batch = null, ?string $since = null, ?int $ceiling = null): array
     {
         if ($since !== null) {
-            $since = CarbonImmutable::parse($since, 'UTC')->setTimezone(config('exception-monitor.capture.source_timezone') ?? config('app.timezone', 'UTC'))->format('Y-m-d H:i:s');
+            $since = CarbonImmutable::parse($since, 'UTC')->setTimezone(config('telescope-monitor.capture.source_timezone') ?? config('app.timezone', 'UTC'))->format('Y-m-d H:i:s');
         }
         $rows = $this->query()->where('type', 'exception')->where('sequence', '>', $after)
             ->when($batch, fn ($q) => $q->where('batch_id', $batch))->when($since, fn ($q) => $q->where('created_at', '>=', $since))->when($ceiling !== null, fn ($q) => $q->where('sequence', '<=', $ceiling))
@@ -99,7 +99,7 @@ final class StoredEntries
         if (! $rows) {
             return [];
         }
-        $budget = max(131072, min(8388608, (int) config('exception-monitor.capture.max_source_bytes', 2097152)));
+        $budget = max(131072, min(8388608, (int) config('telescope-monitor.capture.max_source_bytes', 2097152)));
         $tags = [];
         foreach (array_chunk(array_map(fn ($r) => $r->uuid, $rows), 100) as $chunk) {
             foreach (DB::connection(config('telescope.storage.database.connection'))->table('telescope_entries_tags')->whereIn('entry_uuid', $chunk)->get() as $tag) {
@@ -112,7 +112,7 @@ final class StoredEntries
         $more = false;
         foreach ($rows as $row) {
             // Legacy unmarked exceptions cannot prove reportability and do not consume the content budget.
-            $marked = $allowUnmarked || ($row->type ?? 'exception') !== 'exception' || count(array_filter($tags[$row->uuid] ?? [], fn ($tag) => (str_starts_with($tag, 'em2c|') || str_starts_with($tag, 'em3|')))) === 1;
+            $marked = $allowUnmarked || ($row->type ?? 'exception') !== 'exception' || count(array_filter($tags[$row->uuid] ?? [], fn ($tag) => (str_starts_with($tag, 'tm2c|') || str_starts_with($tag, 'tm3|')))) === 1;
             if ($marked && $row->content_bytes <= $budget && $used + $row->content_bytes > $budget) {
                 $more = true;
                 break;

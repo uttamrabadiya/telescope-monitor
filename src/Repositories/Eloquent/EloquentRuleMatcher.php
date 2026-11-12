@@ -14,7 +14,7 @@ final class EloquentRuleMatcher
 {
     public function allowed(Issue $issue): bool
     {
-        return config('exception-monitor.alerts.enabled', true) && ! $issue->is_test && in_array($issue->environment, config('exception-monitor.alerts.allowed_environments', ['production']), true);
+        return config('telescope-monitor.alerts.enabled', true) && ! $issue->is_test && in_array($issue->environment, config('telescope-monitor.alerts.allowed_environments', ['production']), true);
     }
 
     public function matches(AlertRule $rule, Issue $issue, AlertEvent $event): bool
@@ -27,7 +27,7 @@ final class EloquentRuleMatcher
         if (($c['class'] ?? null) !== null && $c['class'] !== '' && $c['class'] !== $issue->exception_class) {
             return false;
         }
-        if (($c['tag'] ?? null) && ! in_array(explode(':', $c['tag'], 2)[0], config('exception-monitor.capture.allowed_tags', []), true)) {
+        if (($c['tag'] ?? null) && ! in_array(explode(':', $c['tag'], 2)[0], config('telescope-monitor.capture.allowed_tags', []), true)) {
             return false;
         }
         if (($c['origin'] ?? null) || ($c['tag'] ?? null)) {
@@ -52,7 +52,7 @@ final class EloquentRuleMatcher
     private function tag($q, string $tag): void
     {
         [$key,$value] = array_pad(explode(':', $tag, 2), 2, '');
-        $q->whereExists(fn ($q) => $q->selectRaw('1')->from('exception_monitor_occurrence_evidence as ev')->join('exception_monitor_evidence_tags as t', 't.evidence_id', '=', 'ev.id')->whereColumn('ev.occurrence_id', 'exception_monitor_occurrences.id')->where('ev.expires_at', '>', now('UTC')->format('Y-m-d H:i:s.u'))->where('exception_monitor_occurrences.occurred_at', '>', app(RetentionPolicy::class)->floors()['evidence'])->where('t.tag_key', $key)->where('t.tag_value', $value));
+        $q->whereExists(fn ($q) => $q->selectRaw('1')->from('telescope_monitor_occurrence_evidence as ev')->join('telescope_monitor_evidence_tags as t', 't.evidence_id', '=', 'ev.id')->whereColumn('ev.occurrence_id', 'telescope_monitor_occurrences.id')->where('ev.expires_at', '>', now('UTC')->format('Y-m-d H:i:s.u'))->where('telescope_monitor_occurrences.occurred_at', '>', app(RetentionPolicy::class)->floors()['evidence'])->where('t.tag_key', $key)->where('t.tag_value', $value));
     }
 
     public function thresholdCount(AlertRule $rule, Issue $issue, CarbonImmutable $start, CarbonImmutable $end, Occurrence $through): int

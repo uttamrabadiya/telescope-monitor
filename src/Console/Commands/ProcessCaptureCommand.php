@@ -8,7 +8,7 @@ use TelescopeMonitor\Repositories\Contracts\CaptureInboxRepository;
 
 final class ProcessCaptureCommand extends Command
 {
-    protected $signature = 'exception-monitor:process {--limit=100}';
+    protected $signature = 'telescope-monitor:process {--limit=100}';
 
     protected $description = 'Explicitly process bounded capture input in this command process.';
 

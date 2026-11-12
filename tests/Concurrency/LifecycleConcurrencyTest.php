@@ -20,7 +20,7 @@ final class LifecycleConcurrencyTest extends TestCase
         }
         $this->capture();
         $this->process();
-        $id = DB::table('exception_monitor_issues')->value('public_id');
+        $id = DB::table('telescope_monitor_issues')->value('public_id');
         $children = [];
         DB::disconnect();
         foreach (['resolve', 'ignore'] as $action) {
@@ -46,8 +46,8 @@ final class LifecycleConcurrencyTest extends TestCase
         }sort($statuses);
         DB::purge();
         $this->assertSame([0, 1], $statuses);
-        $this->assertSame(2, (int) DB::table('exception_monitor_issues')->value('state_version'));
-        $this->assertSame(1, DB::table('exception_monitor_action_receipts')->where('operation', 'issue.lifecycle')->count());
+        $this->assertSame(2, (int) DB::table('telescope_monitor_issues')->value('state_version'));
+        $this->assertSame(1, DB::table('telescope_monitor_action_receipts')->where('operation', 'issue.lifecycle')->count());
         $key = (string) Str::uuid();
         $children = [];
         DB::disconnect();
@@ -69,7 +69,7 @@ final class LifecycleConcurrencyTest extends TestCase
             pcntl_waitpid($pid, $status);
             $this->assertSame(0, pcntl_wexitstatus($status));
         }DB::purge();
-        $this->assertSame(1, DB::table('exception_monitor_activity')->where('event_type', 'error.reopen')->count());
-        $this->assertSame('unresolved', DB::table('exception_monitor_issues')->value('status'));
+        $this->assertSame(1, DB::table('telescope_monitor_activity')->where('event_type', 'error.reopen')->count());
+        $this->assertSame('unresolved', DB::table('telescope_monitor_issues')->value('status'));
     }
 }

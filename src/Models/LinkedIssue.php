@@ -28,7 +28,7 @@ final class LinkedIssue extends Model
 
     protected $dateFormat = 'Y-m-d H:i:s.u';
 
-    protected $table = 'exception_monitor_linked_issues';
+    protected $table = 'telescope_monitor_linked_issues';
 
     protected $guarded = [];
 

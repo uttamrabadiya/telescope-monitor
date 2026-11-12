@@ -22,7 +22,7 @@ final class SavedView extends Model
 {
     use UsesUtcTimestamps;
 
-    protected $table = 'exception_monitor_saved_views';
+    protected $table = 'telescope_monitor_saved_views';
 
     protected $guarded = [];
 

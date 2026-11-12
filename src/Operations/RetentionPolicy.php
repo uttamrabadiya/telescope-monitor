@@ -17,14 +17,14 @@ final class RetentionPolicy
 
     public function ready(): bool
     {
-        return Database::schema()->hasTable('exception_monitor_purge_runs');
+        return Database::schema()->hasTable('telescope_monitor_purge_runs');
     }
 
     public function bounds(): array
     {
         $bounds = [];
         foreach (['occurrence_days' => [1, 90], 'delivery_days' => [1, 90], 'aggregate_days' => [30, 365], 'activity_days' => [1, 365]] as $key => [$min,$max]) {
-            $configured = config('exception-monitor.retention_limits.'.$key, []);
+            $configured = config('telescope-monitor.retention_limits.'.$key, []);
             if (! is_array($configured) || filter_var($configured['min'] ?? $min, FILTER_VALIDATE_INT) === false || filter_var($configured['max'] ?? $max, FILTER_VALIDATE_INT) === false) {
                 throw new MaintenanceFailure('invalid_retention_limits');
             }
@@ -43,7 +43,7 @@ final class RetentionPolicy
     {
         $values = $values ?? ($this->settings->find($this->installations->current()->id, 'retention')->values ?? []);
         $out = array_replace(self::DEFAULTS, $values);
-        $locks = config('exception-monitor.locked', []);
+        $locks = config('telescope-monitor.locked', []);
         foreach ($this->bounds() as $key => $b) {
             $out[$key] = max($b['min'], min($b['max'], (int) ($locks['retention.'.$key] ?? $out[$key])));
         }
@@ -106,14 +106,14 @@ final class RetentionPolicy
         $i->save();
     }
 
-    public function evidence($q, string $alias = 'exception_monitor_occurrence_evidence')
+    public function evidence($q, string $alias = 'telescope_monitor_occurrence_evidence')
     {
         $floor = $this->floors()['evidence'];
 
-        return $q->where($alias.'.expires_at', '>', CarbonImmutable::now('UTC')->format('Y-m-d H:i:s.u'))->whereExists(fn ($sub) => $sub->selectRaw('1')->from('exception_monitor_occurrences as retention_o')->whereColumn('retention_o.id', $alias.'.occurrence_id')->where('retention_o.occurred_at', '>', $floor));
+        return $q->where($alias.'.expires_at', '>', CarbonImmutable::now('UTC')->format('Y-m-d H:i:s.u'))->whereExists(fn ($sub) => $sub->selectRaw('1')->from('telescope_monitor_occurrences as retention_o')->whereColumn('retention_o.id', $alias.'.occurrence_id')->where('retention_o.occurred_at', '>', $floor));
     }
 
-    public function metrics($q, string $alias = 'exception_monitor_metric_buckets')
+    public function metrics($q, string $alias = 'telescope_monitor_metric_buckets')
     {
         $floors = $this->floors();
 

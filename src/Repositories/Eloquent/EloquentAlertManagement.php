@@ -87,7 +87,7 @@ final class EloquentAlertManagement implements AlertManagement
             'definition_version' => $r->definition_version,
             'events' => $r->event_types,
             'conditions' => $r->conditions,
-            'connections' => Connection::query()->join('exception_monitor_rule_connections as rc', 'rc.connection_id', '=', 'exception_monitor_connections.id')->where('rc.rule_id', $r->id)->pluck('public_id')->all(),
+            'connections' => Connection::query()->join('telescope_monitor_rule_connections as rc', 'rc.connection_id', '=', 'telescope_monitor_connections.id')->where('rc.rule_id', $r->id)->pluck('public_id')->all(),
             'threshold_count' => $r->threshold_count,
             'window_seconds' => $r->window_seconds,
             'cooldown_seconds' => $r->cooldown_seconds,
@@ -103,12 +103,12 @@ final class EloquentAlertManagement implements AlertManagement
             'rules' => AlertRule::query()->where('installation_id', $i)->whereNull('deleted_at')->orderBy('name')->orderBy('id')->limit(100)->get()->map(fn ($r) => $this->rule($r))->all(),
             'connections' => Connection::query()->where('installation_id', $i)->whereIn('provider', ['email', 'slack', 'webhook'])->orderBy('display_name')->orderBy('id')->limit(100)->get()->map(fn ($c) => $this->connection($c, true))->all(),
             'events' => EventCatalog::LABELS,
-            'allowed_environments' => config('exception-monitor.alerts.allowed_environments', ['production']),
-            'enabled' => (bool) config('exception-monitor.alerts.enabled', true),
+            'allowed_environments' => config('telescope-monitor.alerts.allowed_environments', ['production']),
+            'enabled' => (bool) config('telescope-monitor.alerts.enabled', true),
             'queue_asynchronous' => $this->dispatcher->asynchronous(),
-            'mailer' => config('exception-monitor.alerts.mailer') ?? config('mail.default'),
-            'max_cooldown_seconds' => min(86400, (int) config('exception-monitor.alerts.max_cooldown_seconds', 86400)),
-            'allowed_tags' => config('exception-monitor.capture.allowed_tags', []),
+            'mailer' => config('telescope-monitor.alerts.mailer') ?? config('mail.default'),
+            'max_cooldown_seconds' => min(86400, (int) config('telescope-monitor.alerts.max_cooldown_seconds', 86400)),
+            'allowed_tags' => config('telescope-monitor.capture.allowed_tags', []),
             'starter' => [
                 'name' => 'Production errors',
                 'enabled' => false,
@@ -166,7 +166,7 @@ final class EloquentAlertManagement implements AlertManagement
             $q->where('issue_id', Issue::query()->where('installation_id', $i)->where('public_id', $f['issue'])->value('id') ?? 0);
         }
         if ($f['rule'] ?? null) {
-            $q->whereExists(fn ($q) => $q->selectRaw('1')->from('exception_monitor_delivery_rules')->whereColumn('delivery_id', 'exception_monitor_deliveries.id')->where('rule_public_id', $f['rule']));
+            $q->whereExists(fn ($q) => $q->selectRaw('1')->from('telescope_monitor_delivery_rules')->whereColumn('delivery_id', 'telescope_monitor_deliveries.id')->where('rule_public_id', $f['rule']));
         }
         if ($f['environment'] ?? null) {
             $q->whereIn('issue_id', Issue::query()->where('installation_id', $i)->where('environment', $f['environment'])->select('id'));
@@ -218,7 +218,7 @@ final class EloquentAlertManagement implements AlertManagement
             'payload' => $payload,
             'payload_state' => $state,
             'payload_text' => $payload ? (str_starts_with($d->action, 'github_') ? ($payload['github_title']."\n\n".$payload['github_body']) : ($payload['webhook_body'] ?? Envelope::text($payload))) : null,
-            'rules' => Database::connection()->table('exception_monitor_delivery_rules')->where('delivery_id', $d->id)->get()->map(fn ($r) => [
+            'rules' => Database::connection()->table('telescope_monitor_delivery_rules')->where('delivery_id', $d->id)->get()->map(fn ($r) => [
                 'id' => $r->rule_public_id,
                 'version' => (int) $r->rule_version,
                 'conditions' => json_decode($r->conditions_snapshot, true),
@@ -470,9 +470,9 @@ final class EloquentAlertManagement implements AlertManagement
             $r->window_seconds = $v['window_seconds'];
             $r->cooldown_seconds = $v['cooldown_seconds'];
             $r->save();
-            Database::connection()->table('exception_monitor_rule_connections')->where('rule_id', $r->id)->delete();
+            Database::connection()->table('telescope_monitor_rule_connections')->where('rule_id', $r->id)->delete();
             foreach ($connections as $c) {
-                Database::connection()->table('exception_monitor_rule_connections')->insert(['rule_id' => $r->id, 'connection_id' => $c->id]);
+                Database::connection()->table('telescope_monitor_rule_connections')->insert(['rule_id' => $r->id, 'connection_id' => $c->id]);
             }
         }
         $this->audit(null, $r->public_id, $op, $action, $actor, []);
@@ -482,7 +482,7 @@ final class EloquentAlertManagement implements AlertManagement
 
     private function test(int $i, int $generation, array $v, string $actor, string $action): array
     {
-        if (! config('exception-monitor.alerts.enabled', true)) {
+        if (! config('telescope-monitor.alerts.enabled', true)) {
             throw new Conflict('Delivery is disabled by deployment policy.');
         }
         $connections = Connection::query()->where('installation_id', $i)->whereIn('public_id', $v['connections'])->where('enabled', true)->whereNull('disconnected_at')->get();
@@ -649,10 +649,10 @@ final class EloquentAlertManagement implements AlertManagement
             $d->payload_frozen_at = CarbonImmutable::now('UTC');
             $d->export_policy_revision = $this->installations->current()->config_revision;
             $d->save();
-            foreach (Database::connection()->table('exception_monitor_delivery_rules')->where('delivery_id', $old->id)->get() as $ref) {
+            foreach (Database::connection()->table('telescope_monitor_delivery_rules')->where('delivery_id', $old->id)->get() as $ref) {
                 $row = (array) $ref;
                 $row['delivery_id'] = $d->id;
-                Database::connection()->table('exception_monitor_delivery_rules')->insert($row);
+                Database::connection()->table('telescope_monitor_delivery_rules')->insert($row);
             }
         }
         $this->audit($d->issue_id, $d->public_id, 'delivery.'.$op, $action, $actor, ['delivery_id' => $d->public_id, 'retry_cycle' => $d->retry_cycle]);

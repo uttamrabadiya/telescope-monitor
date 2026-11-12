@@ -8,7 +8,7 @@ use TelescopeMonitor\Operations\MaintenanceFailure;
 
 final class RewrapCommand extends Command
 {
-    protected $signature = 'exception-monitor:rewrap {installation} {target} {--confirm=} {--limit=100} {--after=0}';
+    protected $signature = 'telescope-monitor:rewrap {installation} {target} {--confirm=} {--limit=100} {--after=0}';
 
     protected $description = 'Re-encrypt a bounded page using the current host key, preserving bytes/digests/revisions and unreadable ciphertext.';
 

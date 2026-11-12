@@ -19,7 +19,7 @@ final class NotificationGate extends Model
 {
     use UsesUtcTimestamps;
 
-    protected $table = 'exception_monitor_notification_gates';
+    protected $table = 'telescope_monitor_notification_gates';
 
     protected $guarded = [];
 

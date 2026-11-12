@@ -57,7 +57,7 @@ final class BootstrapService
                 'capture' => $ready && $this->inbox->ready(),
                 'errors' => $ready && $this->inbox->ready(),
                 'alerts' => $ready && app(AlertPlanning::class)->ready(),
-                'controlled_integrations' => (bool) config('exception-monitor.workbench_controlled_integrations', false) && app()->environment('local', 'workbench'),
+                'controlled_integrations' => (bool) config('telescope-monitor.workbench_controlled_integrations', false) && app()->environment('local', 'workbench'),
                 'integrations' => $ready && app(GitHubIssues::class)->ready(),
                 'assignments' => app(Assignments::class)->enabled() && app(CollaborationRepository::class)->ready(),
                 'collaboration' => $ready && app(CollaborationRepository::class)->ready(),

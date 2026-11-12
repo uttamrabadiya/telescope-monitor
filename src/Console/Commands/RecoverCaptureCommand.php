@@ -8,7 +8,7 @@ use TelescopeMonitor\Repositories\Contracts\CaptureInboxRepository;
 
 final class RecoverCaptureCommand extends Command
 {
-    protected $signature = 'exception-monitor:recover {--limit=100}';
+    protected $signature = 'telescope-monitor:recover {--limit=100}';
 
     protected $description = 'Dispatch due capture input and pending probes to the configured asynchronous queue.';
 

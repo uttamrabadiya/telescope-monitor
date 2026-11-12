@@ -65,7 +65,7 @@ final class CaptureProbes
             return false;
         }
         try {
-            Telescope::withoutRecording(fn () => Bus::dispatch((new CaptureProbe($id, $generation))->onConnection(config('exception-monitor.queues.connection'))->onQueue(config('exception-monitor.queues.capture'))));
+            Telescope::withoutRecording(fn () => Bus::dispatch((new CaptureProbe($id, $generation))->onConnection(config('telescope-monitor.queues.connection'))->onQueue(config('telescope-monitor.queues.capture'))));
             $this->receipts->update($id, ['updated_at' => CarbonImmutable::now('UTC')]);
 
             return true;
@@ -125,7 +125,7 @@ final class CaptureProbes
                 'file' => $exception->getFile(),
                 'line' => $exception->getLine(),
                 'trace' => [],
-                'exception_monitor_origin' => ['kind' => 'job', 'job_class' => CaptureProbe::class],
+                'telescope_monitor_origin' => ['kind' => 'job', 'job_class' => CaptureProbe::class],
             ]);
             $entry->uuid = $id;
             Telescope::recordException($entry);

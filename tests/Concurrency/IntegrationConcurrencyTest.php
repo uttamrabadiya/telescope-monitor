@@ -21,7 +21,7 @@ final class IntegrationConcurrencyTest extends TestCase
         if (DB::getDriverName() !== 'mysql' || ! function_exists('pcntl_fork')) {
             $this->markTestSkipped('Requires MySQL/MariaDB and pcntl.');
         }$this->authorize();
-        config(['exception-monitor.alerts.allowed_environments' => ['testing']]);
+        config(['telescope-monitor.alerts.allowed_environments' => ['testing']]);
         $this->travelTo(CarbonImmutable::parse('2026-11-11T10:10:01Z'));
     }
 
@@ -64,15 +64,15 @@ final class IntegrationConcurrencyTest extends TestCase
         ]);
         $this->capture();
         $this->process();
-        $issue = DB::table('exception_monitor_issues')->value('public_id');
+        $issue = DB::table('telescope_monitor_issues')->value('public_id');
         $v = ['connection' => $c['id'], 'preview_key' => (string) Str::uuid(), 'labels' => []];
         $p = app(GitHubIssues::class)->preview($issue, $v);
         $v += ['preview_digest' => $p['digest'], 'link_version' => $p['link_version']];
         $confirm = fn () => app(IntegrationManagement::class)->command('github.create', $issue, (string) Str::uuid(), $v);
         $this->assertSame([0, 0], $this->fork([$confirm, $confirm]));
-        $this->assertDatabaseCount('exception_monitor_linked_issues', 1);
-        $this->assertDatabaseCount('exception_monitor_deliveries', 1);
-        $this->assertDatabaseCount('exception_monitor_alert_events', 2);
+        $this->assertDatabaseCount('telescope_monitor_linked_issues', 1);
+        $this->assertDatabaseCount('telescope_monitor_deliveries', 1);
+        $this->assertDatabaseCount('telescope_monitor_alert_events', 2);
     }
 
     public function test_slack_claim_reservation_is_shared_across_different_errors(): void
@@ -98,10 +98,10 @@ final class IntegrationConcurrencyTest extends TestCase
         $this->process();
         $this->capture('second', null, null, \LogicException::class);
         $this->process();
-        $ids = DB::table('exception_monitor_deliveries')->orderBy('id')->pluck('id')->all();
+        $ids = DB::table('telescope_monitor_deliveries')->orderBy('id')->pluck('id')->all();
         $this->assertCount(2, $ids);
         $work = array_map(fn ($id) => fn () => app(DeliveryLedger::class)->claim($id, 1, true), $ids);
         $this->assertSame([0, 1], $this->fork($work));
-        $this->assertSame(1, DB::table('exception_monitor_delivery_attempts')->count());
+        $this->assertSame(1, DB::table('telescope_monitor_delivery_attempts')->count());
     }
 }

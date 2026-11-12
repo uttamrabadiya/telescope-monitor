@@ -17,7 +17,7 @@ final class CollaborationController
 {
     private function response(array $data): JsonResponse
     {
-        return response()->json(['exception_monitor_private' => $data])->header('Cache-Control', 'private, no-store');
+        return response()->json(['telescope_monitor_private' => $data])->header('Cache-Control', 'private, no-store');
     }
 
     private function run(callable $work): JsonResponse
@@ -74,9 +74,9 @@ final class CollaborationController
         $values = $r->validated();
         $key = $values['client_key'];
         unset($values['client_key']);
-        if (isset($values['exception_monitor_private'])) {
-            $values['body'] = $values['exception_monitor_private']['body'];
-            unset($values['exception_monitor_private']);
+        if (isset($values['telescope_monitor_private'])) {
+            $values['body'] = $values['telescope_monitor_private']['body'];
+            unset($values['telescope_monitor_private']);
         }
         if ($r->route('note')) {
             $values['note'] = $r->route('note');

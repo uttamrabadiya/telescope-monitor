@@ -35,7 +35,7 @@ final class EloquentCollaborationRepository implements CollaborationRepository
 
     public function ready(): bool
     {
-        return $this->available ??= Database::schema()->hasTable('exception_monitor_notes') && Database::schema()->hasTable('exception_monitor_saved_views') && Database::schema()->hasTable('exception_monitor_view_preferences');
+        return $this->available ??= Database::schema()->hasTable('telescope_monitor_notes') && Database::schema()->hasTable('telescope_monitor_saved_views') && Database::schema()->hasTable('telescope_monitor_view_preferences');
     }
 
     private function installation(): int
@@ -212,7 +212,7 @@ final class EloquentCollaborationRepository implements CollaborationRepository
         $text = str_replace(["\r\n", "\r"], "\n", $text);
         $text = $this->redactor->text($text, $this->policy->read()['privacy']['redact_patterns']);
         if (trim($text) === '' || mb_strlen($text) > 10000) {
-            throw ValidationException::withMessages(['exception_monitor_private.body' => 'Enter 1–10,000 characters after privacy redaction.']);
+            throw ValidationException::withMessages(['telescope_monitor_private.body' => 'Enter 1–10,000 characters after privacy redaction.']);
         }
 
         return $text;

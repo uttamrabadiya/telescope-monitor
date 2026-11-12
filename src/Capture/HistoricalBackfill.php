@@ -20,7 +20,7 @@ final class HistoricalBackfill
             throw new CaptureFailure('invalid_backfill_options');
         }
 
-        $timezone = config('exception-monitor.capture.source_timezone') ?? config('app.timezone', 'UTC');
+        $timezone = config('telescope-monitor.capture.source_timezone') ?? config('app.timezone', 'UTC');
         try {
             if (! is_string($timezone)) {
                 throw new \InvalidArgumentException;
@@ -31,7 +31,7 @@ final class HistoricalBackfill
         }
 
         return Telescope::withoutRecording(function () use ($environment, $after, $limit, $through, $dryRun, $timezone) {
-            if (! config('exception-monitor.enabled') || ! config('exception-monitor.capture.enabled', true) || ! $this->inbox->ready()) {
+            if (! config('telescope-monitor.enabled') || ! config('telescope-monitor.capture.enabled', true) || ! $this->inbox->ready()) {
                 throw new CaptureFailure('backfill_unavailable');
             }
             $i = Installation::query()->where('singleton_key', 'default')->first();
@@ -65,7 +65,7 @@ final class HistoricalBackfill
             foreach ($this->source->historicalPage($after, $limit, $through) as $row) {
                 $result['scanned']++;
                 $result['next_after'] = $row['sequence'];
-                if (array_filter($row['tags'], fn ($tag) => str_starts_with($tag, 'em3|') || str_starts_with($tag, 'em2c|') || str_starts_with($tag, 'em2g|'))) {
+                if (array_filter($row['tags'], fn ($tag) => str_starts_with($tag, 'tm3|') || str_starts_with($tag, 'tm2c|') || str_starts_with($tag, 'tm2g|'))) {
                     $result['skipped_marked']++;
 
                     continue;
@@ -97,7 +97,7 @@ final class HistoricalBackfill
                     'environment' => $environment,
                     'occurred_at' => $time->format('Y-m-d H:i:s.u'),
                     'time_precision' => str_contains($row['created_at'], '.') ? 'microsecond' : 'second',
-                    'grouping_version' => (int) config('exception-monitor.capture.grouping_version', 1),
+                    'grouping_version' => (int) config('telescope-monitor.capture.grouping_version', 1),
                     'fingerprint_hash' => $this->fingerprint->hash($environment, $content),
                     'probe_id' => null,
                     'policy' => $policy,
