@@ -385,3 +385,12 @@ At the user's request, the default monitoring authorization driver is now `teles
 Queued real-user actions re-resolve the user and check viewTelescope; local shared actions recheck Telescope access. Deployed guest-only queued work fails closed unless the host explicitly grants allow_guest_jobs. An approved HTTP visitor cannot authorize a different saved actor. Documentation explains shared notes/view ownership and worker policy.
 
 Verification: full SQLite suite 232 tests / 1,351 assertions with 13 engine-specific skips before adding two extra authorization regressions; the final 10-test authorization scope passes. Static analysis passes. An anonymous Laravel HTTP-kernel dashboard request returned 200 with assets and no signed-in user. No extra login route or user-account mutation was introduced.
+
+
+## Context & activity and sanitized SQL — 12 November 2026
+
+Added opt-in sanitized SQL templates to privacy preferences with existing deployment locks, bounded fail-closed normalization before buffering, ingestion/read-time restrictions and older-envelope compatibility. Templates exclude bindings, supported literal values and comments; unsafe/ambiguous forms are omitted, not partially stored. No new table/migration is needed. Current privacy can hide retained templates; old missing SQL is never reconstructed automatically.
+
+The new Context & activity view describes request/job/command activity, shows readable query templates with connection/duration units, collapses missing-SQL measurements, displays severity/message logs, hides empty tags and moves coverage into Data availability. Old snapshots explain missing SQL clearly and can link to the original Telescope exception. Grouping is explicit; no event timestamps/order are fabricated.
+
+Verification: full SQLite suite 244 tests / 1,444 assertions with 13 engine-specific skips; 5 frontend unit tests; production Vue/TypeScript build; Pint and static analysis pass. Tests cover literal/comment/parameter removal, unsupported and oversized SQL, prebuffer/ingestion/read-time policy, deployment locks, command-argument omission, older snapshots, deduplicated presentation and heavy-batch bounds. Browser checks used the controlled preview at desktop/phone sizes with modern and simulated older snapshots; no overflow, fixture-secret leakage or console errors. Existing unrelated working-tree edits were preserved; sealed rc.1 remains unchanged.

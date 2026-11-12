@@ -72,7 +72,7 @@ final class EnvelopeCodec
             throw new CaptureFailure('malformed_execution');
         }
         foreach (array_merge($data['logs'], $data['queries'], $data['timeline']) as $entry) {
-            if (! is_array($entry) || array_diff(array_keys($entry), ['type', 'level', 'message', 'connection', 'duration_ms'])) {
+            if (! is_array($entry) || array_diff(array_keys($entry), ['type', 'level', 'message', 'connection', 'duration_ms', 'sql_template', 'sql_state', 'method', 'path', 'status', 'job_class', 'command'])) {
                 throw new CaptureFailure('malformed_timeline');
             }
         }
@@ -94,9 +94,14 @@ final class EnvelopeCodec
         }
         foreach (array_merge($data['logs'], $data['queries'], $data['timeline']) as $entry) {
             foreach ($entry as $key => $value) {
-                if ($key === 'duration_ms' ? (! is_numeric($value) || ! is_finite((float) $value) || $value < 0) : ! is_string($value)) {
+                if ($key === 'status' ? (! is_int($value) || $value < 0 || $value > 599) : ($key === 'duration_ms' ? (! is_numeric($value) || ! is_finite((float) $value) || $value < 0) : ! is_string($value))) {
                     throw new CaptureFailure('malformed_timeline');
                 }
+            }
+        }
+        foreach (array_merge($data['queries'], $data['timeline']) as $entry) {
+            if ((isset($entry['sql_template']) && (strlen($entry['sql_template']) > 4096 || ($entry['sql_state'] ?? null) !== 'retained')) || (($entry['sql_state'] ?? null) === 'retained' && ! isset($entry['sql_template'])) || (isset($entry['sql_state']) && ! in_array($entry['sql_state'], ['retained', 'disabled', 'unsupported', 'too_large'], true))) {
+                throw new CaptureFailure('malformed_sql_template');
             }
         }
         foreach ($data['tags'] as $key => $value) {

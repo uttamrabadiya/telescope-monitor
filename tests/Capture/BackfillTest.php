@@ -202,7 +202,7 @@ final class BackfillTest extends TestCase
     {
         $this->legacy();
         $this->assertSame(2, Artisan::call('exception-monitor:backfill'));
-        $this->assertSame(0, Artisan::call('exception-monitor:backfill', ['--environment' => 'testing', '--dry-run' => true]));
+        $this->assertSame(0, Artisan::call('exception-monitor:backfill', ['--environment' => 'testing', '--dry-run' => true, '--json' => true]));
         $result = json_decode(trim(Artisan::output()), true);
         $this->assertTrue($result['dry_run']);
         $this->assertSame(1, $result['eligible']);
@@ -286,5 +286,48 @@ final class BackfillTest extends TestCase
         $this->assertSame(1, Artisan::call('exception-monitor:backfill', ['--environment' => 'testing']));
         $this->assertStringContainsString('invalid_source_timezone', Artisan::output());
         $this->assertDatabaseCount('exception_monitor_occurrences', 0);
+    }
+
+    public function test_human_dry_run_distinguishes_importing_this_page_from_previewing_the_next(): void
+    {
+        $this->legacy();
+        $this->legacy();
+        $ceiling = $this->source()->max('sequence');
+        $first = $this->source()->min('sequence');
+        $this->assertSame(0, Artisan::call('exception-monitor:backfill', ['--environment' => 'testing', '--limit' => 1, '--dry-run' => true]));
+        $output = Artisan::output();
+        $this->assertStringContainsString('No monitoring data was written.', $output);
+        $this->assertStringContainsString('Eligible candidates', $output);
+        $this->assertStringContainsString('To import this page:', $output);
+        $this->assertStringContainsString('--after=0 --through='.$ceiling.' --limit=1', $output);
+        $this->assertStringContainsString('To preview the next page:', $output);
+        $this->assertStringContainsString('--after='.$first.' --through='.$ceiling.' --limit=1 --dry-run', $output);
+        $this->assertDatabaseCount('exception_monitor_occurrences', 0);
+    }
+
+    public function test_human_completion_and_json_success_keep_the_import_results_accurate(): void
+    {
+        $this->legacy();
+        $this->assertSame(0, Artisan::call('exception-monitor:backfill', ['--environment' => 'testing']));
+        $output = Artisan::output();
+        $this->assertStringContainsString('Imported this run', $output);
+        $this->assertStringContainsString('Source snapshot scanned.', $output);
+        $this->assertStringNotContainsString('Continue with:', $output);
+        $this->assertSame(0, Artisan::call('exception-monitor:backfill', ['--environment' => 'testing', '--json' => true]));
+        $result = json_decode(trim(Artisan::output()), true);
+        $this->assertSame(1, $result['duplicates']);
+        $this->assertSame(0, $result['imported']);
+        $this->assertFalse($result['has_more']);
+    }
+
+    public function test_json_errors_are_structured_and_copyable_commands_quote_environment_names(): void
+    {
+        $this->assertSame(2, Artisan::call('exception-monitor:backfill', ['--json' => true]));
+        $this->assertSame('invalid_backfill_options', json_decode(trim(Artisan::output()), true)['error']['code']);
+        $this->legacy();
+        $this->assertSame(0, Artisan::call('exception-monitor:backfill', ['--environment' => 'production blue', '--dry-run' => true, '--env' => 'testing']));
+        $output = Artisan::output();
+        $this->assertStringContainsString("--environment='production blue'", $output);
+        $this->assertStringContainsString('--env=testing', $output);
     }
 }

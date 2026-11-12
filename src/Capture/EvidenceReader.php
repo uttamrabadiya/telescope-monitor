@@ -39,6 +39,7 @@ final class EvidenceReader
                 throw new CaptureFailure('integrity_failed');
             }
             $payload = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+            $payload = app(Sanitizer::class)->restrict($payload, app(CapturePolicy::class)->read());
             $snapshot = $payload['source'] ?? null;
             foreach ($payload['exception']['trace'] as &$frame) {
                 $frame['source_url'] = app(SourceSnapshot::class)->link($snapshot, $frame['file'] ?? '', (int) ($frame['line'] ?? 0));

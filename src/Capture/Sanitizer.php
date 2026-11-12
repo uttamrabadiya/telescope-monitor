@@ -50,24 +50,36 @@ final class Sanitizer
                     'method' => $this->text($c['method'] ?? '', $policy, 16),
                     'path' => $this->text(parse_url($uri, PHP_URL_PATH) ?: '', $policy, 2048),
                     'controller' => $this->text($c['controller_action'] ?? '', $policy, 191),
-                    'status' => max(0, (int) ($c['response_status'] ?? 0)),
+                    'status' => max(0, min(599, (int) ($c['response_status'] ?? 0))),
                 ];
             } elseif ($type === 'job' && $out['origin'] === 'job' && ! $out['execution'] && $policy['privacy']['retain_execution_context']) {
                 $out['origin'] = 'job';
-                $out['execution'] = ['job_class' => $this->text($c['name'] ?? 'unknown', $policy, 512)];
+                $out['execution'] = ['job_class' => $this->jobName($c['name'] ?? null)];
             } elseif ($type === 'command' && $out['origin'] === 'command' && ! $out['execution'] && $policy['privacy']['retain_execution_context']) {
                 $out['origin'] = 'command';
-                $out['execution'] = ['command' => $this->text($c['command'] ?? 'unknown', $policy, 191)];
+                $out['execution'] = ['command' => $this->commandName($c['command'] ?? null)];
             }
             $event = null;
             if ($type === 'log' && $policy['privacy']['retain_related_logs'] && count($out['logs']) < 20) {
                 $event = ['type' => 'log', 'level' => $this->text($c['level'] ?? '', $policy, 16), 'message' => $this->text($c['message'] ?? '', $policy, 2048)];
                 $out['logs'][] = $event;
             } elseif ($type === 'query' && $policy['privacy']['retain_execution_context']) {
-                $event = ['type' => 'query', 'connection' => $this->text($c['connection'] ?? '', $policy, 64), 'duration_ms' => max(0, (float) ($c['time'] ?? 0))];
+                $duration = is_numeric($c['time'] ?? null) && is_finite((float) $c['time']) ? max(0, (float) $c['time']) : null;
+                $sql = ($policy['privacy']['retain_sql_templates'] ?? false)
+                    ? app(SqlTemplate::class)->capture($c['sql'] ?? null, $c['driver'] ?? null, (int) config('exception-monitor.capture.sql_max_bytes', 2048))
+                    : ['sql_state' => 'disabled'];
+                $event = ['type' => 'query', 'connection' => $this->text($c['connection'] ?? '', $policy, 64), 'duration_ms' => $duration] + $sql;
+                if ($duration === null) {
+                    unset($event['duration_ms']);
+                }
+                $event = $this->restrictQuery($event, $policy);
                 $out['queries'][] = $event;
             } elseif (in_array($type, ['request', 'job', 'command'], true) && $policy['privacy']['retain_execution_context']) {
-                $event = ['type' => $type];
+                $event = ['type' => $type] + match ($type) {
+                    'request' => array_intersect_key($out['execution'], array_flip(['method', 'path', 'status'])),
+                    'job' => ['job_class' => $this->jobName($c['name'] ?? null)],
+                    'command' => ['command' => $this->commandName($c['command'] ?? null)],
+                };
             }
             if ($event) {
                 $size = strlen(json_encode($event, JSON_THROW_ON_ERROR));
@@ -87,6 +99,7 @@ final class Sanitizer
                 array_pop($out['logs']);
             } elseif ($out['queries']) {
                 array_pop($out['queries']);
+                $out['coverage']['queries'] = 'truncated';
             } else {
                 break;
             }
@@ -134,11 +147,11 @@ final class Sanitizer
             $coverage['execution'] = 'available';
         }
         if ($policy['privacy']['retain_execution_context'] && $kind === 'job' && isset($origin['job_class'])) {
-            $execution = ['job_class' => $this->text($origin['job_class'], $policy, 512)];
+            $execution = ['job_class' => $this->jobName($origin['job_class'])];
             $coverage['execution'] = 'available';
         }
         if ($policy['privacy']['retain_execution_context'] && $kind === 'command' && isset($origin['command'])) {
-            $execution = ['command' => $this->text($origin['command'], $policy, 191)];
+            $execution = ['command' => $this->commandName($origin['command'])];
             $coverage['execution'] = 'available';
         }
         if ($policy['privacy']['retain_execution_context'] && is_array($content['exception_monitor_route'] ?? null)) {
@@ -147,6 +160,14 @@ final class Sanitizer
                     $execution[$target] = $this->text($content['exception_monitor_route'][$source], $policy, $target === 'route_name' ? 191 : 2048);
                 }
             }
+        }
+        if ($policy['privacy']['retain_execution_context'] && isset($execution['path_template'])) {
+            foreach ($batch['timeline'] as &$event) {
+                if (($event['type'] ?? '') === 'request') {
+                    $event['path'] = $execution['path_template'];
+                }
+            }
+            unset($event);
         }
         $allowed = [];
         foreach ($tags as $tag) {
@@ -218,7 +239,9 @@ final class Sanitizer
         } else {
             foreach ($envelope['execution'] as $key => $value) {
                 if (is_string($value)) {
-                    $envelope['execution'][$key] = $this->text($value, $policy, 2048);
+                    $envelope['execution'][$key] = match ($key) {
+                        'command' => $this->commandName($value), 'job_class' => $this->jobName($value), default => $this->text($value, $policy, 2048)
+                    };
                 }
             }
         }
@@ -237,15 +260,21 @@ final class Sanitizer
         }
         $envelope['timeline'] = array_values(array_filter($envelope['timeline'], fn ($event) => ($event['type'] ?? '') === 'log' ? $policy['privacy']['retain_related_logs'] : $policy['privacy']['retain_execution_context']));
         foreach ($envelope['timeline'] as &$event) {
+            if (($event['type'] ?? '') === 'query') {
+                $event = $this->restrictQuery($event, $policy);
+            }
             foreach ($event as $key => $value) {
-                if (is_string($value)) {
-                    $event[$key] = $this->text($value, $policy, 2048);
+                if (is_string($value) && $key !== 'sql_template') {
+                    $event[$key] = match ($key) {
+                        'command' => $this->commandName($value), 'job_class' => $this->jobName($value), default => $this->text($value, $policy, 2048)
+                    };
                 }
             }
         }
         unset($event);
         $envelope['tags'] = array_intersect_key($envelope['tags'], array_flip(config('exception-monitor.capture.allowed_tags', [])));
         foreach ($envelope['queries'] as &$query) {
+            $query = $this->restrictQuery($query, $policy);
             if (isset($query['connection'])) {
                 $query['connection'] = $this->text($query['connection'], $policy, 64);
             }
@@ -256,6 +285,40 @@ final class Sanitizer
         }
 
         return $this->fit($envelope);
+    }
+
+    private function jobName(mixed $value): string
+    {
+        return is_string($value) && strlen($value) <= 512 && preg_match('/^\/?[A-Za-z_][A-Za-z0-9_]*(?:\/[A-Za-z_][A-Za-z0-9_]*)*$/D', str_replace(chr(92), '/', $value)) ? $value : '[unavailable]';
+    }
+
+    private function commandName(mixed $value): string
+    {
+        return is_string($value) && preg_match('/^[A-Za-z0-9][A-Za-z0-9:_-]{0,190}$/D', $value) ? $value : '[unavailable]';
+    }
+
+    private function restrictQuery(array $query, array $policy): array
+    {
+        if (! ($policy['privacy']['retain_sql_templates'] ?? false) || ! $policy['privacy']['retain_execution_context']) {
+            $known = array_key_exists('sql_template', $query) || array_key_exists('sql_state', $query);
+            unset($query['sql_template']);
+            if ($known) {
+                $query['sql_state'] = 'disabled';
+            }
+        } elseif (isset($query['sql_template'])) {
+            $normalized = app(SqlTemplate::class)->capture($query['sql_template'], 'mysql', (int) config('exception-monitor.capture.sql_max_bytes', 2048));
+            unset($query['sql_template']);
+            $query = array_replace($query, $normalized);
+            if (isset($query['sql_template'])) {
+                $redacted = $this->text($query['sql_template'], $policy, 4096);
+                if ($redacted !== $query['sql_template']) {
+                    unset($query['sql_template']);
+                    $query['sql_state'] = 'unsupported';
+                }
+            }
+        }
+
+        return $query;
     }
 
     private function fit(array $envelope): array

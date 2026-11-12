@@ -14,6 +14,8 @@ return [
     'capture' => [
         'enabled' => true,
         'bridge_jobs' => true,
+        'sql_templates' => false,
+        'sql_max_bytes' => 2048,
         'grouping_version' => 1,
         'grouping_callback' => null,
         'inline_limit' => 100,

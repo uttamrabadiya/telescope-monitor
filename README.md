@@ -19,7 +19,7 @@ Implemented now:
 - Sanitized evidence independent of Telescope retention, event-time metrics, bounded recovery/reconciliation and evidence pruning.
 - A real queued synthetic capture check in onboarding, with truthful pending, filtered, disabled and verified states.
 - Overview/trends and a filtered, paginated error inbox, with test data excluded by default.
-- Stable occurrence URLs, retained stack/context/timeline, scoped insights, activity and explicit expired/unreadable states.
+- Stable occurrence URLs, retained stack/context/activity, scoped insights, activity and explicit expired/unreadable states.
 - Versioned, idempotent Resolve/Reopen/Ignore/Snooze/Unsnooze actions with actor audit, suppression cutoffs and bounded expiry maintenance.
 - Encrypted plain-text notes with safe links, author edits, conflict recovery and body-removing tombstones.
 - Personal/shared saved definitions, copy/rename/delete and per-actor favorites/order/defaults with private-view isolation.
@@ -157,7 +157,7 @@ Processed/cancelled inbox bodies are removed after 24 hours. Pending/failed ciph
 
 Grouping v1 uses environment, exception class, application-relative file and line, excluding the message. A host `capture.grouping_callback` receives only that replay-stable input set and returns a bounded string; increment `capture.grouping_version` when changing its policy. `capture.source_timezone` defaults to the host application timezone for Telescope source-window queries; package timestamps always use UTC.
 
-Normal envelopes are at most 128 KiB; source/context reads, traces, logs, tags and overflow batches have explicit limits. Related request bodies/headers/cookies, trace arguments/objects, SQL/bindings and arbitrary context are never copied. Queries retain connection/duration only. Default text redaction handles common credential patterns; application-specific secrets still need configured redaction patterns and appropriate Telescope policy. Source records are governed separately by the host.
+Normal envelopes are at most 128 KiB; source/context reads, traces, logs, tags and overflow batches have explicit limits. Related request bodies/headers/cookies, trace arguments/objects, query bindings and arbitrary context are never copied. Queries retain connection/duration by default; optional sanitized SQL templates are described below. Default text redaction handles common credential patterns; application-specific secrets still need configured redaction patterns and appropriate Telescope policy. Source records are governed separately by the host.
 
 A changed source database signature or backwards source sequence stops reconciliation for explicit epoch review; the package never silently resets identity. A source that was filtered, unmarked, pruned or unavailable before durable buffering cannot be reconstructed. Setup and system health expose pending/failed counts, oldest pending receipt, safe error code and actual processing/maintenance times. The overview and investigation UI consume these observations; email delivery has its own durable ledger and observations described below.
 
@@ -170,19 +170,31 @@ php artisan exception-monitor:backfill --environment=production --limit=100 --dr
 php artisan exception-monitor:backfill --environment=production --limit=100
 ```
 
-Replace `production` when appropriate. Output is JSON with a fixed source `through` ceiling, `next_after` cursor, `has_more`, and candidate/import/duplicate/skip/pending/failure counts. Continue the same snapshot using the returned values:
+Replace `production` when appropriate. Default output is a readable page summary with candidate/import/duplicate/skip/pending/failure counts and copyable next commands. Dry runs distinguish importing the current page from previewing the next page, so previewed records are not accidentally skipped. Sequence IDs are cursors, not exception totals or a completion percentage. Continue the same snapshot with the printed command:
 
 ```sh
 php artisan exception-monitor:backfill --environment=production --after=1234 --through=9876 --limit=100
 ```
 
-The numbers above are examples; use the values from your run. Each invocation scans at most 1–1,000 source exceptions and may stop earlier at the existing source byte budget. Repeat pages safely after interruption. Dry run validates candidate selection without writing package data or generating keys; it does not preview payload text or guarantee every payload can subsequently be sanitized/encrypted.
+The numbers above are examples; use the command printed by your run. Add `--json` for the original machine-readable result fields (`through`, `next_after`, `has_more` and counters); failures also return a structured JSON error and a nonzero exit status. Each invocation scans at most 1–1,000 source exceptions and may stop earlier at the existing source byte budget. Repeat pages safely after interruption. Dry run validates candidate selection without writing package data or generating keys; it does not preview payload text or guarantee every payload can subsequently be sanitized/encrypted.
 
 The command sanitizes and encrypts evidence before buffering, then attempts ingestion inline in the CLI. A worker may claim buffered work concurrently; pending/retryable work uses the existing capture recovery path. Rows carrying package markers are skipped: use normal recovery/reconciliation for those. Malformed, oversized and future-dated rows are skipped with counts, never raw content. Source rows/tags are not changed, and normal reconciliation checkpoints are not advanced.
 
 Imported occurrences have `historical_import` provenance and an explicit Historical import label. History-only groups show Historical until a live occurrence arrives. Original timestamps are preserved using `capture.source_timezone` (otherwise the app timezone); legacy reportability is marked unavailable. Current deployment release/source-link metadata is never retroactively attached. Imported history contributes to lifetime totals and retained event-time charts but cannot reopen/unsnooze an existing issue, generate retrospective alert events/deliveries/GitHub creation, or inflate a subsequent live alert's frequency count.
 
 Identity is deduplicated by installation, source epoch and Telescope UUID, including repeated/concurrent runs and replay after evidence expiry. Totals count retained exception UUIDs; they do not reconstruct pruned history or multiply a row by denormalized family counters. Retention still applies from the original event time: very old records may have only a sanitized group summary and occurrence identity, with no retained snapshot. Purge generation/sequence/time fences prevent restoration of deliberately purged history. Disabled package capture, maintenance, source identity changes and unknown database connections are not bypassed. Explicit user actions on imported issues remain normal authorized actions and may notify according to current rules.
+
+## Context, activity and optional SQL templates
+
+The occurrence tab is **Context & activity**: execution metadata, descriptive request/job/command entries, grouped database measurements and related logs. It does not invent event timestamps or chronological ordering. Query measurements always have duration units when available; entries without SQL stay collapsed separately from readable templates. Empty tags are hidden and technical coverage is under Data availability.
+
+SQL templates are **off by default**. Enable **Settings → Capture & privacy → Sanitized SQL templates** with execution metadata enabled. Alternatively, `capture.sql_templates` sets the deployment default; a saved privacy preference overrides that default. To prohibit retention, lock `privacy.retain_sql_templates` to false. Template output defaults to 2,048 bytes, controlled by `capture.sql_max_bytes` and capped at 4,096 bytes; input inspection is bounded at 16 KiB. Oversized statements are omitted entirely rather than partially retaining them.
+
+Templates are generated before encrypted buffering. Supported string, numeric, hex, bit, boolean/null and named parameter values become placeholders; bindings and comments are not copied. A conservative lexer accepts a subset of single-statement SELECT/INSERT/UPDATE/DELETE SQL for mysql/mariadb/sqlite query drivers. Ambiguous double quotes, backslash-escape syntax, executable/nested comments, unusual identifiers, variables, dollar quoting, unsupported statements/drivers and multiple statements are omitted. Schema identifiers and function names remain visible; templates are diagnostic text, never executed. If configured redaction changes a template, it is omitted. This deliberately trades coverage for privacy when quoting cannot be interpreted safely. Reference syntax: [MySQL string literal modes](https://dev.mysql.com/doc/refman/8.4/en/string-literals.html) and [SQL lexical distinctions](https://www.postgresql.org/docs/current/sql-syntax-lexical.html).
+
+Current policy is applied again during ingestion and evidence reads. Disabling retention hides previously stored templates; sanitized ciphertext follows ordinary retention rather than immediate physical erasure. Enabling later cannot reconstruct older snapshots whose SQL was never retained. Those show an explicit older-snapshot message and a Telescope link where original evidence may still exist. Exception/log messages continue using the existing application-specific redaction rules. Telescope's own source storage remains governed separately.
+
+Restart capture/delivery workers after updating this code before testing new captures. No database migration is required. Existing envelopes without SQL/activity fields remain readable; older workers must be restarted to recognize new fields. No retrospective source enrichment or automatic rewrite of old evidence occurs.
 
 ## Investigation and lifecycle
 

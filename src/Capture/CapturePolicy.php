@@ -17,6 +17,7 @@ final class CapturePolicy
             'retain_stack_trace' => true,
             'retain_execution_context' => true,
             'retain_related_logs' => true,
+            'retain_sql_templates' => (bool) config('exception-monitor.capture.sql_templates', false),
             'identify_users' => false,
             'redact_patterns' => [],
         ], $this->settings->find($i->id, 'privacy')->values ?? []);
