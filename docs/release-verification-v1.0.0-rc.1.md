@@ -34,12 +34,14 @@ isolated evaluation; stable 1.0.0 qualification remains pending the gates below.
 - Strict Composer validation and live locked dependency audits are required again
   on the final release tree.
 
-CI is authoritative for the final commit. Do not describe a prepared workflow as
-executed evidence. Record its run URL and results below after completion.
+CI is authoritative for the final commit. The GitHub release links the successful
+run for its tag. Do not describe a prepared workflow as executed evidence.
 
 ## Release CI
 
-Pending execution on the prepared release commit. The workflow runs:
+See [release verification runs](https://github.com/uttamrabadiya/telescope-monitor/actions/workflows/tests.yml)
+for the commit associated with the release tag. Publication requires all of these
+jobs to pass:
 
 - PHP 8.3, 8.4 and 8.5 against the locked dependencies on SQLite;
 - complete tests, including fork races and SIGKILL recovery, on MySQL 8.4 and
