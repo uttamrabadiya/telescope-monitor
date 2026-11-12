@@ -326,7 +326,7 @@ final class EloquentCollaborationRepository implements CollaborationRepository
             if ($i->state !== 'active') {
                 throw new Conflict('Monitoring is undergoing maintenance. Reload before retrying.');
             }
-            $receipt = ActionReceipt::query()->createOrFirst([
+            $receipt = ActionReceipt::query()->lockForUpdate()->createOrFirst([
                 'installation_id' => $i->id,
                 'actor_lookup_hash' => $hash,
                 'operation' => 'collaboration.'.$operation,

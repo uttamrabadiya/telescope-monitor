@@ -83,6 +83,49 @@ final class OriginsTest extends TestCase
         $this->assertStringNotContainsString('console-secret', DB::table('telescope_monitor_issues')->value('message'));
     }
 
+    public function test_filtered_console_failure_keeps_origin_without_leaking_into_later_reports(): void
+    {
+        Telescope::filter(fn ($entry) => $entry->isException());
+        $kernel = new Kernel($this->app, $this->app['events']);
+        $kernel->rerouteSymfonyCommandEvents();
+        $kernel->command('demo:failure', fn () => throw new \RuntimeException('Synthetic command failure'));
+        $input = new ArrayInput(['command' => 'demo:failure']);
+        $this->assertSame(1, $kernel->handle($input, new BufferedOutput));
+        Telescope::store(app(EntriesRepository::class));
+        $this->importSource();
+        $this->process();
+        $this->assertSame('command', DB::table('telescope_monitor_occurrences')->value('origin'));
+        $payload = json_decode(Crypt::decryptString(DB::table('telescope_monitor_occurrence_evidence')->value('payload_ciphertext')), true);
+        $this->assertSame('demo:failure', $payload['execution']['command']);
+        $this->assertNull(app(CaptureContext::class)->command);
+
+        // Keep the input alive: weak references alone must not authorize attribution.
+        $this->capture('Synthetic unrelated report after failed command');
+        $this->importSource();
+        $this->process();
+        $this->assertSame('unknown', DB::table('telescope_monitor_occurrences')->orderByDesc('id')->value('origin'));
+    }
+
+    public function test_nested_command_restores_outer_context_and_success_clears_it(): void
+    {
+        Telescope::filter(fn ($entry) => $entry->isException());
+        $kernel = new Kernel($this->app, $this->app['events']);
+        $kernel->rerouteSymfonyCommandEvents();
+        $kernel->command('demo:inner', fn () => 0);
+        $kernel->command('demo:outer', function () use ($kernel) {
+            $kernel->call('demo:inner', [], new BufferedOutput);
+            report(new \RuntimeException('Synthetic report after nested command'));
+            return 0;
+        });
+        $this->assertSame(0, $kernel->handle(new ArrayInput(['command' => 'demo:outer']), new BufferedOutput));
+        Telescope::store(app(EntriesRepository::class));
+        $this->importSource();
+        $this->process();
+        $payload = json_decode(Crypt::decryptString(DB::table('telescope_monitor_occurrence_evidence')->value('payload_ciphertext')), true);
+        $this->assertSame('demo:outer', $payload['execution']['command']);
+        $this->assertNull(app(CaptureContext::class)->command);
+    }
+
     public function test_sync_origin_survives_filtered_related_job_records_without_leaking_context(): void
     {
         Telescope::filter(fn ($entry) => $entry->type !== 'job');

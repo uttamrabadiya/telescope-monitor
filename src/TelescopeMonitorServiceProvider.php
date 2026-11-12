@@ -112,10 +112,10 @@ final class TelescopeMonitorServiceProvider extends ServiceProvider
         $this->app['events']->listen(CommandStarting::class, function ($event) {
             $context = $this->app->make(CaptureContext::class);
             $context->job = null;
-            $context->command = $event->command;
+            $context->startCommand($event);
         });
-        $this->app['events']->listen(CommandFinished::class, function () {
-            $this->app->make(CaptureContext::class)->command = null;
+        $this->app['events']->listen(CommandFinished::class, function ($event) {
+            $this->app->make(CaptureContext::class)->finishCommand($event);
         });
         $this->app->booting(function () {
             $path = $this->app->make(PackagePath::class);

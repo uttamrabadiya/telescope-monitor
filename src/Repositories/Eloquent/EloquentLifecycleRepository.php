@@ -27,7 +27,7 @@ final class EloquentLifecycleRepository implements LifecycleRepository
             if ($i->state !== 'active') {
                 throw new LifecycleConflict('The installation is not active. Reload after maintenance.');
             }
-            $receipt = ActionReceipt::query()->createOrFirst([
+            $receipt = ActionReceipt::query()->lockForUpdate()->createOrFirst([
                 'installation_id' => $i->id,
                 'actor_lookup_hash' => $actorHash,
                 'operation' => 'issue.lifecycle',

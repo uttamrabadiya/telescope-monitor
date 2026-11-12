@@ -5,7 +5,7 @@
     "license": "MIT",
     "require": {
         "ext-curl": "*",
-        "laravel/framework": "^13.0",
+        "laravel/framework": "^13.42.0",
         "laravel/telescope": "^5.27.0",
         "php": "^8.3"
     },
@@ -65,8 +65,11 @@
             "/.playwright-mcp",
             "/node_modules",
             "/docs/*",
+            "!/docs/configuration-reference.md",
+            "!/docs/telescope-source-capture.md",
             "!/docs/operations-guide-v1.md",
             "!/docs/webhook-contract-v1.md",
+            "!/docs/technical-architecture-v1.md",
             "!/docs/release-notes-v1.0.0-rc.1.md",
             "!/docs/release-verification-v1.0.0-rc.1.md",
             "/tests",
@@ -89,7 +92,21 @@
             "/.php-cs-fixer.php",
             "/.php-cs-fixer.cache",
             "/vendor",
-            "/composer.lock"
+            "/composer.lock",
+            "/.gitattributes",
+            "/.gitignore"
         ]
+    },
+    "homepage": "https://github.com/uttamrabadiya/telescope-monitor",
+    "keywords": [
+        "laravel",
+        "telescope",
+        "monitoring",
+        "exceptions",
+        "error-tracking"
+    ],
+    "support": {
+        "issues": "https://github.com/uttamrabadiya/telescope-monitor/issues",
+        "source": "https://github.com/uttamrabadiya/telescope-monitor"
     }
 }

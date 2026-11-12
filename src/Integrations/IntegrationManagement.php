@@ -447,7 +447,7 @@ final class IntegrationManagement
             if ($i->state !== 'active') {
                 throw new Conflict('Monitoring is undergoing maintenance.');
             }$this->access(str_starts_with($op, 'github.') ? 'operate' : 'manage');
-            $receipt = ActionReceipt::query()->createOrFirst([
+            $receipt = ActionReceipt::query()->lockForUpdate()->createOrFirst([
                 'installation_id' => $i->id,
                 'actor_lookup_hash' => $this->identity->hash($actor->key),
                 'operation' => 'integration.'.$op,

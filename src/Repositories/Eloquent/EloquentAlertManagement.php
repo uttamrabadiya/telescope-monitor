@@ -347,7 +347,7 @@ final class EloquentAlertManagement implements AlertManagement
             if ($i->state !== 'active') {
                 throw new Conflict('Monitoring is undergoing maintenance.');
             }
-            $receipt = ActionReceipt::query()->createOrFirst(['installation_id' => $i->id, 'actor_lookup_hash' => $hash, 'operation' => 'alerting.'.$op, 'client_key' => $key], [
+            $receipt = ActionReceipt::query()->lockForUpdate()->createOrFirst(['installation_id' => $i->id, 'actor_lookup_hash' => $hash, 'operation' => 'alerting.'.$op, 'client_key' => $key], [
                 'public_id' => (string) Str::uuid(),
                 'generation' => $i->generation,
                 'actor_key' => $actor->key,

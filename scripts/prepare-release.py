@@ -13,6 +13,7 @@ root = Path(__file__).resolve().parent.parent
 parser = argparse.ArgumentParser(description=__doc__)
 parser.add_argument('--version', required=True)
 parser.add_argument('--output', type=Path, required=True)
+parser.add_argument('--git-ref', help='Verify a Git distribution instead of Composer archive (e.g. HEAD)')
 args = parser.parse_args()
 if not re.fullmatch(r'\d+\.\d+\.\d+-rc\.\d+', args.version):
     parser.error('Review artifacts require an explicit x.y.z-rc.n version')
@@ -25,7 +26,10 @@ archive = out / (name + '.zip')
 if archive.exists():
     parser.error('Output archive already exists; use a new empty review directory')
 env = dict(os.environ, COMPOSER_ROOT_VERSION=args.version)
-subprocess.run(['composer', 'archive', '--format=zip', '--dir=' + str(out), '--file=' + name], cwd=root, env=env, check=True)
+if args.git_ref:
+    subprocess.run(['git', 'archive', '--format=zip', '--output=' + str(archive), args.git_ref], cwd=root, check=True)
+else:
+    subprocess.run(['composer', 'archive', '--format=zip', '--dir=' + str(out), '--file=' + name], cwd=root, env=env, check=True)
 with zipfile.ZipFile(archive) as package:
     paths = package.namelist()
     forbidden = {'vendor', 'node_modules', 'tests', 'workbench', '.archive', '.git', '.github', '.idea', '.impeccable', '.playwright-mcp', 'releases'}
@@ -41,7 +45,7 @@ with zipfile.ZipFile(archive) as package:
         if content != (root / name_in_zip).read_bytes():
             raise SystemExit('Source/archive byte mismatch: ' + name_in_zip)
         manifest[name_in_zip] = hashlib.sha256(content).hexdigest()
-    for required in ['LICENSE', 'README.md', 'composer.json', 'dist/manifest.json', 'docs/operations-guide-v1.md', 'docs/webhook-contract-v1.md', 'docs/release-notes-v1.0.0-rc.1.md', 'docs/release-verification-v1.0.0-rc.1.md']:
+    for required in ['LICENSE', 'README.md', 'composer.json', 'dist/manifest.json', 'dist/licenses/figtree.txt', 'dist/licenses/heroicons.txt', 'dist/licenses/vue.txt', 'dist/licenses/vue-router.txt', 'docs/configuration-reference.md', 'docs/telescope-source-capture.md', 'docs/technical-architecture-v1.md', 'docs/operations-guide-v1.md', 'docs/webhook-contract-v1.md', 'docs/release-notes-v1.0.0-rc.1.md', 'docs/release-verification-v1.0.0-rc.1.md']:
         if required not in manifest:
             raise SystemExit('Missing required artifact: ' + required)
     asset_manifest = json.loads(package.read('dist/manifest.json'))
@@ -52,7 +56,7 @@ with zipfile.ZipFile(archive) as package:
 (out / 'FILES.sha256').write_text(''.join(f'{digest}  {name_in_zip}\n' for name_in_zip, digest in sorted(manifest.items())))
 digest = hashlib.sha256(archive.read_bytes()).hexdigest()
 (out / 'SHA256SUMS').write_text(f'{digest}  {archive.name}\n')
-(out / 'artifact.json').write_text(json.dumps({'version': args.version, 'package': 'telescope-monitor/telescope-monitor', 'disposition': 'REVIEW ONLY — publication held', 'archive': archive.name, 'sha256': digest, 'files': len(manifest), 'source_manifest_sha256': hashlib.sha256((out / 'FILES.sha256').read_bytes()).hexdigest(), 'publication_performed': False}, indent=2) + '\n')
+(out / 'artifact.json').write_text(json.dumps({'version': args.version, 'package': 'telescope-monitor/telescope-monitor', 'disposition': 'Release candidate — stable qualification pending', 'archive': archive.name, 'sha256': digest, 'files': len(manifest), 'source_manifest_sha256': hashlib.sha256((out / 'FILES.sha256').read_bytes()).hexdigest(), 'publication_performed': False}, indent=2) + '\n')
 metadata = json.loads((root / 'composer.json').read_text())
 package_metadata = {key: value for key, value in metadata.items() if key in {'name', 'type', 'description', 'license', 'require', 'autoload', 'extra'}}
 package_metadata.update(version=args.version, dist={'type': 'zip', 'url': archive.as_uri(), 'shasum': hashlib.sha1(archive.read_bytes()).hexdigest()})

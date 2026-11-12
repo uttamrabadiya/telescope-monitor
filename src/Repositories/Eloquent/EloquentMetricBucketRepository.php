@@ -30,7 +30,7 @@ final class EloquentMetricBucketRepository implements MetricBucketRepository
                 if ($old->equalTo($new)) {
                     continue;
                 }
-                $existing = MetricBucket::query()->where('issue_id', $issue->id)->where('resolution', $resolution)->where('bucket_start_at', $old->format('Y-m-d H:i:s.u'))->first();
+                $existing = MetricBucket::query()->where('issue_id', $issue->id)->where('resolution', $resolution)->where('bucket_start_at', $old->format('Y-m-d H:i:s.u'))->lockForUpdate()->first();
                 if ($existing && $existing->new_group_count > 0) {
                     $existing->new_group_count--;
                     $existing->save();
@@ -51,7 +51,9 @@ final class EloquentMetricBucketRepository implements MetricBucketRepository
 
     private function row(Issue $issue, string $resolution, CarbonImmutable $start, CarbonImmutable $expires): MetricBucket
     {
-        return MetricBucket::query()->firstOrCreate([
+        // The issue lock serializes writers, but policy reads may already have
+        // opened an older repeatable-read snapshot. Read the current bucket.
+        return MetricBucket::query()->lockForUpdate()->firstOrCreate([
             'issue_id' => $issue->id,
             'resolution' => $resolution,
             'bucket_start_at' => $start->format('Y-m-d H:i:s.u'),

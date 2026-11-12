@@ -23,7 +23,7 @@
 
 Telescope Monitor groups exceptions, preserves sanitized investigation evidence, and helps your team resolve errors and receive useful alerts. It uses your application's Telescope access policy, mailer and queue configuration. The dashboard ships with compiled assets: no frontend setup is needed in your app.
 
-**Pre-release:** the package is not published on Packagist yet. Install from a local checkout using the Composer path repository below. Release qualification and remaining gaps are recorded in the [verification report](docs/release-verification-v1.0.0-rc.1.md).
+**Release candidate:** available on [Packagist](https://packagist.org/packages/telescope-monitor/telescope-monitor). Use the explicit RC constraint below for evaluation. Verified combinations and remaining stable-release gates are recorded in the [verification report](docs/release-verification-v1.0.0-rc.1.md).
 
 ## What you get
 
@@ -47,7 +47,7 @@ Telescope is the initial durable buffer. Keep its records long enough for the im
 | Dependency | Requirement |
 | --- | --- |
 | PHP | 8.3+ with cURL, mbstring and your database PDO driver |
-| Laravel | 13.x |
+| Laravel | 13.42+ within the supported 13.x series |
 | Laravel Telescope | 5.27+ within the supported 5.x series, enabled with ExceptionWatcher |
 | Queue | Laravel database or Redis queue for notifications and queued setup checks |
 | Background processes | A supervised importer, queue workers and Laravel's scheduler |
@@ -64,14 +64,13 @@ Telescope's filters still decide what is stored. An exception filtered out by Te
 
 ### 2. Add this package with Composer
 
-Clone this repository beside your Laravel app, then run these commands **from your app directory**. Adjust the path if your checkout lives elsewhere:
+Run this from your Laravel application directory:
 
 ```bash
-composer config repositories.telescope-monitor '{"type":"path","url":"../telescope-monitor","options":{"symlink":true,"versions":{"telescope-monitor/telescope-monitor":"dev-main"}}}'
-composer require telescope-monitor/telescope-monitor:dev-main
+composer require telescope-monitor/telescope-monitor:^1.0@RC
 ```
 
-The symlink lets your app use changes from the local checkout without publishing a release. Production deployments must also have the package source available; your laptop's path is not a deployable dependency source.
+The RC stability flag applies only to this package. Consumers do not need a custom repository or a frontend build. For local package development, use a Composer path repository pointing at your checkout.
 
 ### 3. Choose storage and install
 

@@ -66,8 +66,8 @@ final class StoredExceptionAdapter
                 $entry->content['telescope_monitor_origin'] = $this->context->job;
             } elseif ($this->context->failedJobException === ($entry->exception ?? null) && $this->context->failedJobOrigin) {
                 $entry->content['telescope_monitor_origin'] = $this->context->failedJobOrigin;
-            } elseif ($this->context->command) {
-                $entry->content['telescope_monitor_origin'] = ['kind' => 'command', 'command' => $this->context->command];
+            } elseif ($command = $this->context->commandOrigin($exception)) {
+                $entry->content['telescope_monitor_origin'] = ['kind' => 'command', 'command' => $command];
             }
             return app(SourceStamp::class)->tags($entry->uuid, $entry->recordedAt, $entry->content, $this->context->probeException === ($entry->exception ?? null) ? $this->context->probeId : null);
         } catch (Throwable) {

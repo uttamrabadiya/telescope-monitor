@@ -62,6 +62,12 @@ final class EloquentInstallationRepository implements InstallationRepository
 
     public function lock(): Installation
     {
+        // A plain current() read here would establish a repeatable-read snapshot
+        // before waiting for the writer, hiding its newly committed settings.
+        $installation = Installation::query()->where('singleton_key', 'default')->lockForUpdate()->first();
+        if ($installation) {
+            return $installation;
+        }
         $this->current();
 
         return Installation::query()->where('singleton_key', 'default')->lockForUpdate()->firstOrFail();
