@@ -116,7 +116,11 @@ final class RecoveryTest extends TestCase
         $this->capture(at: CarbonImmutable::now('UTC')->subHour());
         $this->process();
         $cutoff = CarbonImmutable::now('UTC');
-        DB::table('exception_monitor_issues')->update(['status' => 'resolved', 'resolved_at' => $cutoff->format('Y-m-d H:i:s.u'), 'resolution_cutoff_at' => $cutoff->format('Y-m-d H:i:s.u')]);
+        DB::table('exception_monitor_issues')->update([
+            'status' => 'resolved',
+            'resolved_at' => $cutoff->format('Y-m-d H:i:s.u'),
+            'resolution_cutoff_at' => $cutoff->format('Y-m-d H:i:s.u'),
+        ]);
         $this->capture(at: $cutoff->subMinutes(30));
         $this->process();
         $this->assertSame('resolved', DB::table('exception_monitor_issues')->value('status'));
@@ -126,16 +130,23 @@ final class RecoveryTest extends TestCase
         $this->assertSame(1, DB::table('exception_monitor_alert_events')->where('event_type', 'error.regressed')->count());
     }
 
-    public function test_overflow_reference_expands_in_bounded_pages_and_missing_source_fails_visibly(): void
+    public function test_importer_replaces_inline_overflow_with_bounded_source_pages(): void
     {
         config(['exception-monitor.capture.inline_limit' => 2]);
         for ($i = 0; $i < 8; $i++) {
             $e = new RuntimeException('Overflow '.$i);
-            Telescope::recordException(IncomingExceptionEntry::make($e, ['class' => $e::class, 'message' => $e->getMessage(), 'file' => base_path('app/Overflow.php'), 'line' => 9, 'trace' => []]));
+            Telescope::recordException(IncomingExceptionEntry::make($e, [
+                'class' => $e::class,
+                'message' => $e->getMessage(),
+                'file' => base_path('app/Overflow.php'),
+                'line' => 9,
+                'trace' => [],
+            ]));
         }
         Telescope::store(app(EntriesRepository::class));
-        $this->assertSame(1, DB::table('exception_monitor_capture_inbox')->where('kind', 'batch_reference')->count());
-        for ($i = 0; $i < 3; $i++) {
+        $this->assertDatabaseCount('exception_monitor_capture_inbox', 0);
+        for ($i = 0; $i < 5; $i++) {
+            $this->importSource(2);
             $this->process();
         }
         $this->assertDatabaseCount('exception_monitor_occurrences', 8);

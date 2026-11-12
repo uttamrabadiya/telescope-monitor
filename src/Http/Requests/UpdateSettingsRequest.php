@@ -27,18 +27,27 @@ final class UpdateSettingsRequest extends FormRequest
                 'values.timezone' => ['sometimes', 'required', 'timezone'],
             ],
             'privacy' => [
-                'values' => ['required', 'array:retain_stack_trace,retain_execution_context,retain_related_logs,retain_sql_templates,identify_users,redact_patterns', 'min:1'],
+                'values' => [
+                    'required',
+                    'array:retain_stack_trace,retain_execution_context,retain_related_logs,retain_sql_templates,identify_users,redact_patterns',
+                    'min:1',
+                ],
                 'values.retain_stack_trace' => ['sometimes', 'boolean'],
                 'values.retain_execution_context' => ['sometimes', 'boolean'],
                 'values.retain_related_logs' => ['sometimes', 'boolean'],
                 'values.retain_sql_templates' => ['sometimes', 'boolean'],
                 'values.identify_users' => ['sometimes', 'boolean'],
                 'values.redact_patterns' => ['sometimes', 'array', 'max:20'],
-                'values.redact_patterns.*' => ['required', 'string', 'max:512', function ($attribute, $value, $fail) {
-                    if (@preg_match($value, '') === false) {
-                        $fail('Enter a valid regular expression, including delimiters.');
-                    }
-                }],
+                'values.redact_patterns.*' => [
+                    'required',
+                    'string',
+                    'max:512',
+                    function ($attribute, $value, $fail) {
+                        if (@preg_match($value, '') === false) {
+                            $fail('Enter a valid regular expression, including delimiters.');
+                        }
+                    },
+                ],
             ],
             'retention' => [
                 'values' => ['required', 'array:occurrence_days,delivery_days,aggregate_days,activity_days', 'min:1'],

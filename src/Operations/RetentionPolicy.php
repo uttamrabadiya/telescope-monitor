@@ -70,7 +70,12 @@ final class RetentionPolicy
         $i = $this->installations->current();
         $ceilings = $i->getAttribute('retention_cutoffs') ?? [];
         $out = [];
-        foreach (['evidence' => 'occurrence_days', 'hourly' => 'aggregate_days', 'activity' => 'activity_days', 'deliveries' => 'delivery_days'] as $kind => $key) {
+        foreach ([
+            'evidence' => 'occurrence_days',
+            'hourly' => 'aggregate_days',
+            'activity' => 'activity_days',
+            'deliveries' => 'delivery_days',
+        ] as $kind => $key) {
             $floor = CarbonImmutable::now('UTC')->subDays($days[$key]);
             if (isset($ceilings[$kind])) {
                 $floor = $floor->max(CarbonImmutable::parse($ceilings[$kind], 'UTC'));
@@ -86,7 +91,12 @@ final class RetentionPolicy
         if (! $this->ready()) {
             return;
         }$cutoffs = $i->getAttribute('retention_cutoffs') ?? [];
-        foreach (['evidence' => 'occurrence_days', 'hourly' => 'aggregate_days', 'activity' => 'activity_days', 'deliveries' => 'delivery_days'] as $kind => $key) {
+        foreach ([
+            'evidence' => 'occurrence_days',
+            'hourly' => 'aggregate_days',
+            'activity' => 'activity_days',
+            'deliveries' => 'delivery_days',
+        ] as $kind => $key) {
             $at = CarbonImmutable::now('UTC')->subDays(min($old[$key], $new[$key]));
             if (isset($cutoffs[$kind])) {
                 $at = $at->max(CarbonImmutable::parse($cutoffs[$kind], 'UTC'));

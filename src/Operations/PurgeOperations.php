@@ -14,7 +14,22 @@ use TelescopeMonitor\Telescope\StoredEntries;
 
 final class PurgeOperations
 {
-    public const TABLES = ['notification_gates', 'delivery_attempts', 'delivery_rules', 'linked_issues', 'deliveries', 'alert_events', 'notes', 'activity', 'metric_buckets', 'evidence_tags', 'occurrence_evidence', 'occurrences', 'capture_inbox', 'issues'];
+    public const TABLES = [
+        'notification_gates',
+        'delivery_attempts',
+        'delivery_rules',
+        'linked_issues',
+        'deliveries',
+        'alert_events',
+        'notes',
+        'activity',
+        'metric_buckets',
+        'evidence_tags',
+        'occurrence_evidence',
+        'occurrences',
+        'capture_inbox',
+        'issues',
+    ];
 
     public function __construct(private InstallationRepository $installations, private StoredEntries $source) {}
 
@@ -41,7 +56,24 @@ final class PurgeOperations
             throw new MaintenanceFailure('purge_run_not_found');
         }
 
-        return ['installation' => $i->public_id, 'installation_state' => $i->state, 'generation' => $i->generation, 'run' => $run ? ['id' => $run->public_id, 'state' => $run->state, 'step' => $run->current_step, 'from_generation' => $run->from_generation, 'to_generation' => $run->to_generation, 'counts' => $run->deletion_counts, 'started_at' => $run->started_at->toISOString(), 'completed_at' => $run->completed_at?->toISOString(), 'error' => $run->safe_error_code, 'source_floor' => $run->source_sequence_floor, 'cutoff' => $run->source_time_cutoff?->toISOString()] : null];
+        return [
+            'installation' => $i->public_id,
+            'installation_state' => $i->state,
+            'generation' => $i->generation,
+            'run' => $run ? [
+                'id' => $run->public_id,
+                'state' => $run->state,
+                'step' => $run->current_step,
+                'from_generation' => $run->from_generation,
+                'to_generation' => $run->to_generation,
+                'counts' => $run->deletion_counts,
+                'started_at' => $run->started_at->toISOString(),
+                'completed_at' => $run->completed_at?->toISOString(),
+                'error' => $run->safe_error_code,
+                'source_floor' => $run->source_sequence_floor,
+                'cutoff' => $run->source_time_cutoff?->toISOString(),
+            ] : null,
+        ];
     }
 
     private function rows(string $suffix, int $installation)
@@ -62,7 +94,20 @@ final class PurgeOperations
             $counts[$table] = ['count' => min(10000, $n), 'at_least' => $n > 10000];
         }
 
-        return $this->status() + ['deletes' => $counts, 'preserves' => ['installation identity and cutoffs', 'settings', 'connections and credentials', 'alert rules', 'saved views and preferences', 'minimal command receipts', 'minimal purge ledger'], 'external_data' => 'Telescope source, GitHub issues and accepted external messages are not deleted.', 'command' => 'exception-monitor:purge '.$i->public_id.' --confirm='.$i->public_id.' --limit=500 --batches=1'];
+        return $this->status() + [
+            'deletes' => $counts,
+            'preserves' => [
+                'installation identity and cutoffs',
+                'settings',
+                'connections and credentials',
+                'alert rules',
+                'saved views and preferences',
+                'minimal command receipts',
+                'minimal purge ledger',
+            ],
+            'external_data' => 'Telescope source, GitHub issues and accepted external messages are not deleted.',
+            'command' => 'exception-monitor:purge '.$i->public_id.' --confirm='.$i->public_id.' --limit=500 --batches=1',
+        ];
     }
 
     public function begin(string $installation, string $confirm, string $label = 'deployment'): array
@@ -80,7 +125,19 @@ final class PurgeOperations
                 }throw new MaintenanceFailure('maintenance_in_progress');
             }
             $next = max($i->generation, (int) PurgeRun::query()->where('installation_id', $i->id)->max('to_generation')) + 1;
-            $run = PurgeRun::query()->create(['public_id' => (string) Str::uuid(), 'installation_id' => $i->id, 'from_generation' => $i->generation, 'to_generation' => $next, 'source_epoch' => $i->source_epoch, 'initiated_by_actor_key' => $label, 'confirmation_digest' => hash('sha256', 'whole-installation:'.$i->public_id.':'.$next), 'state' => 'draining', 'current_step' => 'drain', 'deletion_counts' => [], 'started_at' => CarbonImmutable::now('UTC')]);
+            $run = PurgeRun::query()->create([
+                'public_id' => (string) Str::uuid(),
+                'installation_id' => $i->id,
+                'from_generation' => $i->generation,
+                'to_generation' => $next,
+                'source_epoch' => $i->source_epoch,
+                'initiated_by_actor_key' => $label,
+                'confirmation_digest' => hash('sha256', 'whole-installation:'.$i->public_id.':'.$next),
+                'state' => 'draining',
+                'current_step' => 'drain',
+                'deletion_counts' => [],
+                'started_at' => CarbonImmutable::now('UTC'),
+            ]);
             $i->state = 'draining';
             $i->last_purge_run_id = $run->id;
             $i->save();
@@ -133,7 +190,11 @@ final class PurgeOperations
                 try {
                     if ($snapshot['run']['state'] === 'draining') {
                         $this->source->verifySource();
-                        $source = ['maximum' => $this->source->maximum(), 'signature' => $this->source->signature(), 'cutoff' => CarbonImmutable::now('UTC')];
+                        $source = [
+                            'maximum' => $this->source->maximum(),
+                            'signature' => $this->source->signature(),
+                            'cutoff' => CarbonImmutable::now('UTC'),
+                        ];
                     }
                     $progress = Database::connection()->transaction(function () use ($runId, $limit, $source) {
                         $i = $this->installations->lock();
@@ -172,8 +233,20 @@ final class PurgeOperations
                             $run->safe_error_code = null;
                             $run->save();
                             Database::connection()->table('exception_monitor_action_receipts')->where('installation_id', $i->id)->whereIn('state', ['pending', 'captured'])->update(['state' => 'cancelled', 'completed_at' => CarbonImmutable::now('UTC')->format('Y-m-d H:i:s.u')]);
-                            Database::connection()->table('exception_monitor_connections')->where('installation_id', $i->id)->update(['transport_claim_token' => null, 'transport_lease_until' => null, 'next_send_at' => null, 'last_test_at' => null, 'last_test_outcome' => null, 'options->last_accepted_at' => null]);
-                            Database::connection()->table('exception_monitor_health_checks')->where('installation_id', $i->id)->whereIn('check_key', ['capture_received', 'capture_worker', 'delivery_worker', 'capture_overlap'])->update(['state' => 'unverified', 'last_success_at' => null, 'observed_at' => null, 'sanitized_details' => json_encode(['detail' => 'Verification was reset by purge.', 'metadata' => []], JSON_THROW_ON_ERROR)]);
+                            Database::connection()->table('exception_monitor_connections')->where('installation_id', $i->id)->update([
+                                'transport_claim_token' => null,
+                                'transport_lease_until' => null,
+                                'next_send_at' => null,
+                                'last_test_at' => null,
+                                'last_test_outcome' => null,
+                                'options->last_accepted_at' => null,
+                            ]);
+                            Database::connection()->table('exception_monitor_health_checks')->where('installation_id', $i->id)->whereIn('check_key', ['capture_received', 'capture_worker', 'delivery_worker', 'capture_overlap'])->update([
+                                'state' => 'unverified',
+                                'last_success_at' => null,
+                                'observed_at' => null,
+                                'sanitized_details' => json_encode(['detail' => 'Verification was reset by purge.', 'metadata' => []], JSON_THROW_ON_ERROR),
+                            ]);
 
                             return true;
                         }
@@ -261,6 +334,9 @@ final class PurgeOperations
             app(CaptureObservation::class)->record('source_baseline', 'passed', 'The source epoch was explicitly rebaselined. Existing source rows were excluded; prior time protection remains.', ['old_epoch' => $old, 'epoch' => $i->source_epoch, 'floor' => $maximum, 'generation' => $i->generation]);
         }, 5);
 
-        return $this->status() + ['source_epoch' => $this->installations->current()->source_epoch, 'coverage' => 'Existing source entries are excluded. New accepted entries can be captured; no historical alerts are created.'];
+        return $this->status() + [
+            'source_epoch' => $this->installations->current()->source_epoch,
+            'coverage' => 'Existing source entries are excluded. New accepted entries can be captured; no historical alerts are created.',
+        ];
     }
 }

@@ -11,7 +11,34 @@ final class RuleDefinition
 {
     public function validate(array $v): array
     {
-        $data = Validator::make($v, ['name' => ['required', 'string', 'max:120'], 'enabled' => ['required', 'boolean'], 'events' => ['required', 'array', 'min:1', 'max:12'], 'events.*' => ['required', Rule::in(array_keys(EventCatalog::LABELS)), 'distinct'], 'conditions' => ['required', 'array:environments,class,origin,tag'], 'conditions.environments' => ['required', 'array', 'min:1', 'max:20'], 'conditions.environments.*' => ['required', 'string', 'max:64', Rule::in(config('exception-monitor.alerts.allowed_environments', ['production'])), 'distinct'], 'conditions.class' => ['nullable', 'string', 'max:512'], 'conditions.origin' => ['nullable', Rule::in(['web', 'job', 'command', 'unknown'])], 'conditions.tag' => ['nullable', 'string', 'max:129'], 'connections' => ['present', 'array', 'max:25'], 'connections.*' => ['uuid', 'distinct'], 'threshold_count' => ['nullable', 'integer', 'min:1', 'max:'.max(1, (int) config('exception-monitor.alerts.max_threshold_count', 100000))], 'window_seconds' => ['nullable', Rule::in([300, 900, 3600])], 'cooldown_seconds' => ['required', 'integer', 'min:0', 'max:'.max(0, min(86400, (int) config('exception-monitor.alerts.max_cooldown_seconds', 86400)))]])->validate();
+        $data = Validator::make($v, [
+            'name' => ['required', 'string', 'max:120'],
+            'enabled' => ['required', 'boolean'],
+            'events' => ['required', 'array', 'min:1', 'max:12'],
+            'events.*' => ['required', Rule::in(array_keys(EventCatalog::LABELS)), 'distinct'],
+            'conditions' => ['required', 'array:environments,class,origin,tag'],
+            'conditions.environments' => ['required', 'array', 'min:1', 'max:20'],
+            'conditions.environments.*' => [
+                'required',
+                'string',
+                'max:64',
+                Rule::in(config('exception-monitor.alerts.allowed_environments', ['production'])),
+                'distinct',
+            ],
+            'conditions.class' => ['nullable', 'string', 'max:512'],
+            'conditions.origin' => ['nullable', Rule::in(['web', 'job', 'command', 'unknown'])],
+            'conditions.tag' => ['nullable', 'string', 'max:129'],
+            'connections' => ['present', 'array', 'max:25'],
+            'connections.*' => ['uuid', 'distinct'],
+            'threshold_count' => ['nullable', 'integer', 'min:1', 'max:'.max(1, (int) config('exception-monitor.alerts.max_threshold_count', 100000))],
+            'window_seconds' => ['nullable', Rule::in([300, 900, 3600])],
+            'cooldown_seconds' => [
+                'required',
+                'integer',
+                'min:0',
+                'max:'.max(0, min(86400, (int) config('exception-monitor.alerts.max_cooldown_seconds', 86400))),
+            ],
+        ])->validate();
         $data['enabled'] = (bool) $data['enabled'];
         $data['cooldown_seconds'] = (int) $data['cooldown_seconds'];
         $data['name'] = trim($data['name']);

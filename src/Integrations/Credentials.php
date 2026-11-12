@@ -31,7 +31,21 @@ final class Credentials
     {
         $revision = 1 + (int) Secret::query()->where('connection_id', $c->id)->where('secret_name', $purpose)->max('revision');
 
-        return Secret::query()->create(['public_id' => (string) Str::uuid(), 'installation_id' => $c->installation_id, 'connection_id' => $c->id, 'owner_key' => 'connection:'.$c->public_id, 'secret_name' => $purpose, 'revision' => $revision, 'key_id' => (string) Str::uuid(), 'source' => $reference ? 'deployment' : 'database', 'deployment_reference' => $reference, 'ciphertext' => $reference ? null : Crypt::encryptString($value ?? ''), 'state' => $state, 'activated_at' => $state === 'active' ? now('UTC') : null, 'created_by_actor_key' => $actor]);
+        return Secret::query()->create([
+            'public_id' => (string) Str::uuid(),
+            'installation_id' => $c->installation_id,
+            'connection_id' => $c->id,
+            'owner_key' => 'connection:'.$c->public_id,
+            'secret_name' => $purpose,
+            'revision' => $revision,
+            'key_id' => (string) Str::uuid(),
+            'source' => $reference ? 'deployment' : 'database',
+            'deployment_reference' => $reference,
+            'ciphertext' => $reference ? null : Crypt::encryptString($value ?? ''),
+            'state' => $state,
+            'activated_at' => $state === 'active' ? now('UTC') : null,
+            'created_by_actor_key' => $actor,
+        ]);
     }
 
     public function active(Connection $c, string $purpose, ?string $keyId = null): Secret

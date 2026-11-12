@@ -110,7 +110,7 @@ final class CaptureProbes
             return;
         }
         if ($this->source->hasUuid($id)) {
-            app(StoredExceptionAdapter::class)->replayRows($this->source->exceptionByUuid($id), 'synthetic_test');
+            Telescope::withoutRecording(fn () => app(StoredExceptionAdapter::class)->replayRows($this->source->exceptionByUuid($id), 'synthetic_test'));
             $this->receipts->transition($id, ['pending'], ['state' => 'captured']);
 
             return;
@@ -130,6 +130,10 @@ final class CaptureProbes
             $entry->uuid = $id;
             Telescope::recordException($entry);
             Telescope::store(app(EntriesRepository::class));
+            // This is the explicit monitoring probe worker, never a host capture hook.
+            if ($this->source->hasUuid($id)) {
+                Telescope::withoutRecording(fn () => app(StoredExceptionAdapter::class)->replayRows($this->source->exceptionByUuid($id), 'synthetic_test'));
+            }
             $this->receipts->transition($id, ['pending'], [
                 'state' => $this->source->hasUuid($id) ? 'captured' : 'filtered_or_unstored',
                 'completed_at' => $this->source->hasUuid($id) ? null : CarbonImmutable::now('UTC'),

@@ -151,7 +151,15 @@ return new class extends Migration
         if (Schema::connection(Database::connectionName())->hasTable('exception_monitor_connections') && Schema::connection(Database::connectionName())->hasTable('exception_monitor_secrets')) {
             Schema::connection(Database::connectionName())->table('exception_monitor_secrets', fn (Blueprint $t) => $t->dropForeign(['connection_id']));
         }
-        foreach (['notification_gates', 'delivery_attempts', 'delivery_rules', 'deliveries', 'rule_connections', 'alert_rules', 'connections'] as $table) {
+        foreach ([
+            'notification_gates',
+            'delivery_attempts',
+            'delivery_rules',
+            'deliveries',
+            'rule_connections',
+            'alert_rules',
+            'connections',
+        ] as $table) {
             Schema::connection(Database::connectionName())->dropIfExists('exception_monitor_'.$table);
         }
         if (Schema::connection(Database::connectionName())->hasTable('exception_monitor_installations')) {

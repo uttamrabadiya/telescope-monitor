@@ -68,7 +68,12 @@ final class InvestigationController
 
     private function unavailable(): JsonResponse
     {
-        return response()->json(['error' => ['code' => 'monitoring_unavailable', 'message' => 'Monitoring data could not be loaded. Review package storage and try again.']], 503)->header('Cache-Control', 'private, no-store');
+        return response()->json([
+            'error' => [
+                'code' => 'monitoring_unavailable',
+                'message' => 'Monitoring data could not be loaded. Review package storage and try again.',
+            ],
+        ], 503)->header('Cache-Control', 'private, no-store');
     }
 
     private function read(callable $query): JsonResponse

@@ -46,12 +46,26 @@ final class HistoricalBackfill
                 $this->source->verifySource();
             }
             $through = min($through ?? $maximum, $maximum);
-            $result = ['dry_run' => $dryRun, 'environment' => $environment, 'through' => $through, 'next_after' => $after, 'scanned' => 0, 'eligible' => 0, 'imported' => 0, 'duplicates' => 0, 'skipped_marked' => 0, 'skipped_invalid' => 0, 'skipped_fenced' => 0, 'pending' => 0, 'failed' => 0];
+            $result = [
+                'dry_run' => $dryRun,
+                'environment' => $environment,
+                'through' => $through,
+                'next_after' => $after,
+                'scanned' => 0,
+                'eligible' => 0,
+                'imported' => 0,
+                'duplicates' => 0,
+                'skipped_marked' => 0,
+                'skipped_invalid' => 0,
+                'skipped_fenced' => 0,
+                'pending' => 0,
+                'failed' => 0,
+            ];
             $policy = $this->policy->read();
             foreach ($this->source->historicalPage($after, $limit, $through) as $row) {
                 $result['scanned']++;
                 $result['next_after'] = $row['sequence'];
-                if (array_filter($row['tags'], fn ($tag) => str_starts_with($tag, 'em2c|') || str_starts_with($tag, 'em2g|'))) {
+                if (array_filter($row['tags'], fn ($tag) => str_starts_with($tag, 'em3|') || str_starts_with($tag, 'em2c|') || str_starts_with($tag, 'em2g|'))) {
                     $result['skipped_marked']++;
 
                     continue;
@@ -77,7 +91,17 @@ final class HistoricalBackfill
                 if ($dryRun) {
                     continue;
                 }
-                $marker = ['generation' => $i->generation, 'source_epoch' => $i->source_epoch, 'environment' => $environment, 'occurred_at' => $time->format('Y-m-d H:i:s.u'), 'time_precision' => str_contains($row['created_at'], '.') ? 'microsecond' : 'second', 'grouping_version' => (int) config('exception-monitor.capture.grouping_version', 1), 'fingerprint_hash' => $this->fingerprint->hash($environment, $content), 'probe_id' => null, 'policy' => $policy];
+                $marker = [
+                    'generation' => $i->generation,
+                    'source_epoch' => $i->source_epoch,
+                    'environment' => $environment,
+                    'occurred_at' => $time->format('Y-m-d H:i:s.u'),
+                    'time_precision' => str_contains($row['created_at'], '.') ? 'microsecond' : 'second',
+                    'grouping_version' => (int) config('exception-monitor.capture.grouping_version', 1),
+                    'fingerprint_hash' => $this->fingerprint->hash($environment, $content),
+                    'probe_id' => null,
+                    'policy' => $policy,
+                ];
                 $context = $this->sanitizer->batch($row['batch_uuid'] ? $this->source->context($row['batch_uuid']) : [], $policy);
                 $payload = $this->sanitizer->envelope($content, $marker, $context, $row['tags']);
                 $payload['coverage']['reportability'] = 'unavailable';

@@ -29,6 +29,11 @@ final class MaintenanceGuard
             return $next($request);
         }
 
-        return response()->json(['error' => ['code' => 'maintenance_in_progress', 'message' => 'The installation is '.$i->state.'. Monitoring data and mutations are temporarily unavailable. Inspect Operations and resume the deployment maintenance command.']], 409)->header('Cache-Control', 'private, no-store');
+        return response()->json([
+            'error' => [
+                'code' => 'maintenance_in_progress',
+                'message' => 'The installation is '.$i->state.'. Monitoring data and mutations are temporarily unavailable. Inspect Operations and resume the deployment maintenance command.',
+            ],
+        ], 409)->header('Cache-Control', 'private, no-store');
     }
 }

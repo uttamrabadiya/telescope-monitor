@@ -29,6 +29,7 @@ abstract class TestCase extends Orchestra
                 'driver' => 'mysql',
                 'host' => '127.0.0.1',
                 'port' => getenv('DB_PORT') ?: '3306',
+                'unix_socket' => getenv('MONITOR_DB_SOCKET') ?: '',
                 'database' => getenv('DB_DATABASE') ?: 'telescope_monitor_test',
                 'username' => 'root',
                 'password' => getenv('DB_PASSWORD') ?: '',

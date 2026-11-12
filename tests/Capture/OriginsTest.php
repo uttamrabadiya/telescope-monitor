@@ -23,9 +23,14 @@ final class OriginsTest extends TestCase
     public function test_terminal_queued_job_is_captured_before_telescope_worker_flush(): void
     {
         $this->loadMigrationsFrom(__DIR__.'/../../vendor/orchestra/testbench-core/laravel/migrations');
-        config(['queue.default' => 'database', 'queue.connections.database.connection' => config('database.default'), 'queue.failed.driver' => 'null']);
+        config([
+            'queue.default' => 'database',
+            'queue.connections.database.connection' => config('database.default'),
+            'queue.failed.driver' => 'null',
+        ]);
         Queue::connection('database')->push(new FailingProbeJob);
         Artisan::call('queue:work', ['connection' => 'database', '--once' => true, '--tries' => 1]);
+        $this->importSource();
         $this->process();
         $this->assertDatabaseCount('exception_monitor_occurrences', 1);
         $this->assertSame('job', DB::table('exception_monitor_occurrences')->value('origin'));
@@ -34,10 +39,15 @@ final class OriginsTest extends TestCase
     public function test_retrying_worker_records_each_report_once_and_clears_context_for_next_operation(): void
     {
         $this->loadMigrationsFrom(__DIR__.'/../../vendor/orchestra/testbench-core/laravel/migrations');
-        config(['queue.default' => 'database', 'queue.connections.database.connection' => config('database.default'), 'queue.failed.driver' => 'null']);
+        config([
+            'queue.default' => 'database',
+            'queue.connections.database.connection' => config('database.default'),
+            'queue.failed.driver' => 'null',
+        ]);
         Queue::connection('database')->push(new FailingProbeJob);
         Artisan::call('queue:work', ['connection' => 'database', '--stop-when-empty' => true, '--tries' => 2, '--backoff' => 0, '--sleep' => 0]);
         Telescope::store(app(EntriesRepository::class));
+        $this->importSource();
         $this->process();
         $this->assertDatabaseCount('exception_monitor_occurrences', 2);
         $this->assertSame(2, DB::table('exception_monitor_occurrences')->where('origin', 'job')->count());
@@ -53,6 +63,7 @@ final class OriginsTest extends TestCase
             report($e);
         }
         Telescope::store(app(EntriesRepository::class));
+        $this->importSource();
         $this->process();
         $this->assertDatabaseCount('exception_monitor_occurrences', 1);
         $this->assertSame('job', DB::table('exception_monitor_occurrences')->value('origin'));
@@ -65,6 +76,7 @@ final class OriginsTest extends TestCase
         $kernel->command('phase2:failure', fn () => throw new \RuntimeException('password=console-secret'));
         $this->assertSame(1, $kernel->handle(new ArrayInput(['command' => 'phase2:failure']), new BufferedOutput));
         Telescope::store(app(EntriesRepository::class));
+        $this->importSource();
         $this->process();
         $this->assertDatabaseCount('exception_monitor_occurrences', 1);
         $this->assertSame('command', DB::table('exception_monitor_occurrences')->value('origin'));
@@ -80,10 +92,12 @@ final class OriginsTest extends TestCase
             report($e);
         }
         Telescope::store(app(EntriesRepository::class));
+        $this->importSource();
         $this->process();
         $this->assertSame('job', DB::table('exception_monitor_occurrences')->value('origin'));
         $this->assertNull(app(CaptureContext::class)->failedJobException);
         $this->capture('A later unrelated error');
+        $this->importSource();
         $this->process();
         $this->assertSame('unknown', DB::table('exception_monitor_occurrences')->orderByDesc('id')->value('origin'));
     }
@@ -98,6 +112,7 @@ final class OriginsTest extends TestCase
         $kernel->command('phase4:many-queries', fn () => throw new \RuntimeException('Command failed'));
         $this->assertSame(1, $kernel->handle(new ArrayInput(['command' => 'phase4:many-queries']), new BufferedOutput));
         Telescope::store(app(EntriesRepository::class));
+        $this->importSource();
         $this->process();
         $this->assertSame('command', DB::table('exception_monitor_occurrences')->value('origin'));
         $payload = json_decode(Crypt::decryptString(DB::table('exception_monitor_occurrence_evidence')->value('payload_ciphertext')), true);

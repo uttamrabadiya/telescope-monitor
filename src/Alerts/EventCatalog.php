@@ -4,7 +4,19 @@ namespace TelescopeMonitor\Alerts;
 
 final class EventCatalog
 {
-    public const LABELS = ['error.created' => 'New error', 'error.regressed' => 'Regression', 'error.threshold_reached' => 'Frequency threshold', 'error.resolved' => 'Resolved', 'error.reopened' => 'Reopened', 'error.ignored' => 'Ignored', 'error.snoozed' => 'Snoozed', 'error.unsnoozed' => 'Unsnoozed', 'error.snooze_expired' => 'Snooze expired', 'note.created' => 'Note added', 'assignment.changed' => 'Assignment changed'];
+    public const LABELS = [
+        'error.created' => 'New error',
+        'error.regressed' => 'Regression',
+        'error.threshold_reached' => 'Frequency threshold',
+        'error.resolved' => 'Resolved',
+        'error.reopened' => 'Reopened',
+        'error.ignored' => 'Ignored',
+        'error.snoozed' => 'Snoozed',
+        'error.unsnoozed' => 'Unsnoozed',
+        'error.snooze_expired' => 'Snooze expired',
+        'note.created' => 'Note added',
+        'assignment.changed' => 'Assignment changed',
+    ];
 
     public static function canonical(string $type): string
     {

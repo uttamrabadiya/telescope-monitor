@@ -16,7 +16,17 @@ final class EloquentCaptureInboxRepository implements CaptureInboxRepository
     {
         if ($this->available === null) {
             $this->available = true;
-            foreach (['capture_inbox', 'issues', 'occurrences', 'occurrence_evidence', 'evidence_tags', 'metric_buckets', 'activity', 'alert_events', 'secrets'] as $table) {
+            foreach ([
+                'capture_inbox',
+                'issues',
+                'occurrences',
+                'occurrence_evidence',
+                'evidence_tags',
+                'metric_buckets',
+                'activity',
+                'alert_events',
+                'secrets',
+            ] as $table) {
                 if (! Database::schema()->hasTable('exception_monitor_'.$table)) {
                     $this->available = false;
                     break;
@@ -84,7 +94,13 @@ final class EloquentCaptureInboxRepository implements CaptureInboxRepository
     {
         $now = now('UTC')->format('Y-m-d H:i:s.u');
         $expired = CaptureInbox::query()->where('received_at', '<', now('UTC')->subDays($days)->format('Y-m-d H:i:s.u'))->whereNotNull('payload_ciphertext')->where(fn ($q) => $q->where('state', '!=', 'processing')->orWhereNull('lease_until')->orWhere('lease_until', '<=', $now))->orderBy('id')->limit($limit)->pluck('id');
-        CaptureInbox::query()->whereKey($expired)->whereIn('state', ['pending', 'retrying', 'processing'])->update(['state' => 'failed', 'last_error_code' => 'buffer_retention_expired', 'completed_at' => $now, 'claim_token' => null, 'lease_until' => null]);
+        CaptureInbox::query()->whereKey($expired)->whereIn('state', ['pending', 'retrying', 'processing'])->update([
+            'state' => 'failed',
+            'last_error_code' => 'buffer_retention_expired',
+            'completed_at' => $now,
+            'claim_token' => null,
+            'lease_until' => null,
+        ]);
         CaptureInbox::query()->whereKey($expired)->update(['payload_ciphertext' => null]);
         $ids = CaptureInbox::query()->whereIn('state', ['completed', 'cancelled', 'failed'])->where('completed_at', '<', now('UTC')->subDay()->format('Y-m-d H:i:s.u'))->orderBy('id')->limit(max(0, $limit - $expired->count()))->pluck('id');
 

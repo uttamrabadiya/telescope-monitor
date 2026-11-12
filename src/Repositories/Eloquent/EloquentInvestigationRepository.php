@@ -81,7 +81,25 @@ final class EloquentInvestigationRepository implements InvestigationRepository
 
     private function resource(Issue $i): array
     {
-        return ['id' => $i->public_id, 'class' => $i->exception_class, 'message' => $i->message, 'file' => $i->file, 'line' => $i->line, 'environment' => $i->environment, 'status' => $i->effective_status ?? ($i->status === 'snoozed' && $i->snoozed_until?->isPast() ? 'unresolved' : $i->status), 'state_version' => $i->state_version, 'lifetime_count' => (string) $i->lifetime_count, 'range_count' => (string) ($i->range_count ?? 0), 'first_seen_at' => $i->first_seen_at->toISOString(), 'last_seen_at' => $i->last_seen_at->toISOString(), 'snoozed_until' => $i->snoozed_until?->toISOString(), 'is_test' => $i->is_test, 'recovered_only' => $i->recovered_only, 'assignee' => app(Assignments::class)->describe($i->assignee_actor_key), 'regressions' => (int) $i->getAttribute('range_regressions') > 0];
+        return [
+            'id' => $i->public_id,
+            'class' => $i->exception_class,
+            'message' => $i->message,
+            'file' => $i->file,
+            'line' => $i->line,
+            'environment' => $i->environment,
+            'status' => $i->effective_status ?? ($i->status === 'snoozed' && $i->snoozed_until?->isPast() ? 'unresolved' : $i->status),
+            'state_version' => $i->state_version,
+            'lifetime_count' => (string) $i->lifetime_count,
+            'range_count' => (string) ($i->range_count ?? 0),
+            'first_seen_at' => $i->first_seen_at->toISOString(),
+            'last_seen_at' => $i->last_seen_at->toISOString(),
+            'snoozed_until' => $i->snoozed_until?->toISOString(),
+            'is_test' => $i->is_test,
+            'recovered_only' => $i->recovered_only,
+            'assignee' => app(Assignments::class)->describe($i->assignee_actor_key),
+            'regressions' => (int) $i->getAttribute('range_regressions') > 0,
+        ];
     }
 
     public function inbox(int $installation, array $filters, Window $window): array
@@ -94,7 +112,17 @@ final class EloquentInvestigationRepository implements InvestigationRepository
         $ids = $page->getCollection()->pluck('id');
         $origins = Occurrence::query()->where('installation_id', $installation)->whereIn('issue_id', $ids)->select('issue_id', 'origin')->distinct()->get()->groupBy('issue_id');
 
-        return ['items' => $page->getCollection()->map(fn ($i) => array_merge($this->resource($i), ['origins' => isset($origins[$i->id]) ? $origins[$i->id]->pluck('origin')->all() : []]))->all(), 'page' => $page->currentPage(), 'per_page' => $page->perPage(), 'total' => (string) $page->total(), 'last_page' => $page->lastPage(), 'window' => $window->json(), 'environments' => Issue::query()->where('installation_id', $installation)->distinct()->orderBy('environment')->limit(100)->pluck('environment')->all(), 'allowed_tags' => config('exception-monitor.capture.allowed_tags', []), 'coverage' => 'Range counts include all origins for each group. Origin filters use captured identities; tag filters use unexpired retained evidence. The count range does not hide older unresolved groups.'];
+        return [
+            'items' => $page->getCollection()->map(fn ($i) => array_merge($this->resource($i), ['origins' => isset($origins[$i->id]) ? $origins[$i->id]->pluck('origin')->all() : []]))->all(),
+            'page' => $page->currentPage(),
+            'per_page' => $page->perPage(),
+            'total' => (string) $page->total(),
+            'last_page' => $page->lastPage(),
+            'window' => $window->json(),
+            'environments' => Issue::query()->where('installation_id', $installation)->distinct()->orderBy('environment')->limit(100)->pluck('environment')->all(),
+            'allowed_tags' => config('exception-monitor.capture.allowed_tags', []),
+            'coverage' => 'Range counts include all origins for each group. Origin filters use captured identities; tag filters use unexpired retained evidence. The count range does not hide older unresolved groups.',
+        ];
     }
 
     public function overview(int $installation, array $filters, Window $window): array
@@ -127,11 +155,27 @@ final class EloquentInvestigationRepository implements InvestigationRepository
         $recent = Activity::query()->where('installation_id', $installation)->whereIn('issue_id', $groups)->where('expires_at', '>', now('UTC')->format('Y-m-d H:i:s.u'))->where('occurred_at', '>', app(RetentionPolicy::class)->floors()['activity'])->orderByDesc('occurred_at')->orderByDesc('id')->limit(10)->get();
         $labels = Issue::query()->where('installation_id', $installation)->whereIn('id', $recent->pluck('issue_id'))->get(['id', 'message', 'exception_class'])->keyBy('id');
 
-        return ['window' => $window->json(), 'totals' => $totals, 'buckets' => array_values($buckets), 'errors' => $this->inbox($installation, array_merge($filters, ['status' => 'unresolved', 'sort' => 'occurrences', 'per_page' => 25, 'page' => 1]), $window), 'delivery' => app(AlertPlanning::class)->ready() ? ['state' => 'available', 'detail' => 'Delivery ledger available. Sent means transport acceptance, not inbox receipt.', 'observations' => app(DeliveryLedger::class)->status()] : ['state' => 'unavailable', 'detail' => 'Run alerting migrations to enable durable email delivery.'], 'activity' => $recent->map(function ($a) use ($labels) {
-            $label = $labels->get($a->issue_id);
+        return [
+            'window' => $window->json(),
+            'totals' => $totals,
+            'buckets' => array_values($buckets),
+            'errors' => $this->inbox($installation, array_merge($filters, ['status' => 'unresolved', 'sort' => 'occurrences', 'per_page' => 25, 'page' => 1]), $window),
+            'delivery' => app(AlertPlanning::class)->ready() ? [
+                'state' => 'available',
+                'detail' => 'Delivery ledger available. Sent means transport acceptance, not inbox receipt.',
+                'observations' => app(DeliveryLedger::class)->status(),
+            ] : ['state' => 'unavailable', 'detail' => 'Run alerting migrations to enable durable email delivery.'],
+            'activity' => $recent->map(function ($a) use ($labels) {
+                $label = $labels->get($a->issue_id);
 
-            return ['type' => $a->event_type, 'issue_id' => $a->subject_public_id, 'summary' => $label === null ? 'Unavailable error' : ($label->message ?: $label->exception_class), 'at' => $a->occurred_at->toISOString()];
-        })->all()];
+                return [
+                    'type' => $a->event_type,
+                    'issue_id' => $a->subject_public_id,
+                    'summary' => $label === null ? 'Unavailable error' : ($label->message ?: $label->exception_class),
+                    'at' => $a->occurred_at->toISOString(),
+                ];
+            })->all(),
+        ];
     }
 
     private function activityResource(Activity $activity): array
@@ -143,7 +187,13 @@ final class EloquentInvestigationRepository implements InvestigationRepository
             }
         }
 
-        return ['id' => $activity->public_id, 'type' => $activity->event_type, 'actor' => $activity->actor_kind === 'user' ? app(Identity::class)->label($activity->actor_key) : 'System', 'at' => $activity->occurred_at->toISOString(), 'metadata' => $metadata];
+        return [
+            'id' => $activity->public_id,
+            'type' => $activity->event_type,
+            'actor' => $activity->actor_kind === 'user' ? app(Identity::class)->label($activity->actor_key) : 'System',
+            'at' => $activity->occurred_at->toISOString(),
+            'metadata' => $metadata,
+        ];
     }
 
     public function detail(int $installation, string $id, array $filters, Window $window): ?array
@@ -170,6 +220,30 @@ final class EloquentInvestigationRepository implements InvestigationRepository
         $breakdowns['tags'] = (clone $retained)->join('exception_monitor_evidence_tags as tags', 'tags.evidence_id', '=', 'e.id')->select('tags.tag_key', 'tags.tag_value')->selectRaw('COUNT(*) as count')->groupBy('tags.tag_key', 'tags.tag_value')->orderByDesc('count')->limit(20)->toBase()->get()->map(fn ($r) => ['value' => $r->tag_key.':'.$r->tag_value, 'count' => (string) $r->count])->all();
         $breakdowns['users'] = (clone $retained)->whereNotNull('e.impact_subject_hash')->distinct()->count('e.impact_subject_hash');
 
-        return ['issue' => $this->resource($issue), 'window' => $window->json(), 'selected' => $evidence, 'occurrences' => ['items' => $history->getCollection()->map(fn ($o) => ['id' => $o->public_id, 'at' => $o->occurred_at->toISOString(), 'origin' => $o->origin, 'mode' => $o->mode, 'release' => $releases[$o->id] ?? null])->all(), 'page' => $history->currentPage(), 'last_page' => $history->lastPage(), 'total' => (string) $history->total()], 'insights' => ['retained_count' => (string) (clone $retained)->count(), 'from' => (clone $retained)->min('occurred_at'), 'to' => (clone $retained)->max('occurred_at'), 'breakdowns' => $breakdowns, 'coverage' => 'Insights describe unexpired retained evidence only. Missing categories were excluded or unavailable; they are not zero impact.'], 'activity' => Activity::query()->where('installation_id', $installation)->where('issue_id', $issue->id)->where('expires_at', '>', now('UTC')->format('Y-m-d H:i:s.u'))->where('occurred_at', '>', app(RetentionPolicy::class)->floors()['activity'])->orderByDesc('occurred_at')->orderByDesc('id')->limit(100)->get()->map(fn ($a) => $this->activityResource($a))->all()];
+        return [
+            'issue' => $this->resource($issue),
+            'window' => $window->json(),
+            'selected' => $evidence,
+            'occurrences' => [
+                'items' => $history->getCollection()->map(fn ($o) => [
+                    'id' => $o->public_id,
+                    'at' => $o->occurred_at->toISOString(),
+                    'origin' => $o->origin,
+                    'mode' => $o->mode,
+                    'release' => $releases[$o->id] ?? null,
+                ])->all(),
+                'page' => $history->currentPage(),
+                'last_page' => $history->lastPage(),
+                'total' => (string) $history->total(),
+            ],
+            'insights' => [
+                'retained_count' => (string) (clone $retained)->count(),
+                'from' => (clone $retained)->min('occurred_at'),
+                'to' => (clone $retained)->max('occurred_at'),
+                'breakdowns' => $breakdowns,
+                'coverage' => 'Insights describe unexpired retained evidence only. Missing categories were excluded or unavailable; they are not zero impact.',
+            ],
+            'activity' => Activity::query()->where('installation_id', $installation)->where('issue_id', $issue->id)->where('expires_at', '>', now('UTC')->format('Y-m-d H:i:s.u'))->where('occurred_at', '>', app(RetentionPolicy::class)->floors()['activity'])->orderByDesc('occurred_at')->orderByDesc('id')->limit(100)->get()->map(fn ($a) => $this->activityResource($a))->all(),
+        ];
     }
 }

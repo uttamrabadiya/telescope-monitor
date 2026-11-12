@@ -71,7 +71,10 @@ final class OperationsConcurrencyTest extends TestCase
         $id = DB::table('exception_monitor_capture_inbox')->value('id');
         $i = app(InstallationRepository::class)->current();
         $run = app(PurgeOperations::class)->begin($i->public_id, $i->public_id)['run']['id'];
-        $results = $this->race([fn () => app(CaptureProcessor::class)->process($id, 1), fn () => app(PurgeOperations::class)->resume($i->public_id, $i->public_id, $run, 2, 1)]);
+        $results = $this->race([
+            fn () => app(CaptureProcessor::class)->process($id, 1),
+            fn () => app(PurgeOperations::class)->resume($i->public_id, $i->public_id, $run, 2, 1),
+        ]);
         $this->assertSame([0, 1], $results);
         $this->finish($run);
         $this->assertDatabaseCount('exception_monitor_issues', 0);
@@ -82,16 +85,28 @@ final class OperationsConcurrencyTest extends TestCase
     {
         $this->prepare();
         $a = app(AlertManagement::class)->command('connection.create', null, (string) Str::uuid(), ['name' => 'Mail', 'email' => 'oncall@example.test', 'enabled' => true]);
-        app(AlertManagement::class)->command('rule.create', null, (string) Str::uuid(), ['name' => 'New', 'enabled' => true, 'events' => ['error.created'], 'conditions' => ['environments' => ['testing']], 'connections' => [$a['id']], 'cooldown_seconds' => 0, 'threshold_count' => null, 'window_seconds' => null]);
+        app(AlertManagement::class)->command('rule.create', null, (string) Str::uuid(), [
+            'name' => 'New',
+            'enabled' => true,
+            'events' => ['error.created'],
+            'conditions' => ['environments' => ['testing']],
+            'connections' => [$a['id']],
+            'cooldown_seconds' => 0,
+            'threshold_count' => null,
+            'window_seconds' => null,
+        ]);
         $this->capture();
         $this->process();
         $d = DB::table('exception_monitor_deliveries')->value('id');
         $i = app(InstallationRepository::class)->current();
-        $results = $this->race([fn () => app(DeliveryLedger::class)->claim($d, 1, true), function () use ($i) {
-            $r = app(PurgeOperations::class)->begin($i->public_id, $i->public_id);
+        $results = $this->race([
+            fn () => app(DeliveryLedger::class)->claim($d, 1, true),
+            function () use ($i) {
+                $r = app(PurgeOperations::class)->begin($i->public_id, $i->public_id);
 
-            return app(PurgeOperations::class)->resume($i->public_id, $i->public_id, $r['run']['id'], 1, 1);
-        }]);
+                return app(PurgeOperations::class)->resume($i->public_id, $i->public_id, $r['run']['id'], 1, 1);
+            },
+        ]);
         $this->assertNotContains(2, $results);
         $i = app(InstallationRepository::class)->current();
         $run = app(PurgeOperations::class)->status()['run']['id'];

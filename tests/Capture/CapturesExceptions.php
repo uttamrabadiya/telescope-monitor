@@ -18,7 +18,7 @@ trait CapturesExceptions
         Telescope::startRecording(false);
     }
 
-    protected function capture(string $message = 'token=private-value', ?string $uuid = null, ?CarbonImmutable $at = null, string $class = RuntimeException::class): string
+    protected function capture(string $message = 'token=private-value', ?string $uuid = null, ?CarbonImmutable $at = null, string $class = RuntimeException::class, bool $import = true): string
     {
         $exception = new RuntimeException($message);
         $entry = IncomingExceptionEntry::make($exception, [
@@ -36,8 +36,17 @@ trait CapturesExceptions
         }
         Telescope::recordException($entry);
         Telescope::store(app(EntriesRepository::class));
+        if ($import) {
+            // Explicitly simulate a separate importer pass after host execution.
+            Telescope::withoutRecording(fn () => app(\TelescopeMonitor\Telescope\StoredExceptionAdapter::class)->replayRows(app(\TelescopeMonitor\Telescope\StoredEntries::class)->exceptionByUuid($entry->uuid), 'live'));
+        }
 
         return $entry->uuid;
+    }
+
+    protected function importSource(int $limit = 100): array
+    {
+        return app(CaptureOperations::class)->import($limit);
     }
 
     protected function process(): array

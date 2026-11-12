@@ -160,10 +160,16 @@ final class InvestigationTest extends TestCase
 
     public function test_immutable_source_mapping_is_used_instead_of_current_deployment(): void
     {
-        config(['exception-monitor.capture.release' => 'abc123', 'exception-monitor.capture.source_link_template' => 'https://github.com/example/app/blob/{release}/{file}#L{line}']);
+        config([
+            'exception-monitor.capture.release' => 'abc123',
+            'exception-monitor.capture.source_link_template' => 'https://github.com/example/app/blob/{release}/{file}#L{line}',
+        ]);
         $this->capture();
         $this->process();
-        config(['exception-monitor.capture.release' => 'changed', 'exception-monitor.capture.source_link_template' => 'https://other.test/{release}/{file}']);
+        config([
+            'exception-monitor.capture.release' => 'changed',
+            'exception-monitor.capture.source_link_template' => 'https://other.test/{release}/{file}',
+        ]);
         $r = $this->getJson('/exception-monitor/api/v1/issues/'.$this->id())->assertOk();
         $this->assertSame('https://github.com/example/app/blob/abc123/app/Services/Payment.php#L42', $r->json('exception_monitor_private.selected.source_url'));
         $this->assertSame('abc123', $r->json('exception_monitor_private.occurrences.items.0.release'));
@@ -235,10 +241,17 @@ final class InvestigationTest extends TestCase
         $this->capture();
         $this->process();
         $id = $this->id();
-        config(['exception-monitor.capture.release' => 'later', 'exception-monitor.capture.source_link_template' => 'https://github.com/o/r/blob/{release}/{file}']);
+        config([
+            'exception-monitor.capture.release' => 'later',
+            'exception-monitor.capture.source_link_template' => 'https://github.com/o/r/blob/{release}/{file}',
+        ]);
         $this->getJson('/exception-monitor/api/v1/issues/'.$id)->assertOk()->assertJsonPath('exception_monitor_private.selected.source_url', null);
         $source = app(SourceSnapshot::class);
-        foreach (['javascript:alert({file})/{release}', 'https://token:password@github.com/{release}/{file}', 'https://github.com/{release}/{file}?token=x'] as $template) {
+        foreach ([
+            'javascript:alert({file})/{release}',
+            'https://token:password@github.com/{release}/{file}',
+            'https://github.com/{release}/{file}?token=x',
+        ] as $template) {
             config(['exception-monitor.capture.source_link_template' => $template]);
             $this->assertNull($source->capture()['template']);
         }
@@ -267,6 +280,7 @@ final class InvestigationTest extends TestCase
             Route::get('/phase3/orders/{order}', fn () => throw new \RuntimeException('Route snapshot'))->name('checkout.show');
             $this->get('/phase3/orders/42')->assertStatus(500);
             Telescope::store(app(EntriesRepository::class));
+            $this->importSource();
             $this->process();
             $this->assertSame('checkout.show', DB::table('exception_monitor_occurrence_evidence')->value('route_name'));
             $this->assertSame('/phase3/orders/{order}', DB::table('exception_monitor_occurrence_evidence')->value('path_template'));
@@ -274,6 +288,7 @@ final class InvestigationTest extends TestCase
             Telescope::startRecording(false);
             $this->get('/phase3/orders/43')->assertStatus(500);
             Telescope::store(app(EntriesRepository::class));
+            $this->importSource();
             $this->process();
             $this->assertNull(DB::table('exception_monitor_occurrence_evidence')->orderByDesc('id')->value('route_name'));
         } finally {

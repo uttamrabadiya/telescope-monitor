@@ -95,7 +95,13 @@ final class CaptureTest extends TestCase
     public function test_stricter_current_privacy_is_applied_before_evidence_persistence(): void
     {
         $this->capture();
-        config(['exception-monitor.locked' => ['privacy.retain_stack_trace' => false, 'privacy.retain_execution_context' => false, 'privacy.retain_related_logs' => false]]);
+        config([
+            'exception-monitor.locked' => [
+                'privacy.retain_stack_trace' => false,
+                'privacy.retain_execution_context' => false,
+                'privacy.retain_related_logs' => false,
+            ],
+        ]);
         $this->process();
         $payload = json_decode(Crypt::decryptString(DB::table('exception_monitor_occurrence_evidence')->value('payload_ciphertext')), true);
         $this->assertSame([], $payload['exception']['trace']);
@@ -166,8 +172,18 @@ final class CaptureTest extends TestCase
     public function test_untrusted_synthetic_fields_cannot_opt_into_probe_capture(): void
     {
         $e = new RuntimeException('Ordinary host failure');
-        Telescope::recordException(IncomingExceptionEntry::make($e, ['class' => $e::class, 'message' => $e->getMessage(), 'file' => __FILE__, 'line' => 1, 'trace' => [], 'probe_id' => (string) Str::uuid(), 'is_test' => true, 'mode' => 'synthetic_test']));
+        Telescope::recordException(IncomingExceptionEntry::make($e, [
+            'class' => $e::class,
+            'message' => $e->getMessage(),
+            'file' => __FILE__,
+            'line' => 1,
+            'trace' => [],
+            'probe_id' => (string) Str::uuid(),
+            'is_test' => true,
+            'mode' => 'synthetic_test',
+        ]));
         Telescope::store(app(EntriesRepository::class));
+        $this->importSource();
         $this->process();
         $this->assertSame('live', DB::table('exception_monitor_occurrences')->value('mode'));
         $this->assertFalse((bool) DB::table('exception_monitor_issues')->value('is_test'));
@@ -178,10 +194,16 @@ final class CaptureTest extends TestCase
         $contract = CaptureInboxRepository::class;
         $original = app($contract);
         $mock = \Mockery::mock($contract);
-        $mock->shouldReceive('ready')->andReturn(true);
+        $mock->shouldNotReceive('ready');
         $mock->shouldReceive('enqueue')->andThrow(new RuntimeException('Infrastructure failure'));
         $this->app->instance($contract, $mock);
-        $uuid = $this->capture();
+        $uuid = $this->capture(import: false);
+        try {
+            $this->importSource();
+            $this->fail('Expected importer storage failure.');
+        } catch (RuntimeException $e) {
+            $this->assertSame('maintenance_failed', $e->getMessage());
+        }
         $this->assertTrue(DB::table('telescope_entries')->where('uuid', $uuid)->exists());
         $this->assertDatabaseCount('exception_monitor_capture_inbox', 0);
         $this->app->instance($contract, $original);
@@ -196,6 +218,7 @@ final class CaptureTest extends TestCase
         Route::get('/payment-failure', fn () => throw new RuntimeException('HTTP token=hidden'));
         $this->get('/payment-failure')->assertStatus(500);
         Telescope::store(app(EntriesRepository::class));
+        $this->importSource();
         $this->process();
         $this->assertDatabaseCount('exception_monitor_occurrences', 1);
         $this->assertStringNotContainsString('hidden', DB::table('exception_monitor_issues')->value('message'));

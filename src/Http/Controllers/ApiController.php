@@ -53,7 +53,12 @@ final class ApiController
 
     public function setup(Request $request, InstallationRepository $installations): JsonResponse
     {
-        $data = $request->validate(['step' => ['required', 'integer', 'between:0,7'], 'acknowledge' => ['sometimes', Rule::in(['application', 'privacy', 'operations'])], 'config_revision' => ['required_with:acknowledge', 'integer', 'min:1'], 'notification_choice' => ['sometimes', Rule::in(['verify', 'skip'])]]);
+        $data = $request->validate([
+            'step' => ['required', 'integer', 'between:0,7'],
+            'acknowledge' => ['sometimes', Rule::in(['application', 'privacy', 'operations'])],
+            'config_revision' => ['required_with:acknowledge', 'integer', 'min:1'],
+            'notification_choice' => ['sometimes', Rule::in(['verify', 'skip'])],
+        ]);
         try {
             $result = app(OperationalStatus::class)->acknowledge($data);
 

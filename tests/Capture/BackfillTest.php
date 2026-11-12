@@ -44,7 +44,21 @@ final class BackfillTest extends TestCase
     private function legacy(array $content = [], string $time = '2026-11-11 10:10:01', ?string $uuid = null, ?string $batch = null): string
     {
         $uuid ??= (string) Str::uuid();
-        $this->source()->insert(['uuid' => $uuid, 'batch_id' => $batch ?? (string) Str::uuid(), 'type' => 'exception', 'family_hash' => null, 'content' => json_encode(array_replace(['class' => 'RuntimeException', 'message' => 'Legacy failure', 'file' => base_path('app/Services/Payment.php'), 'line' => 42, 'trace' => []], $content)), 'created_at' => $time, 'should_display_on_index' => true]);
+        $this->source()->insert([
+            'uuid' => $uuid,
+            'batch_id' => $batch ?? (string) Str::uuid(),
+            'type' => 'exception',
+            'family_hash' => null,
+            'content' => json_encode(array_replace([
+                'class' => 'RuntimeException',
+                'message' => 'Legacy failure',
+                'file' => base_path('app/Services/Payment.php'),
+                'line' => 42,
+                'trace' => [],
+            ], $content)),
+            'created_at' => $time,
+            'should_display_on_index' => true,
+        ]);
 
         return $uuid;
     }
@@ -57,14 +71,44 @@ final class BackfillTest extends TestCase
     private function rule(array $extra = []): void
     {
         $connection = $this->postJson('/exception-monitor/api/v1/alerting/email', ['client_key' => (string) Str::uuid(), 'name' => 'Never sent', 'email' => 'fixture@example.test', 'enabled' => true])->assertOk()->json('exception_monitor_private.id');
-        $this->postJson('/exception-monitor/api/v1/alerting/rules', array_replace(['client_key' => (string) Str::uuid(), 'name' => 'Configured before import', 'enabled' => true, 'events' => ['error.created', 'error.regressed', 'error.threshold_reached'], 'conditions' => ['environments' => ['testing'], 'class' => null, 'origin' => null, 'tag' => null], 'connections' => [$connection], 'threshold_count' => 2, 'window_seconds' => 300, 'cooldown_seconds' => 0], $extra))->assertOk();
+        $this->postJson('/exception-monitor/api/v1/alerting/rules', array_replace([
+            'client_key' => (string) Str::uuid(),
+            'name' => 'Configured before import',
+            'enabled' => true,
+            'events' => ['error.created', 'error.regressed', 'error.threshold_reached'],
+            'conditions' => ['environments' => ['testing'], 'class' => null, 'origin' => null, 'tag' => null],
+            'connections' => [$connection],
+            'threshold_count' => 2,
+            'window_seconds' => 300,
+            'cooldown_seconds' => 0,
+        ], $extra))->assertOk();
     }
 
     public function test_legacy_evidence_is_sanitized_historical_and_independent_of_source_pruning(): void
     {
         $batch = (string) Str::uuid();
-        $uuid = $this->legacy(['message' => 'password=LEAK-PASSWORD token=LEAK-TOKEN', 'trace' => [['file' => base_path('app/Caller.php'), 'line' => 12, 'args' => ['LEAK-ARG'], 'object' => 'LEAK-OBJECT']], 'user' => ['id' => 7, 'email' => 'LEAK-EMAIL'], 'context' => ['secret' => 'LEAK-CONTEXT'], 'exception_monitor_source' => ['version' => 1, 'release' => 'UNVERIFIED-RELEASE'], 'exception_monitor_origin' => ['kind' => 'job', 'job_class' => 'UNVERIFIED-ORIGIN']], batch: $batch);
-        $this->source()->insert(['uuid' => (string) Str::uuid(), 'batch_id' => $batch, 'type' => 'request', 'family_hash' => null, 'content' => json_encode(['uri' => '/checkout?token=LEAK-QUERY', 'method' => 'POST', 'headers' => ['Authorization' => 'LEAK-HEADER'], 'payload' => ['password' => 'LEAK-BODY']]), 'created_at' => '2026-11-11 10:10:01', 'should_display_on_index' => true]);
+        $uuid = $this->legacy([
+            'message' => 'password=LEAK-PASSWORD token=LEAK-TOKEN',
+            'trace' => [['file' => base_path('app/Caller.php'), 'line' => 12, 'args' => ['LEAK-ARG'], 'object' => 'LEAK-OBJECT']],
+            'user' => ['id' => 7, 'email' => 'LEAK-EMAIL'],
+            'context' => ['secret' => 'LEAK-CONTEXT'],
+            'exception_monitor_source' => ['version' => 1, 'release' => 'UNVERIFIED-RELEASE'],
+            'exception_monitor_origin' => ['kind' => 'job', 'job_class' => 'UNVERIFIED-ORIGIN'],
+        ], batch: $batch);
+        $this->source()->insert([
+            'uuid' => (string) Str::uuid(),
+            'batch_id' => $batch,
+            'type' => 'request',
+            'family_hash' => null,
+            'content' => json_encode([
+                'uri' => '/checkout?token=LEAK-QUERY',
+                'method' => 'POST',
+                'headers' => ['Authorization' => 'LEAK-HEADER'],
+                'payload' => ['password' => 'LEAK-BODY'],
+            ]),
+            'created_at' => '2026-11-11 10:10:01',
+            'should_display_on_index' => true,
+        ]);
         $before = $this->source()->where('uuid', $uuid)->value('content');
         $this->assertSame(1, $this->backfill()['imported']);
         $this->assertSame($before, $this->source()->where('uuid', $uuid)->value('content'));
@@ -231,7 +275,11 @@ final class BackfillTest extends TestCase
     public function test_separate_telescope_source_and_monitoring_connections_are_respected(): void
     {
         $original = config('telescope.storage.database.connection');
-        config(['exception-monitor.database.connection' => config('database.default'), 'database.connections.history_source' => ['driver' => 'sqlite', 'database' => ':memory:', 'foreign_key_constraints' => true], 'telescope.storage.database.connection' => 'history_source']);
+        config([
+            'exception-monitor.database.connection' => config('database.default'),
+            'database.connections.history_source' => ['driver' => 'sqlite', 'database' => ':memory:', 'foreign_key_constraints' => true],
+            'telescope.storage.database.connection' => 'history_source',
+        ]);
         $migration = require __DIR__.'/../../vendor/laravel/telescope/database/migrations/2018_08_08_100000_create_telescope_entries_table.php';
         $migration->up();
         try {

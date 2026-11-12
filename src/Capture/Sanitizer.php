@@ -61,7 +61,11 @@ final class Sanitizer
             }
             $event = null;
             if ($type === 'log' && $policy['privacy']['retain_related_logs'] && count($out['logs']) < 20) {
-                $event = ['type' => 'log', 'level' => $this->text($c['level'] ?? '', $policy, 16), 'message' => $this->text($c['message'] ?? '', $policy, 2048)];
+                $event = [
+                    'type' => 'log',
+                    'level' => $this->text($c['level'] ?? '', $policy, 16),
+                    'message' => $this->text($c['message'] ?? '', $policy, 2048),
+                ];
                 $out['logs'][] = $event;
             } elseif ($type === 'query' && $policy['privacy']['retain_execution_context']) {
                 $duration = is_numeric($c['time'] ?? null) && is_finite((float) $c['time']) ? max(0, (float) $c['time']) : null;
@@ -171,7 +175,7 @@ final class Sanitizer
         }
         $allowed = [];
         foreach ($tags as $tag) {
-            if (! is_string($tag) || str_starts_with($tag, 'em2')) {
+            if (! is_string($tag) || str_starts_with($tag, 'em2') || str_starts_with($tag, 'em3|')) {
                 continue;
             }
             [$key,$value] = array_pad(explode(':', $tag, 2), 2, '');

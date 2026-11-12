@@ -29,7 +29,12 @@ final class CollaborationController
         } catch (ValidationException|ModelNotFoundException|HttpExceptionInterface $e) {
             throw $e;
         } catch (\Throwable) {
-            return response()->json(['error' => ['code' => 'collaboration_unavailable', 'message' => 'Collaboration or the host directory is unavailable. Your draft is preserved; try again.']], 503)->header('Cache-Control', 'private, no-store');
+            return response()->json([
+                'error' => [
+                    'code' => 'collaboration_unavailable',
+                    'message' => 'Collaboration or the host directory is unavailable. Your draft is preserved; try again.',
+                ],
+            ], 503)->header('Cache-Control', 'private, no-store');
         }
     }
 

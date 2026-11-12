@@ -32,7 +32,10 @@ final class SeparateDatabaseTest extends TestCase
 
     protected function defineDatabaseMigrations(): void
     {
-        foreach (['source' => __DIR__.'/../../vendor/laravel/telescope/database/migrations', 'monitor' => __DIR__.'/../../database/migrations'] as $connection => $path) {
+        foreach ([
+            'source' => __DIR__.'/../../vendor/laravel/telescope/database/migrations',
+            'monitor' => __DIR__.'/../../database/migrations',
+        ] as $connection => $path) {
             Artisan::call('migrate', ['--database' => $connection, '--path' => realpath($path), '--realpath' => true, '--force' => true]);
         }
         DB::connection('sqlite')->getSchemaBuilder()->create('host_records', fn (Blueprint $t) => $t->string('name'));
@@ -50,7 +53,12 @@ final class SeparateDatabaseTest extends TestCase
     public function test_unset_override_inherits_telescope_storage_without_using_the_host_database(): void
     {
         config(['exception-monitor.database.connection' => null]);
-        $this->assertSame(0, Artisan::call('migrate', ['--database' => 'source', '--path' => realpath(__DIR__.'/../../database/migrations'), '--realpath' => true, '--force' => true]));
+        $this->assertSame(0, Artisan::call('migrate', [
+            '--database' => 'source',
+            '--path' => realpath(__DIR__.'/../../database/migrations'),
+            '--realpath' => true,
+            '--force' => true,
+        ]));
         $this->capture('Inherited Telescope storage');
         $this->process();
         $this->assertSame(1, DB::connection('source')->table('exception_monitor_occurrences')->count());
@@ -63,7 +71,13 @@ final class SeparateDatabaseTest extends TestCase
     public function test_missing_telescope_setting_uses_the_laravel_default(): void
     {
         config(['exception-monitor.database.connection' => null, 'telescope.storage.database.connection' => null]);
-        $this->assertSame(0, Artisan::call('migrate', ['--database' => 'sqlite', '--path' => realpath(__DIR__.'/../../database/migrations'), '--realpath' => true, '--force' => true]));
+        $this->assertSame(0, Artisan::call('migrate', [
+            '--database' => 'sqlite',
+            '--path' => realpath(__DIR__.'/../../database/migrations'),
+            '--realpath' => true,
+            '--force' => true,
+        ]));
+        $this->assertSame('ready', app(InstallationRepository::class)->storageState());
         $this->assertSame(6, app(InstallationRepository::class)->current()->schema_version);
         $this->assertSame(1, DB::connection('sqlite')->table('exception_monitor_installations')->count());
         $this->assertSame(['untouched'], DB::connection('sqlite')->table('host_records')->pluck('name')->all());
@@ -126,7 +140,13 @@ final class SeparateDatabaseTest extends TestCase
     {
         $called = false;
         Database::connection()->beginTransaction();
-        Database::connection()->table('exception_monitor_settings')->insert(['installation_id' => app(InstallationRepository::class)->current()->id, 'group_key' => 'rollback_fixture', 'values' => '{}', 'values_schema_version' => 1, 'row_version' => 1]);
+        Database::connection()->table('exception_monitor_settings')->insert([
+            'installation_id' => app(InstallationRepository::class)->current()->id,
+            'group_key' => 'rollback_fixture',
+            'values' => '{}',
+            'values_schema_version' => 1,
+            'row_version' => 1,
+        ]);
         Database::connection()->afterCommit(function () use (&$called) {
             $called = true;
         });
@@ -169,7 +189,10 @@ final class SeparateDatabaseTest extends TestCase
         $this->app->useDatabasePath($temporary);
         $this->app->useConfigPath($temporary.'/config');
         $this->app->register(ExceptionMonitorServiceProvider::class, true);
-        config(['database.connections.fresh_monitor' => config('database.connections.monitor'), 'exception-monitor.database.connection' => 'fresh_monitor']);
+        config([
+            'database.connections.fresh_monitor' => config('database.connections.monitor'),
+            'exception-monitor.database.connection' => 'fresh_monitor',
+        ]);
         try {
             file_put_contents($temporary.'/migrations/2099_01_01_000000_host_only.php', '<?php throw new RuntimeException("Host migration must not run");');
             $service = app(InstallationService::class);
@@ -181,6 +204,7 @@ final class SeparateDatabaseTest extends TestCase
             $this->assertSame(6, DB::connection('fresh_monitor')->table('migrations')->count());
             $this->assertSame(0, Artisan::call('exception-monitor:migrate', ['--force' => true]));
             $this->assertSame(6, DB::connection('fresh_monitor')->table('migrations')->count());
+            $this->assertSame('ready', app(InstallationRepository::class)->storageState());
             $this->assertSame(6, app(InstallationRepository::class)->current()->schema_version);
             $this->assertHostIsolated();
         } finally {

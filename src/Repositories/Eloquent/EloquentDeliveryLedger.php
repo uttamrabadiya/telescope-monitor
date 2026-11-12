@@ -38,7 +38,13 @@ final class EloquentDeliveryLedger implements DeliveryLedger
     {
         $i = $this->installations->current()->id;
 
-        return ['pending' => Delivery::query()->where('installation_id', $i)->whereIn('status', ['pending', 'processing', 'retrying'])->count(), 'failed' => Delivery::query()->where('installation_id', $i)->where('status', 'failed')->count(), 'needs_review' => Delivery::query()->where('installation_id', $i)->where('status', 'needs_review')->count(), 'oldest_pending_at' => Delivery::query()->where('installation_id', $i)->whereIn('status', ['pending', 'retrying'])->min('eligible_at'), 'last_accepted_at' => Delivery::query()->where('installation_id', $i)->max('sent_at')];
+        return [
+            'pending' => Delivery::query()->where('installation_id', $i)->whereIn('status', ['pending', 'processing', 'retrying'])->count(),
+            'failed' => Delivery::query()->where('installation_id', $i)->where('status', 'failed')->count(),
+            'needs_review' => Delivery::query()->where('installation_id', $i)->where('status', 'needs_review')->count(),
+            'oldest_pending_at' => Delivery::query()->where('installation_id', $i)->whereIn('status', ['pending', 'retrying'])->min('eligible_at'),
+            'last_accepted_at' => Delivery::query()->where('installation_id', $i)->max('sent_at'),
+        ];
     }
 
     public function routing(int $id): ?array
@@ -94,6 +100,7 @@ final class EloquentDeliveryLedger implements DeliveryLedger
         $issue = $d->issue_id ? Issue::query()->where('installation_id', $d->installation_id)->findOrFail($d->issue_id) : null;
         $general = $this->settings->group('general')['values'];
         $url = rtrim($general['dashboard_url'], '/').($issue ? '/errors/'.$issue->public_id : '/setup');
+        $occ = null;
         if ($event->occurrence_id) {
             $occ = Occurrence::query()->find($event->occurrence_id);
             if ($occ) {
@@ -101,8 +108,30 @@ final class EloquentDeliveryLedger implements DeliveryLedger
             }
         }
 
-        $result = $this->envelopes->sanitize(['event_id' => $event->public_id, 'installation_id' => $this->installations->current()->public_id, 'issue_id' => $issue?->public_id, 'staged_key_test' => $d->getAttribute('credential_key_id') !== null, 'version' => 1, 'delivery_id' => $d->public_id, 'event' => EventCatalog::canonical($event->event_type), 'label' => $d->action === 'connection_test' ? 'Monitor test' : (EventCatalog::LABELS[EventCatalog::canonical($event->event_type)] ?? 'Monitoring activity'), 'test' => $d->action === 'connection_test', 'application' => $general['display_name'], 'environment' => $issue->environment ?? app()->environment(), 'class' => $snapshot['class'] ?? 'SyntheticMonitorCheck', 'message' => $snapshot['message'] ?? 'Synthetic delivery verification', 'file' => $snapshot['file'] ?? '', 'line' => (int) ($snapshot['line'] ?? 0), 'count' => (string) ($snapshot['count'] ?? 0), 'occurred_at' => $event->occurred_at->toISOString(), 'url' => $url]);
+        $result = $this->envelopes->sanitize([
+            'event_id' => $event->public_id,
+            'installation_id' => $this->installations->current()->public_id,
+            'issue_id' => $issue?->public_id,
+            'staged_key_test' => $d->getAttribute('credential_key_id') !== null,
+            'version' => 1,
+            'delivery_id' => $d->public_id,
+            'event' => EventCatalog::canonical($event->event_type),
+            'label' => $d->action === 'connection_test' ? 'Monitor test' : (EventCatalog::LABELS[EventCatalog::canonical($event->event_type)] ?? 'Monitoring activity'),
+            'test' => $d->action === 'connection_test',
+            'application' => $general['display_name'],
+            'environment' => $issue->environment ?? app()->environment(),
+            'class' => $snapshot['class'] ?? 'SyntheticMonitorCheck',
+            'message' => $snapshot['message'] ?? 'Synthetic delivery verification',
+            'file' => $snapshot['file'] ?? '',
+            'line' => (int) ($snapshot['line'] ?? 0),
+            'count' => (string) ($snapshot['count'] ?? 0),
+            'occurred_at' => $event->occurred_at->toISOString(),
+            'url' => $url,
+        ]);
         $c = Connection::query()->findOrFail($d->connection_id);
+        if ($c->provider === 'email') {
+            $result['email_context'] = app(\TelescopeMonitor\Alerts\EmailContext::class)->build($issue, $occ, $general, \TelescopeMonitor\Alerts\EventCatalog::occurrence($result['event']));
+        }
         if ($c->provider === 'webhook') {
             $result['webhook_body'] = WebhookPayload::bytes($result);
         }
@@ -135,7 +164,12 @@ final class EloquentDeliveryLedger implements DeliveryLedger
         if (! $create) {
             return NotificationGate::query()->where('installation_id', $d->installation_id)->where('issue_id', $d->issue_id)->where('target_fingerprint', $d->target_fingerprint)->where('event_family', $d->event_family)->lockForUpdate()->first();
         }
-        $gate = NotificationGate::query()->createOrFirst(['installation_id' => $d->installation_id, 'issue_id' => $d->issue_id, 'target_fingerprint' => $d->target_fingerprint, 'event_family' => $d->event_family]);
+        $gate = NotificationGate::query()->createOrFirst([
+            'installation_id' => $d->installation_id,
+            'issue_id' => $d->issue_id,
+            'target_fingerprint' => $d->target_fingerprint,
+            'event_family' => $d->event_family,
+        ]);
 
         return NotificationGate::query()->whereKey($gate->id)->lockForUpdate()->firstOrFail();
     }
@@ -173,7 +207,12 @@ final class EloquentDeliveryLedger implements DeliveryLedger
             }
             if ($d->status === 'processing') {
                 if (str_starts_with($d->action, 'github_')) {
-                    DeliveryAttempt::query()->where('delivery_id', $d->id)->where('claim_token', $d->claim_token)->whereNull('completed_at')->update(['outcome' => 'uncertain', 'safe_error_code' => 'worker_lease_expired', 'sanitized_error_summary' => 'Creation acceptance is unknown; review before another write.', 'completed_at' => $now->format('Y-m-d H:i:s.u')]);
+                    DeliveryAttempt::query()->where('delivery_id', $d->id)->where('claim_token', $d->claim_token)->whereNull('completed_at')->update([
+                        'outcome' => 'uncertain',
+                        'safe_error_code' => 'worker_lease_expired',
+                        'sanitized_error_summary' => 'Creation acceptance is unknown; review before another write.',
+                        'completed_at' => $now->format('Y-m-d H:i:s.u'),
+                    ]);
                     $d->status = 'needs_review';
                     $d->last_error_code = 'worker_lease_expired';
                     $d->claim_token = null;
@@ -184,7 +223,12 @@ final class EloquentDeliveryLedger implements DeliveryLedger
                     return null;
                 }
 
-                DeliveryAttempt::query()->where('delivery_id', $d->id)->where('claim_token', $d->claim_token)->whereNull('completed_at')->update(['outcome' => 'uncertain', 'safe_error_code' => 'worker_lease_expired', 'sanitized_error_summary' => 'Worker ownership expired; provider acceptance may have occurred.', 'completed_at' => $now->format('Y-m-d H:i:s.u')]);
+                DeliveryAttempt::query()->where('delivery_id', $d->id)->where('claim_token', $d->claim_token)->whereNull('completed_at')->update([
+                    'outcome' => 'uncertain',
+                    'safe_error_code' => 'worker_lease_expired',
+                    'sanitized_error_summary' => 'Worker ownership expired; provider acceptance may have occurred.',
+                    'completed_at' => $now->format('Y-m-d H:i:s.u'),
+                ]);
                 if ($gate?->reserved_delivery_id === $d->id) {
                     $gate->reserved_delivery_id = null;
                     $gate->reservation_token = null;
@@ -307,7 +351,17 @@ final class EloquentDeliveryLedger implements DeliveryLedger
                 $gate->lease_until = $d->lease_until;
                 $gate->save();
             }
-            DeliveryAttempt::query()->create(['public_id' => (string) Str::uuid(), 'installation_id' => $i->id, 'delivery_id' => $d->id, 'sequence_number' => $d->attempt_count_total, 'retry_cycle' => $d->retry_cycle, 'claim_token' => $d->claim_token, 'started_at' => $now, 'outcome' => 'processing', 'used_secret_key_id' => $target['signing_key_id'] ?? $target['key_id']]);
+            DeliveryAttempt::query()->create([
+                'public_id' => (string) Str::uuid(),
+                'installation_id' => $i->id,
+                'delivery_id' => $d->id,
+                'sequence_number' => $d->attempt_count_total,
+                'retry_cycle' => $d->retry_cycle,
+                'claim_token' => $d->claim_token,
+                'started_at' => $now,
+                'outcome' => 'processing',
+                'used_secret_key_id' => $target['signing_key_id'] ?? $target['key_id'],
+            ]);
 
             if ($connection->provider === 'slack') {
                 $connection->transport_claim_token = $d->claim_token;
@@ -350,9 +404,16 @@ final class EloquentDeliveryLedger implements DeliveryLedger
             if ($outcome->retryAfter && $outcome->retryAfter > $eligible) {
                 $eligible = $outcome->retryAfter;
             }
-            DeliveryAttempt::query()->where('delivery_id', $d->id)->where('claim_token', $token)->whereNull('completed_at')->update(['completed_at' => $now->format('Y-m-d H:i:s.u'), 'outcome' => $outcome->kind, 'provider_status' => $outcome->status, 'safe_error_code' => $outcome->code, 'sanitized_error_summary' => match ($outcome->kind) {
-                'accepted' => 'The host transport accepted the message.','permanent' => 'The configured transport rejected the operation.', 'uncertain' => 'Transport acceptance is unknown; recovery may duplicate this message.',default => 'The configured transport was temporarily unavailable.'
-            }, 'retry_after_at' => $retry ? $eligible->format('Y-m-d H:i:s.u') : null]);
+            DeliveryAttempt::query()->where('delivery_id', $d->id)->where('claim_token', $token)->whereNull('completed_at')->update([
+                'completed_at' => $now->format('Y-m-d H:i:s.u'),
+                'outcome' => $outcome->kind,
+                'provider_status' => $outcome->status,
+                'safe_error_code' => $outcome->code,
+                'sanitized_error_summary' => match ($outcome->kind) {
+                    'accepted' => 'The host transport accepted the message.','permanent' => 'The configured transport rejected the operation.', 'uncertain' => 'Transport acceptance is unknown; recovery may duplicate this message.',default => 'The configured transport was temporarily unavailable.'
+                },
+                'retry_after_at' => $retry ? $eligible->format('Y-m-d H:i:s.u') : null,
+            ]);
             $d->status = $needsReview ? 'needs_review' : ($outcome->kind === 'accepted' ? 'sent' : ($retry ? 'retrying' : 'failed'));
             $d->sent_at = $outcome->kind === 'accepted' ? $now : null;
             $d->completed_at = $retry ? null : $now;
@@ -392,7 +453,10 @@ final class EloquentDeliveryLedger implements DeliveryLedger
                 $connection->save();
             }
             if ($d->action === 'connection_test') {
-                Connection::query()->whereKey($d->connection_id)->update(['last_test_at' => $now->format('Y-m-d H:i:s.u'), 'last_test_outcome' => $outcome->kind === 'accepted' ? 'accepted' : ($retry ? 'retrying' : 'failed')]);
+                Connection::query()->whereKey($d->connection_id)->update([
+                    'last_test_at' => $now->format('Y-m-d H:i:s.u'),
+                    'last_test_outcome' => $outcome->kind === 'accepted' ? 'accepted' : ($retry ? 'retrying' : 'failed'),
+                ]);
             }
 
             return true;

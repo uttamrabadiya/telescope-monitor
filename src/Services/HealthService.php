@@ -31,7 +31,14 @@ final class HealthService
         $connection = config('exception-monitor.queues.connection') ?? config('queue.default');
         $driver = config('queue.connections.'.$connection.'.driver');
         $available = $storage === 'ready' && $this->inbox->ready();
-        $status = $available ? $this->inbox->status() : ['pending' => 0, 'failed' => 0, 'last_received_at' => null, 'last_processed_at' => null, 'oldest_pending_at' => null, 'last_error_code' => null];
+        $status = $available ? $this->inbox->status() : [
+            'pending' => 0,
+            'failed' => 0,
+            'last_received_at' => null,
+            'last_processed_at' => null,
+            'oldest_pending_at' => null,
+            'last_error_code' => null,
+        ];
         $observations = $storage === 'ready' ? $this->health->latest($this->installations->current()->id) : [];
         $checks = [
             $this->check('path', 'Dashboard path', $this->path->valid() ? 'passed' : 'failed', 'configuration', $this->path->valid() ? $this->path->base() : 'Choose a non-root path without wildcard characters.'),
@@ -68,19 +75,33 @@ final class HealthService
                 $checks[] = $this->check('retention_limits', 'Retention deployment limits', 'failed', 'configuration', 'Fix exception-monitor.retention_limits: minimum and maximum must form a supported range. No weaker limit is silently substituted.');
             }
             $schema = $operations->schema();
-            $source = $operations->source();
-            $keys = $operations->credentials();
-            $i = $this->installations->current();
-            $replace = ['worker', 'recovery', 'reconcile', 'capture_prune', 'email_worker', 'email_recovery'];
-            $checks = array_values(array_filter($checks, fn ($c) => ! in_array($c['key'], $replace, true)));
-            foreach ($operations->observations() as $o) {
-                $key = ['capture_worker' => 'worker', 'delivery_worker' => 'email_worker', 'capture_recovery' => 'recovery', 'delivery_recovery' => 'email_recovery', 'capture_reconcile' => 'reconcile', 'retention' => 'capture_prune'][$o['key']] ?? $o['key'];
-                $checks[] = $this->check($key, $o['label'], $o['state'], 'observation', $o['detail'], $o['observed_at']) + ['last_started_at' => $o['last_started_at'], 'last_success_at' => $o['last_success_at'], 'last_failure_at' => $o['last_failure_at'], 'fresh' => $o['fresh']];
-            }
             $checks[] = $this->check('complete_schema', 'Complete package schema', $schema['ready'] ? 'passed' : 'failed', 'configuration', $schema['ready'] ? 'All 25 logical tables are available.' : 'Run exception-monitor:install and host migrations. Missing: '.implode(', ', $schema['missing']));
-            $checks[] = $this->check('source_epoch', 'Telescope source coverage', $source['state'], 'observation', $source['detail']);
-            $checks[] = $this->check('key_availability', 'Active credentials and keys', $keys['state'], 'configuration', $keys['detail']);
-            $checks[] = $this->check('maintenance', 'Installation maintenance', $i->state === 'active' ? 'passed' : 'warning', 'observation', $i->state === 'active' ? 'No purge drain is active. This monitor shares host failure domains.' : 'The installation is '.$i->state.'. New package claims are stopped. Inspect the purge run and resume the deployment command.');
+            if ($schema['ready']) {
+                $source = $operations->source();
+                $keys = $operations->credentials();
+                $i = $this->installations->current();
+                $replace = ['worker', 'recovery', 'reconcile', 'capture_prune', 'email_worker', 'email_recovery'];
+                $checks = array_values(array_filter($checks, fn ($c) => ! in_array($c['key'], $replace, true)));
+                foreach ($operations->observations() as $o) {
+                    $key = [
+                        'capture_worker' => 'worker',
+                        'delivery_worker' => 'email_worker',
+                        'capture_recovery' => 'recovery',
+                        'delivery_recovery' => 'email_recovery',
+                        'capture_reconcile' => 'reconcile',
+                        'retention' => 'capture_prune',
+                    ][$o['key']] ?? $o['key'];
+                    $checks[] = $this->check($key, $o['label'], $o['state'], 'observation', $o['detail'], $o['observed_at']) + [
+                        'last_started_at' => $o['last_started_at'],
+                        'last_success_at' => $o['last_success_at'],
+                        'last_failure_at' => $o['last_failure_at'],
+                        'fresh' => $o['fresh'],
+                    ];
+                }
+                $checks[] = $this->check('source_epoch', 'Telescope source coverage', $source['state'], 'observation', $source['detail']);
+                $checks[] = $this->check('key_availability', 'Active credentials and keys', $keys['state'], 'configuration', $keys['detail']);
+                $checks[] = $this->check('maintenance', 'Installation maintenance', $i->state === 'active' ? 'passed' : 'warning', 'observation', $i->state === 'active' ? 'No purge drain is active. This monitor shares host failure domains.' : 'The installation is '.$i->state.'. New package claims are stopped. Inspect the purge run and resume the deployment command.');
+            }
         }
         if ($record && $storage === 'ready') {
             $this->health->record($this->installations->current()->id, $checks);

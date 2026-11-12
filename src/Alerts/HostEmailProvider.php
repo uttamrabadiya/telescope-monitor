@@ -10,8 +10,12 @@ final class HostEmailProvider implements NotificationProvider
     public function send(array $envelope, array $target): Outcome
     {
         try {
-            $subject = mb_substr(str_replace(["\r", "\n"], ' ', ($envelope['test'] ? '[TEST] ' : '').$envelope['label'].' · '.$envelope['application']), 0, 180);
-            $message = Mail::mailer(config('exception-monitor.alerts.mailer'))->raw(Envelope::text($envelope), fn ($m) => $m->to($target['email'])->subject($subject));
+            $presentation = app(EmailPresentation::class);
+            $message = Mail::mailer(config('exception-monitor.alerts.mailer'))->send(
+                ['html' => 'exception-monitor::mail.exception', 'raw' => $presentation->text($envelope)],
+                ['mail' => $presentation->data($envelope)],
+                fn ($m) => $m->to($target['email'])->subject($presentation->subject($envelope)),
+            );
 
             return $message === null ? Outcome::permanent() : Outcome::accepted();
         } catch (TransportExceptionInterface $e) {

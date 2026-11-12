@@ -15,7 +15,7 @@ Implemented now:
 - Resumable setup position, editable general/privacy/retention preferences, deployment locks and stale-edit protection.
 - Authorized, bounded redaction preview that does not persist sample text.
 - Configuration diagnostics that distinguish configured, observed and unverified states.
-- Durable encrypted capture inbox, signed reportability/grouping markers, asynchronous ingestion and replay-safe occurrence identities.
+- Zero package database queries in host capture; deployment-signed Telescope source, a separate importer, encrypted buffering and replay-safe occurrence identities.
 - Sanitized evidence independent of Telescope retention, event-time metrics, bounded recovery/reconciliation and evidence pruning.
 - A real queued synthetic capture check in onboarding, with truthful pending, filtered, disabled and verified states.
 - Overview/trends and a filtered, paginated error inbox, with test data excluded by default.
@@ -55,7 +55,6 @@ By default, monitoring routes use Laravel Telescope's own `Authorize` middleware
 'middleware' => ['web'],
 'authorization' => [
     'driver' => 'telescope',
-    'allow_guest_jobs' => false,
 ],
 ```
 
@@ -63,7 +62,7 @@ All Telescope-authorized visitors have view, operate and manage capabilities in 
 
 Signed-in users retain their provider-backed identity. Authorized visits without a user use a stable **Telescope operator (shared)** identity; no host user record is created and nobody is signed in automatically. Guest notes and personal saved views belong to that shared identity, so authorized guests share their ownership. Existing account-owned private views remain with their original account.
 
-Queued manual work re-resolves authenticated users and checks the current `viewTelescope` gate outside local. Local shared work rechecks Telescope access. A deployed request-only guest policy cannot be replayed inside a worker, so guest-initiated queued work is denied there by default. If the deployment deliberately trusts a shared operator for queued work, it can explicitly set `authorization.allow_guest_jobs` to true; disabling it revokes that shared worker grant. Custom HTTP callbacks for signed-in users should also supply an equivalent `viewTelescope` worker gate or a host actor/authorization adapter. Restart long-lived workers after deployment policy changes.
+Queued manual work re-resolves the saved user (or uses an actual guest context for a shared operator) and calls the current `Telescope::check()` policy. There is no separate guest-job opt-in. The legacy `allow_guest_jobs` setting is ignored and can be removed from published configuration. The worker scope supplies no browser cookies, authorization headers or invented loopback address, and restores the host request/auth/gate state afterward. Default local and gate-based policies work without a separate login; revoked/throwing policies fail closed before provider I/O. Request-only policies must explicitly support the marked `exception-monitor.worker` context through the host's Telescope policy rather than relying on replayed browser credentials. Restart workers after policy/code changes.
 
 For applications needing separate viewer/operator/admin roles, opt into `authorization.driver = 'gates'` and define the existing capability gates:
 
@@ -131,13 +130,15 @@ Privacy preferences restrict capture before durable buffering and are checked ag
 
 After an upgrade, rerun `exception-monitor:install` and `migrate` to publish only missing migrations. Restart long-lived workers after installing code or changing host deployment configuration.
 
-Configure a host asynchronous **database or Redis** queue and run its worker:
+Run a separate, supervised Telescope importer (never from a host request, job or termination callback):
 
 ```sh
-php artisan queue:work --queue=exception-monitor-capture --timeout=60 --tries=1
+php artisan exception-monitor:import --watch --process --limit=100 --sleep=2
 ```
 
-Select a named connection with `exception-monitor.queues.connection`; pass the same connection to `queue:work`. Jobs contain identifiers only. Keep the queue's `retry_after` above the worker timeout; an inbox lease lasts 120 seconds. Host production supervision and scheduler remain required. Sync/null/unsupported drivers leave durable input pending and never run ingestion or a probe inside a monitored request.
+This polls accepted Telescope exceptions, sanitizes/encrypts their evidence and processes due inbox work outside application execution. A one-pass command is `php artisan exception-monitor:import --limit=100 --process`. For minute-level latency, schedule that command with `withoutOverlapping()` instead. Restart the importer explicitly after deployment; `queue:restart` does not restart it.
+
+Without `--process`, use an asynchronous database/Redis capture worker (`php artisan queue:work --queue=exception-monitor-capture --timeout=60 --tries=1`) or the explicit process command. Select a named connection with `exception-monitor.queues.connection` and pass the same connection to the worker. Jobs contain identifiers only. Keep queue `retry_after` above the timeout; inbox leases last 120 seconds. The importer is required even if a capture queue worker already runs.
 
 Schedule bounded sweeps in the host application's console routes:
 
@@ -145,11 +146,14 @@ Schedule bounded sweeps in the host application's console routes:
 use Illuminate\Support\Facades\Schedule;
 
 Schedule::command('exception-monitor:recover --limit=100')->everyMinute()->withoutOverlapping();
-Schedule::command('exception-monitor:reconcile --limit=100')->everyFiveMinutes()->withoutOverlapping();
 Schedule::command('exception-monitor:prune --limit=1000')->hourly()->withoutOverlapping();
 ```
 
 `recover` redispatches pending/retryable input and expired worker leases. `reconcile` advances an oldest-first source checkpoint plus a persisted 15-minute overlap cursor; only valid signed source markers can prove reportability. Recovery never invents legacy reportability or sends retroactive notifications. `reconcile --hours=24 --limit=1000` explicitly scans the oldest bounded page in that time window without moving the normal checkpoint. Limits are 1–10,000; history windows are 1–720 hours. Repeated historical requests cover the same page unless the window/limit changes; normal incremental recovery is the route for continued catch-up.
+
+The host capture hooks perform **zero package database reads or writes**, even when monitoring storage is unavailable. Signing uses deployment configuration (`capture.signing_key`, otherwise a domain-separated APP_KEY); no installation/settings/secret-table lookups or database-backed queue dispatches run in HTTP requests, host commands, jobs or scheduled host tasks. Grouping callbacks and privacy reads run in the importer. Current privacy is enforced before package buffering, at processing and on evidence reads. Telescope's own source storage and privacy remain independent.
+
+**Telescope is the initial durable buffer.** Its retention must cover importer outages. Pruning source before import loses those captures; previously buffered evidence remains independent. Signing failures preserve the host/Telescope exception but cannot create retrospective reportability proof. Installation/health checks and explicit monitoring commands still query storage. No new migration is needed. See [Telescope-source capture and upgrade guide](docs/telescope-source-capture.md) for deployment, key rotation, latency and purge/recovery guarantees.
 
 For deliberate local/admin operation without a worker, `exception-monitor:process --limit=100` processes a bounded set inline **only in that CLI command**. It does not execute pending queued synthetic probes; those need an asynchronous worker.
 
@@ -157,7 +161,7 @@ Processed/cancelled inbox bodies are removed after 24 hours. Pending/failed ciph
 
 Grouping v1 uses environment, exception class, application-relative file and line, excluding the message. A host `capture.grouping_callback` receives only that replay-stable input set and returns a bounded string; increment `capture.grouping_version` when changing its policy. `capture.source_timezone` defaults to the host application timezone for Telescope source-window queries; package timestamps always use UTC.
 
-Normal envelopes are at most 128 KiB; source/context reads, traces, logs, tags and overflow batches have explicit limits. Related request bodies/headers/cookies, trace arguments/objects, query bindings and arbitrary context are never copied. Queries retain connection/duration by default; optional sanitized SQL templates are described below. Default text redaction handles common credential patterns; application-specific secrets still need configured redaction patterns and appropriate Telescope policy. Source records are governed separately by the host.
+Normal envelopes are at most 128 KiB; source/context reads, traces, logs, tags and import pages have explicit limits. Related request bodies/headers/cookies, trace arguments/objects, query bindings and arbitrary context are never copied. Queries retain connection/duration by default; optional sanitized SQL templates are described below. Default text redaction handles common credential patterns; application-specific secrets still need configured redaction patterns and appropriate Telescope policy. Source records are governed separately by the host.
 
 A changed source database signature or backwards source sequence stops reconciliation for explicit epoch review; the package never silently resets identity. A source that was filtered, unmarked, pruned or unavailable before durable buffering cannot be reconstructed. Setup and system health expose pending/failed counts, oldest pending receipt, safe error code and actual processing/maintenance times. The overview and investigation UI consume these observations; email delivery has its own durable ledger and observations described below.
 
@@ -300,9 +304,10 @@ vendor/bin/testbench serve --host=127.0.0.1 --port=8195
 
 Open `http://127.0.0.1:8195/exception-monitor/setup`. This uses a disposable SQLite database, a local-only demonstration actor, the array mailer and no seeded external integration connections. Integration tests use their selected transport; only the separately labeled controlled preview disables external HTTP. Its provider is not Composer-discovered by consumers and denies access outside local/workbench environments. Installation seeds no example errors. The local preview may contain explicitly labeled synthetic occurrences created during verification; normal investigation views exclude them by default.
 
-To exercise Phase 5 in this workbench, run the capture and delivery workers in separate terminals:
+To exercise capture and alerts in this workbench, run the importer and capture/delivery workers in separate terminals (the capture worker executes queued synthetic probes):
 
 ```sh
+php vendor/bin/testbench exception-monitor:import --watch --process --limit=100 --sleep=2
 php vendor/bin/testbench queue:work --queue=exception-monitor-capture --timeout=60 --tries=1
 php vendor/bin/testbench queue:work --queue=exception-monitor-deliveries --timeout=45 --tries=1
 ```
@@ -317,11 +322,23 @@ Build tooling uses Node 22.12+ or a compatible current Node release. `npm run bu
 ```sh
 composer test
 composer analyse
-vendor/bin/pint --test
+composer format:check
 npm run typecheck
 npm run test:unit
 npm run build
 ```
+
+Run `composer format` to apply PHP formatting. PHP CS Fixer uses the shared
+`.php-cs-fixer.dist.php` configuration: PSR-12 with overrides for the project's
+existing Laravel style. Rules enforce four-space array indentation, remove unused
+imports, collapse consecutive blank lines to one and normalize array comma spacing.
+The project rule `TelescopeMonitor/long_array` wraps array literals longer than 120
+characters. Multiline arrays use one item per line, with trailing commas; shorter
+single-line arrays stay compact. Change the threshold in
+`scripts/php-cs-fixer/LongArrayFixer.php` if needed. Long individual strings are not split.
+It covers package PHP, tests and
+workbench source, excluding Blade templates, generated files and dependencies.
+CI runs `composer format:check` to report formatting differences without changing files.
 
 Use a disposable MySQL/MariaDB database for concurrency checks; the suite creates and rolls back its own package and Telescope tables:
 
@@ -354,11 +371,23 @@ Deployment configuration defaults to:
     'enabled' => true,
     'allowed_environments' => ['production'],
     'mailer' => null, // Host default, or an explicit configured Laravel mailer.
+    'email' => [
+        'include_context' => true,
+        'include_stack_trace' => true,
+        'max_frames' => 8,
+        'allowed_tags' => [], // Explicit email export allowlist; empty by default.
+    ],
     'max_cooldown_seconds' => 86400,
     'max_threshold_count' => 100000,
     'pending_seconds' => 86400,
 ],
 ```
+
+Emails use a responsive Telescope-themed HTML template with a plain-text alternative. Subjects identify the application/error group, exception class and sanitized message, for example `DEMO-APP-1H - App\Exceptions\WidgetNotFoundException: Widget not found`. The email includes event time, captured count, first/last seen, exception location and available retained route template, job or command metadata. Application stack frames are bounded (eight by default, at most twelve); arguments and source snippets are never exported. Missing or expired evidence and older frozen deliveries fall back to the summary without inventing details. Synthetic tests are clearly labeled.
+
+Email context freezes on the first delivery attempt; retries reuse it even if evidence later expires. Current privacy restrictions are rechecked before sending, and a stricter policy cancels an incompatible frozen delivery with `export_policy_changed`. Set `alerts.email.include_context` to `false` for summary-only email, or disable `include_stack_trace` separately. Tags require both `capture.allowed_tags` and the separate `alerts.email.allowed_tags`; only explicitly approved, non-sensitive tags should be allowed. Raw request URLs/query strings, headers, bodies, user identities, SQL and note text are excluded. Release metadata is included only when retained at capture.
+
+For an existing installation, merge these optional email settings into the published configuration as needed, clear/rebuild the host configuration cache and restart long-running queue workers (`php artisan queue:restart`). The richer email needs no migration. Test through **Settings → Email notifications** using the configured host mailer. Browser checks cover desktop/mobile layout; Gmail/Outlook inbox rendering still needs a host-owned delivery check.
 
 Select **Settings → Email notifications**, add and enable each recipient, select its checkbox and explicitly confirm a synthetic test. Tests use the configured host transport and require current manage access both when queued and when a worker claims them. The UI polls for a bounded period; unfinished results remain available in **Alerts → Delivery history**. Sending a test does not create a rule or notify other recipients.
 
@@ -388,7 +417,7 @@ Delivery rules and recovery behavior:
 - Claims recheck current installation generation, rules, target, state/snooze, privacy and required initiating permissions. Rule edits/deletion, recipient disconnection and lifecycle suppression can cancel pending work. A transport call already in flight cannot be recalled.
 - Cooldown is shared by error/canonical recipient/event family. Waiting consumes no provider attempt. A regression can defer until cooldown ends; an ordinary threshold within cooldown is suppressed. Activity has distinct event-family eligibility, so a resolved notification remains meaningful while resolved.
 - A retry cycle permits five provider attempts, with 60/300/900/3600-second backoff and a later provider Retry-After honored. Duplicate jobs and active leases do not consume attempts. Recovery is **at least once**: a crash after transport acceptance but before the local commit can duplicate an email. Unknown acceptance is recorded honestly.
-- The sanitized logical payload freezes before the first attempt. Export excludes stack/context/request/user/note bodies. Unchanged retries reuse its delivery ID and frozen payload. A stricter privacy policy cancels incompatible retries; **Review and resend** requires confirmation of the current sanitized preview and creates a new delivery identity. Failed delivery retries are operator actions with durable audit receipts.
+- The sanitized logical payload freezes before the first attempt. Email may include bounded, privacy-permitted retained execution metadata and application stack frames; request payloads, user identities, SQL, source code and note bodies remain excluded. Other channel payloads are unchanged. Unchanged retries reuse its delivery ID and frozen payload. A stricter privacy policy cancels incompatible retries; **Review and resend** requires confirmation of the current sanitized preview and creates a new delivery identity. Failed delivery retries are operator actions with durable audit receipts.
 - History masks recipient addresses for viewers; only administrators configure full addresses. Provider errors are classified into safe codes without raw exception or credential logging. `sent` means transport acceptance, **not inbox receipt**. Retention removes terminal deliveries/attempts and then unreferenced expired events; pending work expires after its configured lifetime.
 
 Real SMTP/API credentials, live inbox receipt and provider-specific behavior still require a host-owned acceptance check. Phase 6 extends this delivery boundary for Slack/webhooks and explicit GitHub issue workflows, described below.

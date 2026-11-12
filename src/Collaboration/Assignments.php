@@ -19,7 +19,12 @@ final class Assignments
 
     public function configuration(): array
     {
-        return ['enabled' => $this->enabled(), 'requested' => (bool) config('exception-monitor.assignments.enabled', false), 'configured' => is_string(config('exception-monitor.assignments.directory')) && is_subclass_of(config('exception-monitor.assignments.directory'), AssignmentDirectory::class), 'detail' => $this->enabled() ? 'Host assignment directory configured; availability is checked when used.' : 'Assignments require the deployment flag and a host directory adapter. Existing references are preserved.'];
+        return [
+            'enabled' => $this->enabled(),
+            'requested' => (bool) config('exception-monitor.assignments.enabled', false),
+            'configured' => is_string(config('exception-monitor.assignments.directory')) && is_subclass_of(config('exception-monitor.assignments.directory'), AssignmentDirectory::class),
+            'detail' => $this->enabled() ? 'Host assignment directory configured; availability is checked when used.' : 'Assignments require the deployment flag and a host directory adapter. Existing references are preserved.',
+        ];
     }
 
     private function provider(): AssignmentDirectory

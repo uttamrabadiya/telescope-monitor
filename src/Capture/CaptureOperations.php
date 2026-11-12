@@ -48,12 +48,23 @@ final class CaptureOperations
         });
     }
 
+    public function import(int $limit): array
+    {
+        return $this->scan($limit, null, 'live');
+    }
+
     public function reconcile(int $limit, ?int $hours = null): array
     {
-        return app(OperationJournal::class)->run('capture_reconcile', function () use ($limit, $hours) {
+        return $this->scan($limit, $hours, 'reconciliation');
+    }
+
+    private function scan(int $limit, ?int $hours, string $mode): array
+    {
+        return app(OperationJournal::class)->run($mode === 'live' ? 'capture_import' : 'capture_reconcile', function () use ($limit, $hours, $mode) {
             if (! $this->adapter->enabled()) {
                 return ['scanned' => 0, 'buffered' => 0, 'skipped' => 0];
             }
+            app(SourceStamp::class)->validate();
             try {
                 $this->source->verifySource();
             } catch (CaptureFailure $failure) {
@@ -61,21 +72,25 @@ final class CaptureOperations
                 throw $failure;
             }
             $i = $this->installations->current();
+            if ($i->state !== 'active') {
+                return ['scanned' => 0, 'buffered' => 0, 'skipped' => 0, 'paused' => true];
+            }
             $maximum = $this->source->maximum();
             if ($maximum < (int) $i->source_sequence_checkpoint) {
                 $this->observation->record('capture_reconcile', 'failed', 'Source sequence moved backwards; explicit source-epoch review is required.');
                 throw new CaptureFailure('source_epoch_review_required');
             }
             $rows = $this->source->exceptions($hours === null ? (int) $i->source_sequence_checkpoint : 0, $limit, null, $hours === null ? null : CarbonImmutable::now('UTC')->subHours($hours)->format('Y-m-d H:i:s'));
-            $result = $this->adapter->replayRows($rows, 'reconciliation');
+            $result = $this->adapter->replayRows($rows, $mode);
             $result['scanned'] = count($rows);
             if ($hours === null && $rows) {
                 $last = (int) end($rows)['sequence'];
                 Database::connection()->transaction(function () use ($i, $last) {
                     $current = $this->installations->lock();
-                    if ($current->source_epoch === $i->source_epoch && $current->generation === $i->generation) {
-                        $this->installations->checkpoint($current, $last);
+                    if ($current->state !== 'active' || $current->source_epoch !== $i->source_epoch || $current->generation !== $i->generation) {
+                        throw new CaptureFailure('installation_fenced');
                     }
+                    $this->installations->checkpoint($current, $last);
                 }, 5);
             }
             if ($hours === null) {
@@ -89,7 +104,7 @@ final class CaptureOperations
                     ];
                 }
                 $overlap = $this->source->exceptions((int) $cycle['cursor'], $limit, null, $cycle['since'], (int) $cycle['ceiling']);
-                $other = $this->adapter->replayRows($overlap, 'reconciliation');
+                $other = $this->adapter->replayRows($overlap, $mode);
                 foreach (['buffered', 'skipped'] as $key) {
                     $result[$key] += $other[$key];
                 }
@@ -97,7 +112,7 @@ final class CaptureOperations
                 $cycle['cursor'] = count($overlap) < $limit && (! $overlap || ! end($overlap)['page_has_more']) ? $cycle['ceiling'] : (int) end($overlap)['sequence'];
                 $this->observation->record('capture_overlap', 'passed', 'Reconciliation revisit window advanced.', $cycle);
             }
-            $this->observation->record('capture_reconcile', 'passed', 'Bounded source reconciliation completed.', $result);
+            $this->observation->record($mode === 'live' ? 'capture_import' : 'capture_reconcile', 'passed', 'Bounded source reconciliation completed.', $result);
 
             return $result;
         });

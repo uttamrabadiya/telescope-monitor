@@ -26,7 +26,19 @@ final class OperationalStatus
 
     public function schema(): array
     {
-        $expected = array_merge(PurgeOperations::TABLES, ['installations', 'settings', 'health_checks', 'action_receipts', 'connections', 'secrets', 'alert_rules', 'rule_connections', 'saved_views', 'view_preferences', 'purge_runs']);
+        $expected = array_merge(PurgeOperations::TABLES, [
+            'installations',
+            'settings',
+            'health_checks',
+            'action_receipts',
+            'connections',
+            'secrets',
+            'alert_rules',
+            'rule_connections',
+            'saved_views',
+            'view_preferences',
+            'purge_runs',
+        ]);
         $missing = [];
         foreach ($expected as $table) {
             if (! Database::schema()->hasTable('exception_monitor_'.$table)) {
@@ -45,9 +57,20 @@ final class OperationalStatus
             $signature = $this->source->signature();
             $state = ($i->source_signature !== null && ! hash_equals($i->source_signature, $signature)) || $max < (int) $i->source_sequence_checkpoint ? 'failed' : ($i->source_signature ? 'passed' : 'unverified');
 
-            return ['state' => $state, 'epoch' => $i->source_epoch, 'checkpoint' => (int) $i->source_sequence_checkpoint, 'floor' => (int) $i->source_sequence_floor, 'maximum' => $max, 'cutoff' => $i->purged_through_at?->toISOString(), 'detail' => $state === 'failed' ? 'Source identity/sequence changed. Review and explicitly rebaseline; no purge protection is silently removed.' : 'Only supported signed markers can be recovered. Pruned, filtered, unmarked and old-epoch rows are outside coverage.'];
+            return [
+                'state' => $state,
+                'epoch' => $i->source_epoch,
+                'checkpoint' => (int) $i->source_sequence_checkpoint,
+                'floor' => (int) $i->source_sequence_floor,
+                'maximum' => $max,
+                'cutoff' => $i->purged_through_at?->toISOString(),
+                'detail' => $state === 'failed' ? 'Source identity/sequence changed. Review and explicitly rebaseline; no purge protection is silently removed.' : 'Only supported signed markers can be recovered. Pruned, filtered, unmarked and old-epoch rows are outside coverage.',
+            ];
         } catch (\Throwable) {
-            return ['state' => 'failed', 'detail' => 'Telescope source could not be inspected. Restore storage access; do not reset cutoffs to bypass it.'];
+            return [
+                'state' => 'failed',
+                'detail' => 'Telescope source could not be inspected. Restore storage access; do not reset cutoffs to bypass it.',
+            ];
         }
     }
 
@@ -64,7 +87,13 @@ final class OperationalStatus
             }
         }
 
-        return ['state' => $unreadable ? 'failed' : ($rows->isEmpty() || $rows->count() > 100 ? 'unverified' : 'passed'), 'checked' => min(100, $rows->count()), 'unreadable' => $unreadable, 'bounded' => $rows->count() > 100, 'detail' => $unreadable ? 'An active key/reference is unreadable. Restore the host APP_KEY/previous keys or explicitly replace the affected integration credential. Nothing was discarded.' : 'A bounded local decryption/reference check; this does not test provider permissions or delivery.'];
+        return [
+            'state' => $unreadable ? 'failed' : ($rows->isEmpty() || $rows->count() > 100 ? 'unverified' : 'passed'),
+            'checked' => min(100, $rows->count()),
+            'unreadable' => $unreadable,
+            'bounded' => $rows->count() > 100,
+            'detail' => $unreadable ? 'An active key/reference is unreadable. Restore the host APP_KEY/previous keys or explicitly replace the affected integration credential. Nothing was discarded.' : 'A bounded local decryption/reference check; this does not test provider permissions or delivery.',
+        ];
     }
 
     public function observations(): array
@@ -76,8 +105,17 @@ final class OperationalStatus
         $capture = app(CaptureInboxRepository::class)->status();
         $delivery = app(DeliveryLedger::class)->status();
         $out = [];
-        foreach (['capture_worker' => 'Capture processing', 'delivery_worker' => 'Delivery processing', 'heartbeat' => 'Local maintenance heartbeat',
-            'key_rewrap' => 'Encryption key maintenance', 'retention' => 'Retention sweep', 'capture_recovery' => 'Capture recovery', 'delivery_recovery' => 'Delivery recovery', 'capture_reconcile' => 'Source reconciliation'] as $key => $label) {
+        foreach ([
+            'capture_worker' => 'Capture processing',
+            'capture_import' => 'Telescope importer',
+            'delivery_worker' => 'Delivery processing',
+            'heartbeat' => 'Local maintenance heartbeat',
+            'key_rewrap' => 'Encryption key maintenance',
+            'retention' => 'Retention sweep',
+            'capture_recovery' => 'Capture recovery',
+            'delivery_recovery' => 'Delivery recovery',
+            'capture_reconcile' => 'Source reconciliation',
+        ] as $key => $label) {
             $c = $checks[$key] ?? [];
             $last = $c['last_success_at'] ?? null;
             $age = $last ? max(0, CarbonImmutable::parse($last, 'UTC')->diffInSeconds(CarbonImmutable::now('UTC'), false)) : null;
@@ -109,7 +147,19 @@ final class OperationalStatus
                     $state = 'warning';
                 }
             }
-            $out[] = ['key' => $key, 'label' => $label, 'state' => $state, 'last_started_at' => $c['last_started_at'] ?? null, 'last_success_at' => $last, 'last_failure_at' => $c['last_failure_at'] ?? null, 'observed_at' => $c['observed_at'] ?? null, 'fresh' => $age !== null && $age <= $limit && ! $prior && $state === 'passed', 'freshness_seconds' => $limit, 'detail' => $detail, 'history' => $c['sanitized_details']['history'] ?? []];
+            $out[] = [
+                'key' => $key,
+                'label' => $label,
+                'state' => $state,
+                'last_started_at' => $c['last_started_at'] ?? null,
+                'last_success_at' => $last,
+                'last_failure_at' => $c['last_failure_at'] ?? null,
+                'observed_at' => $c['observed_at'] ?? null,
+                'fresh' => $age !== null && $age <= $limit && ! $prior && $state === 'passed',
+                'freshness_seconds' => $limit,
+                'detail' => $detail,
+                'history' => $c['sanitized_details']['history'] ?? [],
+            ];
         }
 
         return $out;
@@ -152,11 +202,31 @@ final class OperationalStatus
             }
         }
         $choice = $state['notification_choice'] ?? null;
-        $requirements = ['installation' => $this->schema()['ready'] && $this->capture->enabled() && $i->state === 'active', 'application' => ($ack['application'] ?? null) === $general['version'], 'privacy' => ($ack['privacy'] ?? null) === $privacy['version'], 'capture' => $capture, 'notifications' => $choice === 'skip' || ($choice === 'verify' && $accepted), 'operations' => ($ack['operations'] ?? false) === true];
+        $requirements = [
+            'installation' => $this->schema()['ready'] && $this->capture->enabled() && $i->state === 'active',
+            'application' => ($ack['application'] ?? null) === $general['version'],
+            'privacy' => ($ack['privacy'] ?? null) === $privacy['version'],
+            'capture' => $capture,
+            'notifications' => $choice === 'skip' || ($choice === 'verify' && $accepted),
+            'operations' => ($ack['operations'] ?? false) === true,
+        ];
         $complete = isset($state['completed_at']) && ($state['completed_generation'] ?? null) === $i->generation && ($state['completed_epoch'] ?? null) === $i->source_epoch;
         $rules = Database::connection()->table('exception_monitor_alert_rules')->where('installation_id', $i->id)->where('enabled', true)->whereNull('deleted_at')->count();
 
-        return ['requirements' => $requirements, 'can_finish' => ! in_array(false, $requirements, true), 'complete' => $complete, 'completed_at' => $complete ? $state['completed_at'] : null, 'notification_choice' => $choice, 'delivery_verified' => $accepted, 'delivery_verified_id' => $verifiedId, 'delivery_destination' => $verifiedDestination, 'capture_probe' => $probeId, 'active_rules' => $rules, 'optional' => ['automatic_alerts' => $rules > 0, 'assignments' => (bool) config('exception-monitor.assignments.enabled', false)], 'note' => 'Completion records your review and current-generation tests, not independent uptime monitoring. Optional notifications and assignments can remain unconfigured.'];
+        return [
+            'requirements' => $requirements,
+            'can_finish' => ! in_array(false, $requirements, true),
+            'complete' => $complete,
+            'completed_at' => $complete ? $state['completed_at'] : null,
+            'notification_choice' => $choice,
+            'delivery_verified' => $accepted,
+            'delivery_verified_id' => $verifiedId,
+            'delivery_destination' => $verifiedDestination,
+            'capture_probe' => $probeId,
+            'active_rules' => $rules,
+            'optional' => ['automatic_alerts' => $rules > 0, 'assignments' => (bool) config('exception-monitor.assignments.enabled', false)],
+            'note' => 'Completion records your review and current-generation tests, not independent uptime monitoring. Optional notifications and assignments can remain unconfigured.',
+        ];
     }
 
     public function acknowledge(array $v): array
@@ -210,6 +280,31 @@ final class OperationalStatus
         $connection = config('exception-monitor.queues.connection') ?? config('queue.default');
         $worker = 'php artisan queue:work '.escapeshellarg((string) $connection).' --queue=';
 
-        return ['installation' => $i->public_id, 'state' => $i->state, 'generation' => $i->generation, 'schema' => $this->schema(), 'source' => $this->source(), 'credentials' => $this->credentials(), 'observations' => $this->observations(), 'setup' => $this->setup(), 'purge' => $this->purge->status()['run'], 'retention' => $this->settings->group('retention'), 'limits' => $this->retention->bounds(), 'as_of' => CarbonImmutable::now('UTC')->toISOString(), 'commands' => ['capture_worker' => $worker.escapeshellarg((string) config('exception-monitor.queues.capture', 'exception-monitor-capture')).' --timeout=60 --tries=1', 'delivery_worker' => $worker.escapeshellarg((string) config('exception-monitor.queues.delivery', 'exception-monitor-deliveries')).' --timeout=45 --tries=1', 'heartbeat' => 'php artisan exception-monitor:heartbeat', 'retention' => 'php artisan exception-monitor:prune --limit=1000', 'recovery' => 'php artisan exception-monitor:recover --limit=100', 'delivery_recovery' => 'php artisan exception-monitor:recover-deliveries --limit=100', 'key_rewrap' => 'php artisan exception-monitor:rewrap '.$i->public_id.' secrets --confirm='.$i->public_id.' --limit=100', 'source_baseline' => 'php artisan exception-monitor:source-baseline '.$i->public_id.' --confirm='.$i->public_id, 'purge_preview' => 'php artisan exception-monitor:purge '.$i->public_id.' --preview'], 'offline_note' => 'This package shares its host database, application and queues. Detecting a completely offline host requires an external observer.'];
+        return [
+            'installation' => $i->public_id,
+            'state' => $i->state,
+            'generation' => $i->generation,
+            'schema' => $this->schema(),
+            'source' => $this->source(),
+            'credentials' => $this->credentials(),
+            'observations' => $this->observations(),
+            'setup' => $this->setup(),
+            'purge' => $this->purge->status()['run'],
+            'retention' => $this->settings->group('retention'),
+            'limits' => $this->retention->bounds(),
+            'as_of' => CarbonImmutable::now('UTC')->toISOString(),
+            'commands' => [
+                'capture_worker' => $worker.escapeshellarg((string) config('exception-monitor.queues.capture', 'exception-monitor-capture')).' --timeout=60 --tries=1',
+                'delivery_worker' => $worker.escapeshellarg((string) config('exception-monitor.queues.delivery', 'exception-monitor-deliveries')).' --timeout=45 --tries=1',
+                'heartbeat' => 'php artisan exception-monitor:heartbeat',
+                'retention' => 'php artisan exception-monitor:prune --limit=1000',
+                'recovery' => 'php artisan exception-monitor:recover --limit=100',
+                'delivery_recovery' => 'php artisan exception-monitor:recover-deliveries --limit=100',
+                'key_rewrap' => 'php artisan exception-monitor:rewrap '.$i->public_id.' secrets --confirm='.$i->public_id.' --limit=100',
+                'source_baseline' => 'php artisan exception-monitor:source-baseline '.$i->public_id.' --confirm='.$i->public_id,
+                'purge_preview' => 'php artisan exception-monitor:purge '.$i->public_id.' --preview',
+            ],
+            'offline_note' => 'This package shares its host database, application and queues. Detecting a completely offline host requires an external observer.',
+        ];
     }
 }

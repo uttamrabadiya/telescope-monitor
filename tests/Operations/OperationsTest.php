@@ -89,7 +89,17 @@ final class OperationsTest extends TestCase
 
     private function rule(string $id): void
     {
-        $this->postJson('/exception-monitor/api/v1/alerting/rules', ['client_key' => (string) Str::uuid(), 'name' => 'New errors', 'enabled' => true, 'events' => ['error.created'], 'conditions' => ['environments' => ['testing']], 'connections' => [$id], 'threshold_count' => null, 'window_seconds' => null, 'cooldown_seconds' => 0])->assertOk();
+        $this->postJson('/exception-monitor/api/v1/alerting/rules', [
+            'client_key' => (string) Str::uuid(),
+            'name' => 'New errors',
+            'enabled' => true,
+            'events' => ['error.created'],
+            'conditions' => ['environments' => ['testing']],
+            'connections' => [$id],
+            'threshold_count' => null,
+            'window_seconds' => null,
+            'cooldown_seconds' => 0,
+        ])->assertOk();
     }
 
     private function begin(): array
@@ -120,9 +130,19 @@ final class OperationsTest extends TestCase
     {
         $collab = app(CollaborationRepository::class);
         $note = $collab->command('note.create', $issue->public_id, (string) Str::uuid(), ['body' => 'Private operational note']);
-        $view = $collab->command('view.create', null, (string) Str::uuid(), ['name' => 'My saved triage', 'visibility' => 'personal', 'filters' => ['status' => 'unresolved'], 'sort' => 'last_seen', 'range' => '7d']);
+        $view = $collab->command('view.create', null, (string) Str::uuid(), [
+            'name' => 'My saved triage',
+            'visibility' => 'personal',
+            'filters' => ['status' => 'unresolved'],
+            'sort' => 'last_seen',
+            'range' => '7d',
+        ]);
         $prefs = $collab->preferences();
-        $collab->command('preferences', null, (string) Str::uuid(), ['version' => $prefs['version'], 'shortcuts' => [['ref' => $view['id'], 'favorite' => true, 'position' => 0]], 'default_view_ref' => $view['id']]);
+        $collab->command('preferences', null, (string) Str::uuid(), [
+            'version' => $prefs['version'],
+            'shortcuts' => [['ref' => $view['id'], 'favorite' => true, 'position' => 0]],
+            'default_view_ref' => $view['id'],
+        ]);
 
         return compact('note', 'view');
     }
@@ -131,7 +151,9 @@ final class OperationsTest extends TestCase
     {
         DB::table('exception_monitor_installations')->delete();
         $i = $this->installation();
-        $this->assertSame(6, (int) $i->schema_version);
+        $this->assertSame(0, (int) $i->schema_version);
+        $this->assertSame('ready', app(\TelescopeMonitor\Repositories\Contracts\InstallationRepository::class)->storageState());
+        $this->assertSame(6, (int) $i->fresh()->schema_version);
         $this->assertTrue(app(OperationalStatus::class)->schema()['ready']);
     }
 
@@ -205,7 +227,19 @@ final class OperationsTest extends TestCase
         app(SettingsService::class)->save('general', ['display_name' => 'Preserved application'], $settings['version']);
         $secrets = DB::table('exception_monitor_secrets')->pluck('ciphertext', 'id')->all();
         $identity = $this->installation()->public_id;
-        LinkedIssue::query()->create(['public_id' => (string) Str::uuid(), 'installation_id' => $issue->installation_id, 'issue_id' => $issue->id, 'connection_id' => DB::table('exception_monitor_connections')->value('id'), 'repository_fingerprint' => str_repeat('a', 64), 'repository_owner' => 'acme', 'repository_name' => 'app', 'state' => 'linked', 'operation_public_id' => (string) Str::uuid(), 'remote_number' => 42, 'remote_url' => 'https://github.com/acme/app/issues/42']);
+        LinkedIssue::query()->create([
+            'public_id' => (string) Str::uuid(),
+            'installation_id' => $issue->installation_id,
+            'issue_id' => $issue->id,
+            'connection_id' => DB::table('exception_monitor_connections')->value('id'),
+            'repository_fingerprint' => str_repeat('a', 64),
+            'repository_owner' => 'acme',
+            'repository_name' => 'app',
+            'state' => 'linked',
+            'operation_public_id' => (string) Str::uuid(),
+            'remote_number' => 42,
+            'remote_url' => 'https://github.com/acme/app/issues/42',
+        ]);
         $run = $this->begin()['run']['id'];
         $seen = [];
         for ($n = 0; $n < 100; $n++) {
@@ -269,7 +303,7 @@ final class OperationsTest extends TestCase
         $run = $this->begin()['run']['id'];
         $this->resume($run);
         $this->travel(2)->seconds();
-        $uuid = $this->capture('New post-cutoff exception', class: \LogicException::class);
+        $uuid = $this->capture('New post-cutoff exception', class: \LogicException::class, import: false);
         $this->assertSame(1, DB::table('exception_monitor_issues')->count());
         $this->complete($run);
         $this->assertFalse(app(CaptureProcessor::class)->process($oldInbox, 1));
@@ -354,7 +388,27 @@ final class OperationsTest extends TestCase
         $this->process();
         $this->capture('third occurrence');
         $this->process();
-        LinkedIssue::query()->create(['public_id' => (string) Str::uuid(), 'installation_id' => $issue->installation_id, 'issue_id' => $issue->id, 'connection_id' => Connection::query()->create(['public_id' => (string) Str::uuid(), 'installation_id' => $issue->installation_id, 'provider' => 'github', 'display_name' => 'Repository', 'target_fingerprint' => str_repeat('b', 64), 'target_public' => ['owner' => 'acme', 'repo' => 'app'], 'enabled' => false, 'options' => []])->id, 'repository_fingerprint' => str_repeat('b', 64), 'repository_owner' => 'acme', 'repository_name' => 'app', 'state' => 'linked', 'operation_public_id' => (string) Str::uuid(), 'remote_number' => 42]);
+        LinkedIssue::query()->create([
+            'public_id' => (string) Str::uuid(),
+            'installation_id' => $issue->installation_id,
+            'issue_id' => $issue->id,
+            'connection_id' => Connection::query()->create([
+                'public_id' => (string) Str::uuid(),
+                'installation_id' => $issue->installation_id,
+                'provider' => 'github',
+                'display_name' => 'Repository',
+                'target_fingerprint' => str_repeat('b', 64),
+                'target_public' => ['owner' => 'acme', 'repo' => 'app'],
+                'enabled' => false,
+                'options' => [],
+            ])->id,
+            'repository_fingerprint' => str_repeat('b', 64),
+            'repository_owner' => 'acme',
+            'repository_name' => 'app',
+            'state' => 'linked',
+            'operation_public_id' => (string) Str::uuid(),
+            'remote_number' => 42,
+        ]);
         $uuid = DB::table('exception_monitor_occurrences')->value('source_uuid');
         $this->travel(100)->days();
         $stats = app(RetentionSweep::class)->run(1);
@@ -409,7 +463,11 @@ final class OperationsTest extends TestCase
     public function test_live_capture_buffer_payload_is_not_removed_by_retention(): void
     {
         $this->capture();
-        DB::table('exception_monitor_capture_inbox')->update(['state' => 'processing', 'lease_until' => CarbonImmutable::now('UTC')->addMinutes(2)->format('Y-m-d H:i:s.u'), 'received_at' => CarbonImmutable::now('UTC')->subDays(40)->format('Y-m-d H:i:s.u')]);
+        DB::table('exception_monitor_capture_inbox')->update([
+            'state' => 'processing',
+            'lease_until' => CarbonImmutable::now('UTC')->addMinutes(2)->format('Y-m-d H:i:s.u'),
+            'received_at' => CarbonImmutable::now('UTC')->subDays(40)->format('Y-m-d H:i:s.u'),
+        ]);
         app(RetentionSweep::class)->run(1);
         $this->assertNotNull(DB::table('exception_monitor_capture_inbox')->value('payload_ciphertext'));
         $this->assertSame('processing', DB::table('exception_monitor_capture_inbox')->value('state'));
@@ -527,7 +585,7 @@ final class OperationsTest extends TestCase
     {
         $this->captureIssue();
         $run = $this->begin()['run']['id'];
-        $this->capture('During drain');
+        $this->capture('During drain', import: false);
         $this->assertSame(1, DB::table('exception_monitor_occurrences')->count());
         $i = $this->installation();
         app(PurgeOperations::class)->abort($i->public_id, $i->public_id, $run);

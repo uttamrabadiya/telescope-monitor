@@ -33,7 +33,14 @@ final class CollaborationRequest extends FormRequest
             $rules['range'] = ['required', Rule::in(['1h', '24h', '7d', '30d'])];
         }
         if ($op === 'preferences') {
-            $rules += ['shortcuts' => ['present', 'array', 'max:100'], 'shortcuts.*' => ['array:ref,favorite,position'], 'shortcuts.*.ref' => ['required', 'string', 'max:64', 'distinct:strict'], 'shortcuts.*.favorite' => ['required', 'boolean'], 'shortcuts.*.position' => ['required', 'integer', 'min:0', 'max:99', 'distinct'], 'default_view_ref' => ['present', 'nullable', 'string', 'max:64']];
+            $rules += [
+                'shortcuts' => ['present', 'array', 'max:100'],
+                'shortcuts.*' => ['array:ref,favorite,position'],
+                'shortcuts.*.ref' => ['required', 'string', 'max:64', 'distinct:strict'],
+                'shortcuts.*.favorite' => ['required', 'boolean'],
+                'shortcuts.*.position' => ['required', 'integer', 'min:0', 'max:99', 'distinct'],
+                'default_view_ref' => ['present', 'nullable', 'string', 'max:64'],
+            ];
         }
         if ($op === 'assignment') {
             $rules['assignee'] = ['present', 'nullable', 'string', 'max:191'];

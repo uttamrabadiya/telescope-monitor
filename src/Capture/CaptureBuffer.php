@@ -26,7 +26,7 @@ final class CaptureBuffer
             if ($i->state !== 'active' || $i->generation !== $marker['generation'] || $i->source_epoch !== $marker['source_epoch']) {
                 return null;
             }
-            if (($i->purged_through_at && CarbonImmutable::parse($marker['occurred_at'], 'UTC') <= $i->purged_through_at) || ($sequence !== null && $sequence <= (int) $i->source_sequence_floor)) {
+            if (($i->purged_through_at && (CarbonImmutable::parse($marker['occurred_at'], 'UTC') <= $i->purged_through_at || (isset($marker['captured_at']) && CarbonImmutable::parse($marker['captured_at'], 'UTC') <= $i->purged_through_at))) || ($sequence !== null && $sequence <= (int) $i->source_sequence_floor)) {
                 return null;
             }
             $row = $this->inbox->enqueue([

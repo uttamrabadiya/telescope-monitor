@@ -3,8 +3,6 @@
 namespace TelescopeMonitor\Auth;
 
 use Illuminate\Contracts\Auth\Authenticatable;
-use Illuminate\Support\Facades\Gate;
-use Laravel\Telescope\Telescope;
 
 final class TelescopeAccess
 {
@@ -28,14 +26,7 @@ final class TelescopeAccess
         if ($request->attributes->get(self::REQUEST_APPROVED) === true) {
             return true;
         }
-        // Queue workers have no originating HTTP request to replay. Local Telescope
-        // access is rechecked; deployed guest jobs require an explicit host grant.
-        try {
-            return (app()->environment('local') && Telescope::check($request))
-                || (app()->runningInConsole() && config('exception-monitor.authorization.allow_guest_jobs', false) === true);
-        } catch (\Throwable) {
-            return false;
-        }
+        return app(QueuedTelescopeAuthorization::class)->allows(null);
     }
 
     public function allows(Authenticatable $user, bool $shared, bool $currentActor): bool
@@ -44,22 +35,14 @@ final class TelescopeAccess
             return false;
         }
         if ($shared) {
-            return $this->sharedAvailable();
+            return $currentActor && $this->sharedAvailable()
+                ? true
+                : app(QueuedTelescopeAuthorization::class)->allows(null);
         }
         $request = app('request');
         if ($currentActor && $request->attributes->get(self::REQUEST_APPROVED) === true) {
             return true;
         }
-        try {
-            if (app()->environment('local')) {
-                return (bool) Telescope::check($request);
-            }
-
-            // Laravel's default Telescope policy outside local is viewTelescope.
-            // Re-resolve the saved user and evaluate that gate for queued work.
-            return Gate::has('viewTelescope') && Gate::forUser($user)->allows('viewTelescope');
-        } catch (\Throwable) {
-            return false;
-        }
+        return app(QueuedTelescopeAuthorization::class)->allows($user);
     }
 }

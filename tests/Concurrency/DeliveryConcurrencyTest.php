@@ -21,7 +21,16 @@ final class DeliveryConcurrencyTest extends TestCase
         config(['exception-monitor.alerts.allowed_environments' => ['testing']]);
         $this->travelTo(CarbonImmutable::parse('2026-11-11T10:00:01Z'));
         $a = app(AlertManagement::class)->command('connection.create', null, (string) Str::uuid(), ['name' => 'Canonical recipient', 'email' => 'oncall@example.test', 'enabled' => true]);
-        app(AlertManagement::class)->command('rule.create', null, (string) Str::uuid(), ['name' => 'Shared gate', 'enabled' => true, 'events' => ['error.created', 'error.threshold_reached'], 'conditions' => ['environments' => ['testing'], 'class' => null, 'origin' => null, 'tag' => null], 'connections' => [$a['id']], 'threshold_count' => 1, 'window_seconds' => 300, 'cooldown_seconds' => 1800]);
+        app(AlertManagement::class)->command('rule.create', null, (string) Str::uuid(), [
+            'name' => 'Shared gate',
+            'enabled' => true,
+            'events' => ['error.created', 'error.threshold_reached'],
+            'conditions' => ['environments' => ['testing'], 'class' => null, 'origin' => null, 'tag' => null],
+            'connections' => [$a['id']],
+            'threshold_count' => 1,
+            'window_seconds' => 300,
+            'cooldown_seconds' => 1800,
+        ]);
         $this->capture();
         $this->process();
     }

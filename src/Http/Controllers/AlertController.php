@@ -24,7 +24,12 @@ final class AlertController
         } catch (ValidationException|ModelNotFoundException|HttpExceptionInterface $e) {
             throw $e;
         } catch (\Throwable) {
-            return response()->json(['error' => ['code' => 'alerting_unavailable', 'message' => 'Alert configuration or delivery data is unavailable. Review storage, encryption and the host mailer.']], 503)->header('Cache-Control', 'private, no-store');
+            return response()->json([
+                'error' => [
+                    'code' => 'alerting_unavailable',
+                    'message' => 'Alert configuration or delivery data is unavailable. Review storage, encryption and the host mailer.',
+                ],
+            ], 503)->header('Cache-Control', 'private, no-store');
         }
     }
 
@@ -35,7 +40,17 @@ final class AlertController
 
     public function history(Request $r, AlertManagement $alerts): JsonResponse
     {
-        $v = $r->validate(['status' => ['sometimes', Rule::in(['pending', 'processing', 'retrying', 'sent', 'cancelled', 'failed', 'needs_review'])], 'test' => ['sometimes', 'boolean'], 'issue' => ['sometimes', 'uuid'], 'rule' => ['sometimes', 'uuid'], 'channel' => ['sometimes', Rule::in(['email', 'slack', 'webhook', 'github'])], 'environment' => ['sometimes', 'string', 'max:64'], 'after' => ['sometimes', 'date_format:Y-m-d'], 'before' => ['sometimes', 'date_format:Y-m-d'], 'page' => ['sometimes', 'integer', 'min:1', 'max:10000']]);
+        $v = $r->validate([
+            'status' => ['sometimes', Rule::in(['pending', 'processing', 'retrying', 'sent', 'cancelled', 'failed', 'needs_review'])],
+            'test' => ['sometimes', 'boolean'],
+            'issue' => ['sometimes', 'uuid'],
+            'rule' => ['sometimes', 'uuid'],
+            'channel' => ['sometimes', Rule::in(['email', 'slack', 'webhook', 'github'])],
+            'environment' => ['sometimes', 'string', 'max:64'],
+            'after' => ['sometimes', 'date_format:Y-m-d'],
+            'before' => ['sometimes', 'date_format:Y-m-d'],
+            'page' => ['sometimes', 'integer', 'min:1', 'max:10000'],
+        ]);
 
         return $this->run(fn () => $alerts->history($v));
     }

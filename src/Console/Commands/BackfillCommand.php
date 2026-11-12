@@ -31,7 +31,14 @@ final class BackfillCommand extends Command
 
             return $result['failed'] > 0 ? self::FAILURE : self::SUCCESS;
         } catch (CaptureFailure $e) {
-            $safe = in_array($e->getMessage(), ['invalid_source_timezone', 'invalid_backfill_options', 'backfill_unavailable', 'backfill_requires_active_installation', 'source_epoch_review_required', 'installation_fenced'], true) ? $e->getMessage() : 'backfill_processing_failed';
+            $safe = in_array($e->getMessage(), [
+                'invalid_source_timezone',
+                'invalid_backfill_options',
+                'backfill_unavailable',
+                'backfill_requires_active_installation',
+                'source_epoch_review_required',
+                'installation_fenced',
+            ], true) ? $e->getMessage() : 'backfill_processing_failed';
 
             return $this->failure($safe, 'Backfill stopped: '.$safe.'. Existing committed imports can be replayed safely.');
         } catch (\Throwable) {
@@ -60,7 +67,11 @@ final class BackfillCommand extends Command
         $skipped = $result['skipped_marked'] + $result['skipped_invalid'] + $result['skipped_fenced'];
         $rows[] = ['Skipped', number_format($skipped)];
         $this->table(['Result', 'Count'], $rows);
-        foreach (['skipped_marked' => 'Package-marked (use normal recovery)', 'skipped_invalid' => 'Malformed, oversized or future-dated', 'skipped_fenced' => 'Protected by purge fences'] as $key => $label) {
+        foreach ([
+            'skipped_marked' => 'Package-marked (use normal recovery)',
+            'skipped_invalid' => 'Malformed, oversized or future-dated',
+            'skipped_fenced' => 'Protected by purge fences',
+        ] as $key => $label) {
             if ($result[$key]) {
                 $this->line('  '.$label.': '.number_format($result[$key]));
             }

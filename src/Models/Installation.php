@@ -31,7 +31,8 @@ final class Installation extends Model
     protected function casts(): array
     {
         return [
-            'retention_cutoffs' => 'array', 'setup_state' => 'array',
+            'retention_cutoffs' => 'array',
+            'setup_state' => 'array',
             'generation' => 'integer',
             'config_revision' => 'integer',
             'purged_through_at' => 'immutable_datetime',

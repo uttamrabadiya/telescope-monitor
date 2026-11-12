@@ -32,7 +32,14 @@ final class Window
 
     public function json(): array
     {
-        return ['range' => $this->range, 'start' => $this->start->toISOString(), 'end' => $this->end->toISOString(), 'bucket_seconds' => $this->step, 'as_of' => CarbonImmutable::now('UTC')->toISOString(), 'coverage' => 'Captured events only. The current bucket is partial; aggregates follow configured retention.'];
+        return [
+            'range' => $this->range,
+            'start' => $this->start->toISOString(),
+            'end' => $this->end->toISOString(),
+            'bucket_seconds' => $this->step,
+            'as_of' => CarbonImmutable::now('UTC')->toISOString(),
+            'coverage' => 'Captured events only. The current bucket is partial; aggregates follow configured retention.',
+        ];
     }
 
     public function sql(CarbonImmutable $time): string

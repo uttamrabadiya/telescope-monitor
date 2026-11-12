@@ -21,7 +21,12 @@ final class OperationsController
         } catch (ValidationException $e) {
             throw $e;
         } catch (\Throwable) {
-            return response()->json(['error' => ['code' => 'operations_unavailable', 'message' => 'Operational data is unavailable. Review migrations, current maintenance state and host storage.']], 503)->header('Cache-Control', 'private, no-store');
+            return response()->json([
+                'error' => [
+                    'code' => 'operations_unavailable',
+                    'message' => 'Operational data is unavailable. Review migrations, current maintenance state and host storage.',
+                ],
+            ], 503)->header('Cache-Control', 'private, no-store');
         }
     }
 
@@ -42,7 +47,10 @@ final class OperationsController
 
     public function preview(Request $r, RetentionSweep $sweep): JsonResponse
     {
-        $v = $r->validate(['values' => ['required', 'array:occurrence_days,delivery_days,aggregate_days,activity_days'], 'values.*' => ['integer']]);
+        $v = $r->validate([
+            'values' => ['required', 'array:occurrence_days,delivery_days,aggregate_days,activity_days'],
+            'values.*' => ['integer'],
+        ]);
 
         return $this->run(fn () => $sweep->preview($v['values']));
     }

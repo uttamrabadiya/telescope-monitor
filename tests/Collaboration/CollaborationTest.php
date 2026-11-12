@@ -59,7 +59,7 @@ final class CollaborationTest extends TestCase
 
     private function actor(string $key): void
     {
-        $this->app->bind(ActorResolver::class, fn () => new class($key) implements ActorResolver
+        $this->app->bind(ActorResolver::class, fn () => new class ($key) implements ActorResolver
         {
             public function __construct(private string $key) {}
 
@@ -83,7 +83,14 @@ final class CollaborationTest extends TestCase
 
     private function createView(array $extra = [], ?string $key = null)
     {
-        return $this->postJson('/exception-monitor/api/v1/views', array_merge(['client_key' => $key ?? (string) Str::uuid(), 'name' => 'My triage', 'visibility' => 'personal', 'filters' => ['status' => 'unresolved'], 'sort' => 'last_seen', 'range' => '24h'], $extra));
+        return $this->postJson('/exception-monitor/api/v1/views', array_merge([
+            'client_key' => $key ?? (string) Str::uuid(),
+            'name' => 'My triage',
+            'visibility' => 'personal',
+            'filters' => ['status' => 'unresolved'],
+            'sort' => 'last_seen',
+            'range' => '24h',
+        ], $extra));
     }
 
     private function notesUrl(): string
@@ -194,7 +201,12 @@ final class CollaborationTest extends TestCase
     {
         $personal = $this->createView()->assertOk()->json('exception_monitor_private.id');
         $this->actor('testing:2');
-        $prefs = ['client_key' => (string) Str::uuid(), 'version' => 0, 'shortcuts' => [['ref' => $personal, 'favorite' => true, 'position' => 0]], 'default_view_ref' => $personal];
+        $prefs = [
+            'client_key' => (string) Str::uuid(),
+            'version' => 0,
+            'shortcuts' => [['ref' => $personal, 'favorite' => true, 'position' => 0]],
+            'default_view_ref' => $personal,
+        ];
         $this->putJson('/exception-monitor/api/v1/view-preferences', $prefs)->assertNotFound();
         $this->actor('testing:1');
         $this->putJson('/exception-monitor/api/v1/view-preferences', $prefs)->assertOk();
@@ -209,7 +221,15 @@ final class CollaborationTest extends TestCase
         DB::table('exception_monitor_saved_views')->where('public_id', $id)->update(['filter_schema_version' => 99]);
         $this->getJson('/exception-monitor/api/v1/views/'.$id)->assertJsonPath('exception_monitor_private.state', 'needs_repair');
         $this->getJson('/exception-monitor/api/v1/issues?view='.$id)->assertConflict();
-        $this->patchJson('/exception-monitor/api/v1/views/'.$id, ['client_key' => (string) Str::uuid(), 'version' => 1, 'name' => 'Repaired', 'visibility' => 'personal', 'filters' => [], 'sort' => 'first_seen', 'range' => '1h'])->assertOk();
+        $this->patchJson('/exception-monitor/api/v1/views/'.$id, [
+            'client_key' => (string) Str::uuid(),
+            'version' => 1,
+            'name' => 'Repaired',
+            'visibility' => 'personal',
+            'filters' => [],
+            'sort' => 'first_seen',
+            'range' => '1h',
+        ])->assertOk();
         $this->getJson('/exception-monitor/api/v1/views/'.$id)->assertJsonPath('exception_monitor_private.state', 'ready');
     }
 
@@ -237,7 +257,15 @@ final class CollaborationTest extends TestCase
 
     public function test_default_and_shortcuts_are_versioned_ordered_and_actor_specific(): void
     {
-        $payload = ['client_key' => (string) Str::uuid(), 'version' => 0, 'shortcuts' => [['ref' => 'builtin:resolved', 'favorite' => '0', 'position' => 8], ['ref' => 'builtin:unresolved', 'favorite' => true, 'position' => 2]], 'default_view_ref' => 'builtin:resolved'];
+        $payload = [
+            'client_key' => (string) Str::uuid(),
+            'version' => 0,
+            'shortcuts' => [
+                ['ref' => 'builtin:resolved', 'favorite' => '0', 'position' => 8],
+                ['ref' => 'builtin:unresolved', 'favorite' => true, 'position' => 2],
+            ],
+            'default_view_ref' => 'builtin:resolved',
+        ];
         $this->putJson('/exception-monitor/api/v1/view-preferences', $payload)->assertOk();
         $this->putJson('/exception-monitor/api/v1/view-preferences', $payload)->assertOk();
         $this->getJson('/exception-monitor/api/v1/view-preferences')->assertJsonPath('exception_monitor_private.shortcuts.0.ref', 'builtin:unresolved')->assertJsonPath('exception_monitor_private.shortcuts.1.favorite', false)->assertJsonPath('exception_monitor_private.shortcuts.0.position', 0);
@@ -253,9 +281,22 @@ final class CollaborationTest extends TestCase
     {
         $id = $this->createView(['visibility' => 'shared'])->assertOk()->json('exception_monitor_private.id');
         $this->actor('testing:2');
-        $this->putJson('/exception-monitor/api/v1/view-preferences', ['client_key' => (string) Str::uuid(), 'version' => 0, 'shortcuts' => [['ref' => $id, 'favorite' => true, 'position' => 0]], 'default_view_ref' => $id])->assertOk();
+        $this->putJson('/exception-monitor/api/v1/view-preferences', [
+            'client_key' => (string) Str::uuid(),
+            'version' => 0,
+            'shortcuts' => [['ref' => $id, 'favorite' => true, 'position' => 0]],
+            'default_view_ref' => $id,
+        ])->assertOk();
         $this->actor('testing:1');
-        $this->patchJson('/exception-monitor/api/v1/views/'.$id, ['client_key' => (string) Str::uuid(), 'version' => 1, 'name' => 'Now personal', 'visibility' => 'personal', 'filters' => ['status' => 'resolved'], 'sort' => 'last_seen', 'range' => '7d'])->assertOk();
+        $this->patchJson('/exception-monitor/api/v1/views/'.$id, [
+            'client_key' => (string) Str::uuid(),
+            'version' => 1,
+            'name' => 'Now personal',
+            'visibility' => 'personal',
+            'filters' => ['status' => 'resolved'],
+            'sort' => 'last_seen',
+            'range' => '7d',
+        ])->assertOk();
         $this->actor('testing:2');
         $this->getJson('/exception-monitor/api/v1/view-preferences')->assertJsonPath('exception_monitor_private.shortcuts', [])->assertJsonPath('exception_monitor_private.default_view_ref', null);
         $this->getJson('/exception-monitor/api/v1/views/'.$id)->assertNotFound();
@@ -266,7 +307,15 @@ final class CollaborationTest extends TestCase
     {
         $id = $this->createView(['filters' => ['class' => 'RuntimeException'], 'range' => '7d'])->assertOk()->json('exception_monitor_private.id');
         $this->patchJson('/exception-monitor/api/v1/views/'.$id.'/name', ['client_key' => (string) Str::uuid(), 'version' => 1, 'name' => 'Renamed'])->assertOk();
-        $this->patchJson('/exception-monitor/api/v1/views/'.$id, ['client_key' => (string) Str::uuid(), 'version' => 1, 'name' => 'Stale', 'visibility' => 'personal', 'filters' => [], 'sort' => 'first_seen', 'range' => '1h'])->assertConflict();
+        $this->patchJson('/exception-monitor/api/v1/views/'.$id, [
+            'client_key' => (string) Str::uuid(),
+            'version' => 1,
+            'name' => 'Stale',
+            'visibility' => 'personal',
+            'filters' => [],
+            'sort' => 'first_seen',
+            'range' => '1h',
+        ])->assertConflict();
         $this->getJson('/exception-monitor/api/v1/views/'.$id)->assertJsonPath('exception_monitor_private.name', 'Renamed')->assertJsonPath('exception_monitor_private.definition.filters.class', 'RuntimeException')->assertJsonPath('exception_monitor_private.definition.range', '7d');
     }
 

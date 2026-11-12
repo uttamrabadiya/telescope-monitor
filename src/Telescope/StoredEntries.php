@@ -4,6 +4,7 @@ namespace TelescopeMonitor\Telescope;
 
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
+use TelescopeMonitor\Models\Installation;
 use TelescopeMonitor\Repositories\Contracts\InstallationRepository;
 
 final class StoredEntries
@@ -19,9 +20,9 @@ final class StoredEntries
         return hash('sha256', json_encode($identity, JSON_THROW_ON_ERROR));
     }
 
-    public function verifySource(): void
+    public function verifySource(): Installation
     {
-        app(InstallationRepository::class)->verifySource($this->signature());
+        return app(InstallationRepository::class)->verifySource($this->signature());
     }
 
     private function query()
@@ -111,7 +112,7 @@ final class StoredEntries
         $more = false;
         foreach ($rows as $row) {
             // Legacy unmarked exceptions cannot prove reportability and do not consume the content budget.
-            $marked = $allowUnmarked || ($row->type ?? 'exception') !== 'exception' || count(array_filter($tags[$row->uuid] ?? [], fn ($tag) => str_starts_with($tag, 'em2c|'))) === 1;
+            $marked = $allowUnmarked || ($row->type ?? 'exception') !== 'exception' || count(array_filter($tags[$row->uuid] ?? [], fn ($tag) => (str_starts_with($tag, 'em2c|') || str_starts_with($tag, 'em3|')))) === 1;
             if ($marked && $row->content_bytes <= $budget && $used + $row->content_bytes > $budget) {
                 $more = true;
                 break;

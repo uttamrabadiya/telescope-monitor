@@ -6,9 +6,7 @@ use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 use Laravel\Telescope\Contracts\EntriesRepository;
-use Laravel\Telescope\IncomingExceptionEntry;
 use Laravel\Telescope\Storage\DatabaseEntriesRepository;
-use Laravel\Telescope\Telescope;
 use TelescopeMonitor\Capture\CaptureFailure;
 use TelescopeMonitor\Capture\CaptureOperations;
 use TelescopeMonitor\Capture\CapturePolicy;
@@ -39,33 +37,26 @@ final class BoundsTest extends TestCase
         $this->assertSame(7, (int) DB::table('exception_monitor_issues')->value('lifetime_count'));
     }
 
-    public function test_pruned_batch_reference_is_visible_and_not_invented_as_success(): void
+    public function test_source_pruned_before_import_does_not_invent_captured_evidence(): void
     {
-        config(['exception-monitor.capture.inline_limit' => 1]);
-        for ($i = 0; $i < 2; $i++) {
-            $e = new \RuntimeException('Burst');
-            Telescope::recordException(IncomingExceptionEntry::make($e, ['class' => $e::class, 'message' => 'Burst', 'file' => __FILE__, 'line' => 1, 'trace' => []]));
-        }
-        Telescope::store(app(EntriesRepository::class));
+        $this->capture(import: false);
         DB::table('telescope_entries')->delete();
+        $result = $this->importSource();
+        $this->assertSame(0, $result['buffered']);
         $this->process();
-        $this->assertSame('source_batch_unavailable', DB::table('exception_monitor_capture_inbox')->where('kind', 'batch_reference')->value('last_error_code'));
-        $this->assertDatabaseCount('exception_monitor_occurrences', 1);
+        $this->assertDatabaseCount('exception_monitor_occurrences', 0);
     }
 
-    public function test_source_pruned_after_a_reference_page_is_reported_as_incomplete(): void
+    public function test_imported_buffer_survives_source_pruning_but_unimported_rows_do_not(): void
     {
-        config(['exception-monitor.capture.inline_limit' => 1]);
-        for ($i = 0; $i < 105; $i++) {
-            $e = new \RuntimeException('Paged burst');
-            Telescope::recordException(IncomingExceptionEntry::make($e, ['class' => $e::class, 'message' => 'Paged burst', 'file' => __FILE__, 'line' => 1, 'trace' => []]));
+        for ($i = 0; $i < 5; $i++) {
+            $this->capture(import: false);
         }
-        Telescope::store(app(EntriesRepository::class));
+        $this->assertSame(2, $this->importSource(2)['buffered']);
+        DB::table('telescope_entries')->where('sequence', '>', DB::table('exception_monitor_installations')->value('source_sequence_checkpoint'))->delete();
         $this->process();
-        DB::table('telescope_entries')->delete();
-        $this->process();
-        $this->assertSame('source_batch_incomplete', DB::table('exception_monitor_capture_inbox')->where('kind', 'batch_reference')->value('last_error_code'));
-        $this->assertDatabaseCount('exception_monitor_occurrences', 100);
+        $this->assertDatabaseCount('exception_monitor_occurrences', 2);
+        $this->assertDatabaseCount('exception_monitor_capture_inbox', 2);
     }
 
     public function test_malformed_nested_evidence_is_terminal_without_any_domain_writes(): void
@@ -85,9 +76,17 @@ final class BoundsTest extends TestCase
     {
         $sanitizer = app(Sanitizer::class);
         $policy = app(CapturePolicy::class)->read();
-        $context = $sanitizer->batch(array_fill(0, 100, ['type' => 'log', 'content' => ['level' => 'info', 'message' => str_repeat('large ', 1000), 'context' => ['secret' => 'NEVER-CONTEXT']]]), $policy);
+        $context = $sanitizer->batch(array_fill(0, 100, [
+            'type' => 'log',
+            'content' => ['level' => 'info', 'message' => str_repeat('large ', 1000), 'context' => ['secret' => 'NEVER-CONTEXT']],
+        ]), $policy);
         $marker = ['policy' => $policy];
-        $trace = array_fill(0, 100, ['file' => str_repeat('x', 4000), 'class' => str_repeat('y', 600), 'function' => str_repeat('z', 200), 'args' => ['NEVER-ARG']]);
+        $trace = array_fill(0, 100, [
+            'file' => str_repeat('x', 4000),
+            'class' => str_repeat('y', 600),
+            'function' => str_repeat('z', 200),
+            'args' => ['NEVER-ARG'],
+        ]);
         $data = $sanitizer->envelope(['class' => 'RuntimeException', 'message' => str_repeat('x', 30000), 'file' => '/test.php', 'line' => 1], $marker, $context, [], $trace);
         $json = json_encode($data, JSON_THROW_ON_ERROR);
         $this->assertLessThanOrEqual(131072, strlen($json));
@@ -95,7 +94,12 @@ final class BoundsTest extends TestCase
         $this->assertSame('truncated', $data['coverage']['trace']);
         $this->assertSame('truncated', $data['coverage']['message']);
         $this->assertStringNotContainsString('NEVER-', $json);
-        $query = $sanitizer->batch([['type' => 'query', 'content' => ['sql' => 'select secret', 'bindings' => ['NEVER-BINDING'], 'connection' => 'mysql', 'time' => 1]]], $policy);
+        $query = $sanitizer->batch([
+            [
+                'type' => 'query',
+                'content' => ['sql' => 'select secret', 'bindings' => ['NEVER-BINDING'], 'connection' => 'mysql', 'time' => 1],
+            ],
+        ], $policy);
         $this->assertStringNotContainsString('NEVER-', json_encode($query));
         $this->assertStringNotContainsString('select secret', json_encode($query));
     }
@@ -105,7 +109,10 @@ final class BoundsTest extends TestCase
         $original = config('telescope.storage.database.connection');
         $override = config('exception-monitor.database.connection');
         config(['exception-monitor.database.connection' => config('database.default')]);
-        config(['database.connections.capture_source' => ['driver' => 'sqlite', 'database' => ':memory:', 'foreign_key_constraints' => true], 'telescope.storage.database.connection' => 'capture_source']);
+        config([
+            'database.connections.capture_source' => ['driver' => 'sqlite', 'database' => ':memory:', 'foreign_key_constraints' => true],
+            'telescope.storage.database.connection' => 'capture_source',
+        ]);
         $migration = require __DIR__.'/../../vendor/laravel/telescope/database/migrations/2018_08_08_100000_create_telescope_entries_table.php';
         $migration->up();
         $this->app->instance(EntriesRepository::class, new DatabaseEntriesRepository('capture_source'));

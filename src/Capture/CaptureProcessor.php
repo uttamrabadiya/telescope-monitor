@@ -250,7 +250,7 @@ final class CaptureProcessor
         }
         $installation = $this->installations->current();
         foreach ($rows as $row) {
-            if (app(SourceMarker::class)->read($installation, $row['uuid'], $row['tags'])) {
+            if (app(SourceMarker::class)->read($installation, $row['uuid'], $row['tags'], $row['content'])) {
                 $payload['scanned_count']++;
             }
         }

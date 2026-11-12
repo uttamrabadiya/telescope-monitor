@@ -3,6 +3,7 @@
 namespace TelescopeMonitor\Capture;
 
 use Illuminate\Support\Facades\Crypt;
+use TelescopeMonitor\Models\Installation;
 use TelescopeMonitor\Repositories\Contracts\InstallationRepository;
 use TelescopeMonitor\Repositories\Contracts\SecretRepository;
 use TelescopeMonitor\Storage\Database;
@@ -13,7 +14,11 @@ final class CaptureKeys
 
     public function key(string $purpose = 'capture_identity'): array
     {
-        $installation = $this->installations->current();
+        return $this->forInstallation($this->installations->current(), $purpose);
+    }
+
+    public function forInstallation(Installation $installation, string $purpose = 'capture_identity'): array
+    {
         $record = $this->secrets->find($installation->id, $purpose);
         if (! $record) {
             $record = Database::connection()->transaction(function () use ($purpose) {

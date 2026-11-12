@@ -19,7 +19,11 @@ final class SourceBaselineCommand extends Command
             $id = (string) $this->argument('installation');
             if ($id !== $purge->status()['installation']) {
                 throw new MaintenanceFailure('installation_not_found');
-            }$result = $this->option('preview') ? ['installation' => $id, 'source' => $status->source(), 'effect' => 'Exclude existing source rows and create a new source epoch. Existing monitor error data is preserved.'] : $purge->baseline($id, (string) $this->option('confirm'));
+            }$result = $this->option('preview') ? [
+                'installation' => $id,
+                'source' => $status->source(),
+                'effect' => 'Exclude existing source rows and create a new source epoch. Existing monitor error data is preserved.',
+            ] : $purge->baseline($id, (string) $this->option('confirm'));
             $this->line(json_encode($result, JSON_THROW_ON_ERROR));
 
             return self::SUCCESS;

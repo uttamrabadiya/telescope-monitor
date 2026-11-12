@@ -53,7 +53,30 @@ final class IntegrationManagement
             }
         }
 
-        return ['id' => $c->public_id, 'provider' => $c->provider, 'name' => $c->display_name, 'display' => $c->target_public['display'] ?? ($c->target_public['owner'] ?? '').'/'.($c->target_public['repo'] ?? ''), 'target' => $c->target_public, 'enabled' => $c->enabled, 'disconnected' => $c->disconnected_at !== null, 'version' => $c->row_version, 'state' => $unreadable ? 'unreadable' : 'configured', 'options' => $c->options, 'last_test_at' => $c->last_test_at?->toISOString(), 'last_test_outcome' => $c->last_test_outcome, 'last_accepted_at' => $c->options['last_accepted_at'] ?? null, 'failed_count' => (string) Delivery::query()->where('connection_id', $c->id)->whereIn('status', ['failed', 'needs_review'])->count(), 'keys' => $secrets->map(fn ($s) => ['id' => $s->key_id, 'purpose' => $s->secret_name, 'revision' => $s->revision, 'state' => $s->state, 'source' => $s->source, 'retire_after' => $s->retire_after?->toISOString()])->all()];
+        return [
+            'id' => $c->public_id,
+            'provider' => $c->provider,
+            'name' => $c->display_name,
+            'display' => $c->target_public['display'] ?? ($c->target_public['owner'] ?? '').'/'.($c->target_public['repo'] ?? ''),
+            'target' => $c->target_public,
+            'enabled' => $c->enabled,
+            'disconnected' => $c->disconnected_at !== null,
+            'version' => $c->row_version,
+            'state' => $unreadable ? 'unreadable' : 'configured',
+            'options' => $c->options,
+            'last_test_at' => $c->last_test_at?->toISOString(),
+            'last_test_outcome' => $c->last_test_outcome,
+            'last_accepted_at' => $c->options['last_accepted_at'] ?? null,
+            'failed_count' => (string) Delivery::query()->where('connection_id', $c->id)->whereIn('status', ['failed', 'needs_review'])->count(),
+            'keys' => $secrets->map(fn ($s) => [
+                'id' => $s->key_id,
+                'purpose' => $s->secret_name,
+                'revision' => $s->revision,
+                'state' => $s->state,
+                'source' => $s->source,
+                'retire_after' => $s->retire_after?->toISOString(),
+            ])->all(),
+        ];
     }
 
     public function configuration(): array
@@ -62,29 +85,78 @@ final class IntegrationManagement
         $admin = $this->caps->allows('manage');
         $items = Connection::query()->where('installation_id', $this->installations->current()->id)->whereIn('provider', ['slack', 'webhook', 'github'])->orderByDesc('enabled')->orderBy('id')->limit(100)->get();
 
-        return ['connections' => $items->map(function ($c) use ($admin) {
-            $s = $this->summary($c);
-            if (! $admin) {
-                unset($s['keys']);
-                unset($s['options']['environments']);
-            }
+        return [
+            'connections' => $items->map(function ($c) use ($admin) {
+                $s = $this->summary($c);
+                if (! $admin) {
+                    unset($s['keys']);
+                    unset($s['options']['environments']);
+                }
 
-            return $s;
-        })->all(), 'events' => EventCatalog::LABELS, 'allowed_environments' => config('exception-monitor.alerts.allowed_environments', ['production']), 'credential_references' => $admin ? array_keys(config('exception-monitor.integrations.credentials', [])) : []];
+                return $s;
+            })->all(),
+            'events' => EventCatalog::LABELS,
+            'allowed_environments' => config('exception-monitor.alerts.allowed_environments', ['production']),
+            'credential_references' => $admin ? array_keys(config('exception-monitor.integrations.credentials', [])) : [],
+        ];
     }
 
     private function validated(string $op, array $v): array
     {
         $rules = match ($op) {
-            'connection.create' => ['provider' => ['required', Rule::in(['slack', 'webhook', 'github'])], 'name' => ['required', 'string', 'max:120'], 'enabled' => ['required', 'boolean'], 'endpoint' => ['nullable', 'string', 'max:2048'], 'owner' => ['nullable', 'string', 'max:39'], 'repo' => ['nullable', 'string', 'max:100'], 'credential' => ['nullable', 'string', 'max:4096'], 'credential_reference' => ['nullable', 'string', 'max:100'], 'events' => ['sometimes', 'array', 'min:1', 'max:12'], 'events.*' => [Rule::in(array_keys(EventCatalog::LABELS)), 'distinct'], 'automatic' => ['sometimes', 'boolean'], 'environments' => ['sometimes', 'array', 'max:20'], 'environments.*' => ['string', Rule::in(config('exception-monitor.alerts.allowed_environments', ['production']))], 'replaces' => ['nullable', 'uuid'], 'replaces_version' => ['required_with:replaces', 'integer', 'min:1']],
-            'connection.update' => ['version' => ['required', 'integer', 'min:1'], 'name' => ['required', 'string', 'max:120'], 'enabled' => ['required', 'boolean'], 'events' => ['sometimes', 'array', 'min:1', 'max:12'], 'events.*' => [Rule::in(array_keys(EventCatalog::LABELS)), 'distinct'], 'automatic' => ['sometimes', 'boolean'], 'environments' => ['sometimes', 'array', 'max:20'], 'environments.*' => ['string', Rule::in(config('exception-monitor.alerts.allowed_environments', ['production']))], 'labels' => ['sometimes', 'array', 'max:25'], 'labels.*' => ['string', 'max:100', 'distinct']],
+            'connection.create' => [
+                'provider' => ['required', Rule::in(['slack', 'webhook', 'github'])],
+                'name' => ['required', 'string', 'max:120'],
+                'enabled' => ['required', 'boolean'],
+                'endpoint' => ['nullable', 'string', 'max:2048'],
+                'owner' => ['nullable', 'string', 'max:39'],
+                'repo' => ['nullable', 'string', 'max:100'],
+                'credential' => ['nullable', 'string', 'max:4096'],
+                'credential_reference' => ['nullable', 'string', 'max:100'],
+                'events' => ['sometimes', 'array', 'min:1', 'max:12'],
+                'events.*' => [Rule::in(array_keys(EventCatalog::LABELS)), 'distinct'],
+                'automatic' => ['sometimes', 'boolean'],
+                'environments' => ['sometimes', 'array', 'max:20'],
+                'environments.*' => ['string', Rule::in(config('exception-monitor.alerts.allowed_environments', ['production']))],
+                'replaces' => ['nullable', 'uuid'],
+                'replaces_version' => ['required_with:replaces', 'integer', 'min:1'],
+            ],
+            'connection.update' => [
+                'version' => ['required', 'integer', 'min:1'],
+                'name' => ['required', 'string', 'max:120'],
+                'enabled' => ['required', 'boolean'],
+                'events' => ['sometimes', 'array', 'min:1', 'max:12'],
+                'events.*' => [Rule::in(array_keys(EventCatalog::LABELS)), 'distinct'],
+                'automatic' => ['sometimes', 'boolean'],
+                'environments' => ['sometimes', 'array', 'max:20'],
+                'environments.*' => ['string', Rule::in(config('exception-monitor.alerts.allowed_environments', ['production']))],
+                'labels' => ['sometimes', 'array', 'max:25'],
+                'labels.*' => ['string', 'max:100', 'distinct'],
+            ],
             'connection.disconnect' => ['version' => ['required', 'integer', 'min:1']],
-            'secret.replace' => ['version' => ['required', 'integer', 'min:1'], 'credential' => ['nullable', 'string', 'max:4096'], 'credential_reference' => ['nullable', 'string', 'max:100']],
+            'secret.replace' => [
+                'version' => ['required', 'integer', 'min:1'],
+                'credential' => ['nullable', 'string', 'max:4096'],
+                'credential_reference' => ['nullable', 'string', 'max:100'],
+            ],
             'key.stage' => ['version' => ['required', 'integer', 'min:1']],
             'key.activate' => ['version' => ['required', 'integer', 'min:1'], 'key_id' => ['required', 'uuid']],
             'test' => ['signing_key_id' => ['nullable', 'uuid']],
-            'github.create','github.recreate' => ['connection' => ['required', 'uuid'], 'preview_key' => ['required', 'uuid'], 'title' => ['nullable', 'string', 'max:256'], 'labels' => ['sometimes', 'array', 'max:25'], 'labels.*' => ['string', 'max:100', 'distinct'], 'preview_digest' => ['required', 'regex:/^[a-f0-9]{64}$/D'], 'link_version' => ['required', 'integer', 'min:0'], 'confirm_no_ticket' => ['sometimes', 'boolean']],
-            'github.link' => ['connection' => ['required', 'uuid'], 'version' => ['required', 'integer', 'min:0'], 'number' => ['required', 'string', 'max:512']],
+            'github.create','github.recreate' => [
+                'connection' => ['required', 'uuid'],
+                'preview_key' => ['required', 'uuid'],
+                'title' => ['nullable', 'string', 'max:256'],
+                'labels' => ['sometimes', 'array', 'max:25'],
+                'labels.*' => ['string', 'max:100', 'distinct'],
+                'preview_digest' => ['required', 'regex:/^[a-f0-9]{64}$/D'],
+                'link_version' => ['required', 'integer', 'min:0'],
+                'confirm_no_ticket' => ['sometimes', 'boolean'],
+            ],
+            'github.link' => [
+                'connection' => ['required', 'uuid'],
+                'version' => ['required', 'integer', 'min:0'],
+                'number' => ['required', 'string', 'max:512'],
+            ],
             'github.unlink','github.refresh','github.inspect' => ['link' => ['required', 'uuid'], 'version' => ['required', 'integer', 'min:1']],
             default => throw ValidationException::withMessages(['operation' => 'Unknown integration operation.'])
         };
@@ -127,7 +199,11 @@ final class IntegrationManagement
         if ($automaticOnly) {
             $q->where('action', 'github_auto');
         }
-        $q->update(['status' => 'cancelled', 'cancellation_reason' => 'destination_or_policy_changed', 'completed_at' => CarbonImmutable::now('UTC')->format('Y-m-d H:i:s.u')]);
+        $q->update([
+            'status' => 'cancelled',
+            'cancellation_reason' => 'destination_or_policy_changed',
+            'completed_at' => CarbonImmutable::now('UTC')->format('Y-m-d H:i:s.u'),
+        ]);
         LinkedIssue::query()->where('connection_id', $id)->whereIn('state', ['reserved'])->whereIn('create_delivery_id', Delivery::query()->where('connection_id', $id)->where('status', 'cancelled')->select('id'))->update(['state' => 'unavailable', 'row_version' => Database::connection()->raw('row_version + 1')]);
     }
 
@@ -160,7 +236,19 @@ final class IntegrationManagement
                 $public = ['display' => $target['display']];
                 $purpose = 'endpoint';
             }
-            $c = Connection::query()->createOrFirst(['installation_id' => $i->id, 'provider' => $provider, 'target_fingerprint' => $fp], ['public_id' => (string) Str::uuid(), 'display_name' => trim($v['name']), 'target_public' => $public, 'enabled' => $v['enabled'], 'options' => ['automatic' => (bool) ($v['automatic'] ?? false), 'environments' => $v['environments'] ?? [], 'labels' => [], 'known_labels' => [], 'events' => $v['events'] ?? array_keys(EventCatalog::LABELS)]]);
+            $c = Connection::query()->createOrFirst(['installation_id' => $i->id, 'provider' => $provider, 'target_fingerprint' => $fp], [
+                'public_id' => (string) Str::uuid(),
+                'display_name' => trim($v['name']),
+                'target_public' => $public,
+                'enabled' => $v['enabled'],
+                'options' => [
+                    'automatic' => (bool) ($v['automatic'] ?? false),
+                    'environments' => $v['environments'] ?? [],
+                    'labels' => [],
+                    'known_labels' => [],
+                    'events' => $v['events'] ?? array_keys(EventCatalog::LABELS),
+                ],
+            ]);
             if ($c->wasRecentlyCreated) {
                 $this->credentials->store($c, $purpose, $secret, $actor, 'active', $ref);
                 if ($provider === 'webhook') {
@@ -262,9 +350,22 @@ final class IntegrationManagement
             if ($link && $link->state === 'creating') {
                 throw new Conflict('Creation is in flight. Wait for an outcome before linking.');
             }
-            $link ??= new LinkedIssue(['public_id' => (string) Str::uuid(), 'installation_id' => $i->id, 'issue_id' => $issue->id, 'connection_id' => $c->id, 'repository_fingerprint' => $c->target_fingerprint, 'repository_owner' => $c->target_public['owner'], 'repository_name' => $c->target_public['repo'], 'operation_public_id' => (string) Str::uuid()]);
+            $link ??= new LinkedIssue([
+                'public_id' => (string) Str::uuid(),
+                'installation_id' => $i->id,
+                'issue_id' => $issue->id,
+                'connection_id' => $c->id,
+                'repository_fingerprint' => $c->target_fingerprint,
+                'repository_owner' => $c->target_public['owner'],
+                'repository_name' => $c->target_public['repo'],
+                'operation_public_id' => (string) Str::uuid(),
+            ]);
             if ($link->create_delivery_id) {
-                Delivery::query()->whereKey($link->create_delivery_id)->whereIn('status', ['pending', 'retrying', 'failed', 'needs_review'])->update(['status' => 'cancelled', 'cancellation_reason' => 'linked_existing', 'completed_at' => CarbonImmutable::now('UTC')->format('Y-m-d H:i:s.u')]);
+                Delivery::query()->whereKey($link->create_delivery_id)->whereIn('status', ['pending', 'retrying', 'failed', 'needs_review'])->update([
+                    'status' => 'cancelled',
+                    'cancellation_reason' => 'linked_existing',
+                    'completed_at' => CarbonImmutable::now('UTC')->format('Y-m-d H:i:s.u'),
+                ]);
             }
             $link->state = 'linked';
             $link->remote_number = $ticket['number'];
@@ -346,7 +447,19 @@ final class IntegrationManagement
             if ($i->state !== 'active') {
                 throw new Conflict('Monitoring is undergoing maintenance.');
             }$this->access(str_starts_with($op, 'github.') ? 'operate' : 'manage');
-            $receipt = ActionReceipt::query()->createOrFirst(['installation_id' => $i->id, 'actor_lookup_hash' => $this->identity->hash($actor->key), 'operation' => 'integration.'.$op, 'client_key' => $key], ['public_id' => (string) Str::uuid(), 'generation' => $i->generation, 'actor_key' => $actor->key, 'keyed_request_digest' => $digest, 'state' => 'pending', 'expires_at' => CarbonImmutable::now('UTC')->addDays(30)]);
+            $receipt = ActionReceipt::query()->createOrFirst([
+                'installation_id' => $i->id,
+                'actor_lookup_hash' => $this->identity->hash($actor->key),
+                'operation' => 'integration.'.$op,
+                'client_key' => $key,
+            ], [
+                'public_id' => (string) Str::uuid(),
+                'generation' => $i->generation,
+                'actor_key' => $actor->key,
+                'keyed_request_digest' => $digest,
+                'state' => 'pending',
+                'expires_at' => CarbonImmutable::now('UTC')->addDays(30),
+            ]);
             $receipt = ActionReceipt::query()->whereKey($receipt->id)->lockForUpdate()->firstOrFail();
             if ($receipt->generation !== $i->generation || ! hash_equals($receipt->keyed_request_digest, $digest)) {
                 throw new Conflict('This action key belongs to a different request.');
@@ -376,7 +489,20 @@ final class IntegrationManagement
             $receipt->resulting_row_version = $result['version'] ?? null;
             $receipt->completed_at = CarbonImmutable::now('UTC');
             $receipt->save();
-            Activity::query()->create(['public_id' => (string) Str::uuid(), 'installation_id' => $i->id, 'issue_id' => str_starts_with($op, 'github.') ? $this->github->issue($id)->id : null, 'event_type' => 'integration.'.$op, 'actor_kind' => 'user', 'actor_key' => $actor->key, 'subject_type' => 'integration', 'subject_public_id' => $result['id'] ?? $id, 'action_public_id' => $receipt->public_id, 'occurred_at' => CarbonImmutable::now('UTC'), 'metadata' => ['reviewed_no_ticket' => $op === 'github.recreate'], 'expires_at' => CarbonImmutable::now('UTC')->addDays(app(RetentionPolicy::class)->effective()['activity_days'])]);
+            Activity::query()->create([
+                'public_id' => (string) Str::uuid(),
+                'installation_id' => $i->id,
+                'issue_id' => str_starts_with($op, 'github.') ? $this->github->issue($id)->id : null,
+                'event_type' => 'integration.'.$op,
+                'actor_kind' => 'user',
+                'actor_key' => $actor->key,
+                'subject_type' => 'integration',
+                'subject_public_id' => $result['id'] ?? $id,
+                'action_public_id' => $receipt->public_id,
+                'occurred_at' => CarbonImmutable::now('UTC'),
+                'metadata' => ['reviewed_no_ticket' => $op === 'github.recreate'],
+                'expires_at' => CarbonImmutable::now('UTC')->addDays(app(RetentionPolicy::class)->effective()['activity_days']),
+            ]);
 
             return $result + ['replayed' => false] + ($once ? ['once' => $once] : []);
         }, 5);
@@ -404,6 +530,10 @@ final class IntegrationManagement
             }
         }
 
-        return ['matches' => array_slice($matches, 0, 10), 'complete' => false, 'message' => 'Only a bounded repository page was inspected. Missing results never prove that no ticket exists. No creation was queued.'];
+        return [
+            'matches' => array_slice($matches, 0, 10),
+            'complete' => false,
+            'message' => 'Only a bounded repository page was inspected. Missing results never prove that no ticket exists. No creation was queued.',
+        ];
     }
 }

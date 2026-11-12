@@ -20,6 +20,10 @@ final class Envelope
             $data[$key] = mb_strcut($this->redactor->text((string) ($data[$key] ?? ''), $patterns), 0, $max, 'UTF-8');
         }
 
+        if (isset($data['email_context'])) {
+            $data['email_context'] = app(EmailContext::class)->sanitize($data['email_context']);
+        }
+
         if (isset($data['webhook_body'])) {
             $data['webhook_body'] = WebhookPayload::bytes($data);
         }

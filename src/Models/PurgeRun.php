@@ -33,6 +33,15 @@ final class PurgeRun extends Model
 
     protected function casts(): array
     {
-        return ['installation_id' => 'integer', 'from_generation' => 'integer', 'to_generation' => 'integer', 'source_sequence_floor' => 'integer', 'deletion_counts' => 'array', 'source_time_cutoff' => 'immutable_datetime', 'started_at' => 'immutable_datetime', 'completed_at' => 'immutable_datetime'];
+        return [
+            'installation_id' => 'integer',
+            'from_generation' => 'integer',
+            'to_generation' => 'integer',
+            'source_sequence_floor' => 'integer',
+            'deletion_counts' => 'array',
+            'source_time_cutoff' => 'immutable_datetime',
+            'started_at' => 'immutable_datetime',
+            'completed_at' => 'immutable_datetime',
+        ];
     }
 }

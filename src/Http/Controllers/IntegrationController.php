@@ -23,7 +23,12 @@ final class IntegrationController
         } catch (ValidationException|ModelNotFoundException|HttpExceptionInterface $e) {
             throw $e;
         } catch (\Throwable) {
-            return response()->json(['error' => ['code' => 'integration_unavailable', 'message' => 'The integration operation is unavailable. Review current access, credentials and safe delivery history.']], 503)->header('Cache-Control', 'private, no-store');
+            return response()->json([
+                'error' => [
+                    'code' => 'integration_unavailable',
+                    'message' => 'The integration operation is unavailable. Review current access, credentials and safe delivery history.',
+                ],
+            ], 503)->header('Cache-Control', 'private, no-store');
         }
     }
 
@@ -39,7 +44,13 @@ final class IntegrationController
 
     public function preview(Request $r, string $issue, GitHubIssues $github): JsonResponse
     {
-        $v = $r->validate(['connection' => ['required', 'uuid'], 'preview_key' => ['required', 'uuid'], 'title' => ['nullable', 'string', 'max:256'], 'labels' => ['sometimes', 'array', 'max:25'], 'labels.*' => ['string', 'max:100', 'distinct']]);
+        $v = $r->validate([
+            'connection' => ['required', 'uuid'],
+            'preview_key' => ['required', 'uuid'],
+            'title' => ['nullable', 'string', 'max:256'],
+            'labels' => ['sometimes', 'array', 'max:25'],
+            'labels.*' => ['string', 'max:100', 'distinct'],
+        ]);
 
         return $this->run(fn () => $github->preview($issue, $v));
     }

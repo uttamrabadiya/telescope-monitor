@@ -27,7 +27,19 @@ final class EloquentLifecycleRepository implements LifecycleRepository
             if ($i->state !== 'active') {
                 throw new LifecycleConflict('The installation is not active. Reload after maintenance.');
             }
-            $receipt = ActionReceipt::query()->createOrFirst(['installation_id' => $i->id, 'actor_lookup_hash' => $actorHash, 'operation' => 'issue.lifecycle', 'client_key' => $clientKey], ['public_id' => (string) Str::uuid(), 'generation' => $i->generation, 'actor_key' => $actor, 'keyed_request_digest' => $digest, 'state' => 'pending', 'expires_at' => CarbonImmutable::now('UTC')->addDays(30)]);
+            $receipt = ActionReceipt::query()->createOrFirst([
+                'installation_id' => $i->id,
+                'actor_lookup_hash' => $actorHash,
+                'operation' => 'issue.lifecycle',
+                'client_key' => $clientKey,
+            ], [
+                'public_id' => (string) Str::uuid(),
+                'generation' => $i->generation,
+                'actor_key' => $actor,
+                'keyed_request_digest' => $digest,
+                'state' => 'pending',
+                'expires_at' => CarbonImmutable::now('UTC')->addDays(30),
+            ]);
             $receipt = ActionReceipt::query()->whereKey($receipt->id)->lockForUpdate()->firstOrFail();
             if (! hash_equals($receipt->keyed_request_digest, $digest) || $receipt->generation !== $i->generation) {
                 throw new LifecycleConflict('This action key belongs to a different request. Reload and try again.');
@@ -85,7 +97,20 @@ final class EloquentLifecycleRepository implements LifecycleRepository
 
     private function activity(Issue $issue, string $type, string $action, ?string $actor, array $metadata): void
     {
-        Activity::query()->create(['public_id' => (string) Str::uuid(), 'installation_id' => $issue->installation_id, 'issue_id' => $issue->id, 'event_type' => $type, 'actor_kind' => $actor === null ? 'system' : 'user', 'actor_key' => $actor, 'subject_type' => 'issue', 'subject_public_id' => $issue->public_id, 'action_public_id' => $action, 'occurred_at' => CarbonImmutable::now('UTC'), 'metadata' => $metadata, 'expires_at' => CarbonImmutable::now('UTC')->addDays(app(RetentionPolicy::class)->effective()['activity_days'])]);
+        Activity::query()->create([
+            'public_id' => (string) Str::uuid(),
+            'installation_id' => $issue->installation_id,
+            'issue_id' => $issue->id,
+            'event_type' => $type,
+            'actor_kind' => $actor === null ? 'system' : 'user',
+            'actor_key' => $actor,
+            'subject_type' => 'issue',
+            'subject_public_id' => $issue->public_id,
+            'action_public_id' => $action,
+            'occurred_at' => CarbonImmutable::now('UTC'),
+            'metadata' => $metadata,
+            'expires_at' => CarbonImmutable::now('UTC')->addDays(app(RetentionPolicy::class)->effective()['activity_days']),
+        ]);
         app(AlertPlanning::class)->activity($issue, $type, $action, $actor, $metadata);
     }
 

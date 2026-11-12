@@ -78,12 +78,12 @@ final class ExceptionMonitorServiceProvider extends ServiceProvider
         $this->app->bind(HttpTransport::class, CurlTransport::class);
         $this->app->scoped(Identity::class);
         $this->app->scoped(Assignments::class);
-        Telescope::tag(fn ($entry) => $this->app->make(StoredExceptionAdapter::class)->tags($entry));
-        Telescope::afterStoring(function (array $entries, string $batch): bool {
+        Telescope::tag(function ($entry) {
             try {
-                return $this->app->make(StoredExceptionAdapter::class)->stored($entries, $batch);
+                return $entry->isException() ? $this->app->make(StoredExceptionAdapter::class)->tags($entry) : [];
             } catch (\Throwable) {
-                return true;
+                // No database/logging fallback may run on the host execution path.
+                return [];
             }
         });
         $this->app['events']->listen(JobProcessing::class, function ($event) {
@@ -121,10 +121,30 @@ final class ExceptionMonitorServiceProvider extends ServiceProvider
             $path = $this->app->make(PackagePath::class);
             if (config('exception-monitor.enabled') && $path->valid()) {
                 $this->app['config']->set('telescope.ignore_paths', array_values(array_unique(array_merge(
-                    config('telescope.ignore_paths', []), [$path->prefix(), $path->prefix().'/*']
+                    config('telescope.ignore_paths', []),
+                    [$path->prefix(), $path->prefix().'/*']
                 ))));
                 $this->app['config']->set('telescope.ignore_commands', array_values(array_unique(array_merge(
-                    config('telescope.ignore_commands', []), ['exception-monitor:backfill', 'exception-monitor:install', 'exception-monitor:migrate', 'exception-monitor:diagnose', 'exception-monitor:process', 'exception-monitor:recover', 'exception-monitor:reconcile', 'exception-monitor:prune', 'exception-monitor:expire-snoozes', 'exception-monitor:deliver', 'exception-monitor:recover-deliveries', 'exception-monitor:prune-deliveries', 'exception-monitor:purge', 'exception-monitor:source-baseline', 'exception-monitor:heartbeat', 'exception-monitor:rewrap']
+                    config('telescope.ignore_commands', []),
+                    [
+                        'exception-monitor:backfill',
+                        'exception-monitor:import',
+                        'exception-monitor:install',
+                        'exception-monitor:migrate',
+                        'exception-monitor:diagnose',
+                        'exception-monitor:process',
+                        'exception-monitor:recover',
+                        'exception-monitor:reconcile',
+                        'exception-monitor:prune',
+                        'exception-monitor:expire-snoozes',
+                        'exception-monitor:deliver',
+                        'exception-monitor:recover-deliveries',
+                        'exception-monitor:prune-deliveries',
+                        'exception-monitor:purge',
+                        'exception-monitor:source-baseline',
+                        'exception-monitor:heartbeat',
+                        'exception-monitor:rewrap',
+                    ]
                 ))));
                 Telescope::hideRequestParameters(['exception_monitor_private']);
                 Telescope::hideResponseParameters(['exception_monitor_private']);
@@ -163,6 +183,7 @@ final class ExceptionMonitorServiceProvider extends ServiceProvider
                 ProcessCaptureCommand::class,
                 RecoverCaptureCommand::class,
                 ReconcileCaptureCommand::class,
+                \TelescopeMonitor\Console\Commands\ImportCaptureCommand::class,
                 PruneCaptureCommand::class,
                 DeliverCommand::class,
                 RecoverDeliveriesCommand::class,

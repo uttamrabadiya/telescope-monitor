@@ -14,7 +14,7 @@ interface InstallationRepository
 
     public function fence(): Installation;
 
-    public function verifySource(string $signature): void;
+    public function verifySource(string $signature): Installation;
 
     public function checkpoint(Installation $installation, int $sequence): void;
 

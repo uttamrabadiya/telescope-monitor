@@ -24,10 +24,24 @@ final class AlertCommandRequest extends FormRequest
             $r += ['name' => ['required', 'string', 'max:120'], 'enabled' => ['required', 'boolean']];
         }
         if ($op === 'connection.create') {
-            $r += ['email' => ['required', 'string', 'max:254'], 'replaces' => ['nullable', 'uuid'], 'replaces_version' => ['required_with:replaces', 'integer', 'min:1']];
+            $r += [
+                'email' => ['required', 'string', 'max:254'],
+                'replaces' => ['nullable', 'uuid'],
+                'replaces_version' => ['required_with:replaces', 'integer', 'min:1'],
+            ];
         }
         if (in_array($op, ['rule.create', 'rule.update'], true)) {
-            $r += ['name' => ['required', 'string', 'max:120'], 'enabled' => ['required', 'boolean'], 'events' => ['required', 'array', 'min:1', 'max:12'], 'events.*' => [Rule::in(array_keys(EventCatalog::LABELS))], 'conditions' => ['required', 'array:environments,class,origin,tag'], 'connections' => ['present', 'array', 'max:25'], 'threshold_count' => ['nullable', 'integer'], 'window_seconds' => ['nullable', 'integer'], 'cooldown_seconds' => ['required', 'integer']];
+            $r += [
+                'name' => ['required', 'string', 'max:120'],
+                'enabled' => ['required', 'boolean'],
+                'events' => ['required', 'array', 'min:1', 'max:12'],
+                'events.*' => [Rule::in(array_keys(EventCatalog::LABELS))],
+                'conditions' => ['required', 'array:environments,class,origin,tag'],
+                'connections' => ['present', 'array', 'max:25'],
+                'threshold_count' => ['nullable', 'integer'],
+                'window_seconds' => ['nullable', 'integer'],
+                'cooldown_seconds' => ['required', 'integer'],
+            ];
         }
         if ($op === 'test') {
             $r['connections'] = ['required', 'array', 'min:1', 'max:25'];

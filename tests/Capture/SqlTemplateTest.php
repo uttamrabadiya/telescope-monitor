@@ -34,7 +34,20 @@ final class SqlTemplateTest extends TestCase
 
     public function test_ambiguous_unsupported_multi_statement_and_oversized_sql_is_omitted_entirely(): void
     {
-        foreach (["select 'escaped\\'secret'", "select 'unterminated", 'select * from `email@example.test`', 'select $$secret$$', 'CALL secret_procedure()', "select 1; select 'secret'", 'select @secret', 'select 0xINVALID', 'select (1', 'select 1 /* nested /* comment */', 'select "sensitive-double-quoted-value" from users', 'select 1 /*!50000 sensitive */'] as $sql) {
+        foreach ([
+            "select 'escaped\\'secret'",
+            "select 'unterminated",
+            'select * from `email@example.test`',
+            'select $$secret$$',
+            'CALL secret_procedure()',
+            "select 1; select 'secret'",
+            'select @secret',
+            'select 0xINVALID',
+            'select (1',
+            'select 1 /* nested /* comment */',
+            'select "sensitive-double-quoted-value" from users',
+            'select 1 /*!50000 sensitive */',
+        ] as $sql) {
             $this->assertSame(['sql_state' => 'unsupported'], app(SqlTemplate::class)->capture($sql, 'mysql'), $sql);
         }
         $this->assertSame(['sql_state' => 'unsupported'], app(SqlTemplate::class)->capture('select 1', 'pgsql'));
@@ -45,7 +58,18 @@ final class SqlTemplateTest extends TestCase
     public function test_capture_is_opt_in_and_policy_is_applied_before_buffering_and_when_reading(): void
     {
         $this->authorize();
-        $batch = [['type' => 'query', 'content' => ['driver' => 'mysql', 'connection' => 'mysql', 'time' => 1.98, 'sql' => "select * from users where email='LEAK-EMAIL' and id=9898", 'bindings' => ['LEAK-BINDING']]]];
+        $batch = [
+            [
+                'type' => 'query',
+                'content' => [
+                    'driver' => 'mysql',
+                    'connection' => 'mysql',
+                    'time' => 1.98,
+                    'sql' => "select * from users where email='LEAK-EMAIL' and id=9898",
+                    'bindings' => ['LEAK-BINDING'],
+                ],
+            ],
+        ];
         $policy = app(CapturePolicy::class)->read();
         $default = app(Sanitizer::class)->batch($batch, $policy);
         $this->assertSame('disabled', $default['queries'][0]['sql_state']);
@@ -97,7 +121,10 @@ final class SqlTemplateTest extends TestCase
     public function test_activity_has_useful_request_job_and_command_fields_without_query_strings_arguments_or_payloads(): void
     {
         $data = app(Sanitizer::class)->batch([
-            ['type' => 'request', 'content' => ['method' => 'POST', 'uri' => '/api/widgets?token=LEAK', 'response_status' => 201, 'payload' => ['LEAK']]],
+            [
+                'type' => 'request',
+                'content' => ['method' => 'POST', 'uri' => '/api/widgets?token=LEAK', 'response_status' => 201, 'payload' => ['LEAK']],
+            ],
             ['type' => 'job', 'content' => ['name' => 'App\\Jobs\\SendWidgetNotification', 'data' => ['LEAK']]],
             ['type' => 'command', 'content' => ['command' => 'notify:send --secret=LEAK', 'arguments' => ['LEAK']]],
         ], app(CapturePolicy::class)->read());
@@ -112,7 +139,19 @@ final class SqlTemplateTest extends TestCase
         $this->authorize();
         config(['exception-monitor.locked' => ['privacy.retain_sql_templates' => false]]);
         $this->patchJson('/exception-monitor/api/v1/settings/privacy', ['version' => 0, 'values' => ['retain_sql_templates' => true]])->assertUnprocessable();
-        $old = ['version' => 1, 'marker' => [], 'exception' => ['class' => 'RuntimeException', 'message' => 'Old snapshot', 'file' => 'file.php', 'line' => 1, 'trace' => []], 'origin' => 'web', 'execution' => [], 'queries' => [['connection' => 'mysql', 'duration_ms' => 2]], 'timeline' => [['type' => 'query', 'connection' => 'mysql', 'duration_ms' => 2]], 'logs' => [], 'tags' => [], 'impact' => null, 'coverage' => []];
+        $old = [
+            'version' => 1,
+            'marker' => [],
+            'exception' => ['class' => 'RuntimeException', 'message' => 'Old snapshot', 'file' => 'file.php', 'line' => 1, 'trace' => []],
+            'origin' => 'web',
+            'execution' => [],
+            'queries' => [['connection' => 'mysql', 'duration_ms' => 2]],
+            'timeline' => [['type' => 'query', 'connection' => 'mysql', 'duration_ms' => 2]],
+            'logs' => [],
+            'tags' => [],
+            'impact' => null,
+            'coverage' => [],
+        ];
         $restricted = app(Sanitizer::class)->restrict($old, app(CapturePolicy::class)->read());
         $this->assertArrayNotHasKey('sql_state', $restricted['queries'][0]);
         $this->assertArrayNotHasKey('sql_template', $restricted['queries'][0]);

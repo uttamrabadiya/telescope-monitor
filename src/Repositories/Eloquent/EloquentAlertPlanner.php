@@ -55,8 +55,39 @@ final class EloquentAlertPlanner implements AlertPlanning
             }
             $family = EventCatalog::occurrence($event->event_type) ? 'occurrence' : 'activity:'.EventCatalog::canonical($event->event_type);
             $identity = $family === 'occurrence' ? ('occurrence:'.$event->occurrence_id) : ('action:'.$event->action_public_id.':'.EventCatalog::canonical($event->event_type));
-            $delivery = Delivery::query()->createOrFirst(['installation_id' => $issue->installation_id, 'generation' => $event->generation, 'dedupe_key' => hash('sha256', $identity.':'.$connection->target_fingerprint), 'revision' => 1], ['public_id' => (string) Str::uuid(), 'issue_id' => $issue->id, 'event_id' => $event->id, 'connection_id' => $connection->id, 'action' => 'notify', 'target_fingerprint' => $connection->target_fingerprint, 'actor_required' => false, 'event_family' => $family, 'alert_generation' => $event->alert_generation, 'status' => 'pending', 'eligible_at' => CarbonImmutable::now('UTC'), 'expires_at' => CarbonImmutable::now('UTC')->addSeconds(max(60, min(86400, (int) config('exception-monitor.alerts.pending_seconds', 86400))))]);
-            Database::connection()->table('exception_monitor_delivery_rules')->insertOrIgnore(['delivery_id' => $delivery->id, 'rule_id' => $rule->id, 'rule_public_id' => $rule->public_id, 'rule_version' => $rule->row_version, 'matching_event_id' => $event->id, 'conditions_snapshot' => json_encode(['events' => $rule->event_types, 'conditions' => $rule->conditions, 'threshold_count' => $rule->threshold_count, 'window_seconds' => $rule->window_seconds, 'cooldown_seconds' => $rule->cooldown_seconds], JSON_THROW_ON_ERROR)]);
+            $delivery = Delivery::query()->createOrFirst([
+                'installation_id' => $issue->installation_id,
+                'generation' => $event->generation,
+                'dedupe_key' => hash('sha256', $identity.':'.$connection->target_fingerprint),
+                'revision' => 1,
+            ], [
+                'public_id' => (string) Str::uuid(),
+                'issue_id' => $issue->id,
+                'event_id' => $event->id,
+                'connection_id' => $connection->id,
+                'action' => 'notify',
+                'target_fingerprint' => $connection->target_fingerprint,
+                'actor_required' => false,
+                'event_family' => $family,
+                'alert_generation' => $event->alert_generation,
+                'status' => 'pending',
+                'eligible_at' => CarbonImmutable::now('UTC'),
+                'expires_at' => CarbonImmutable::now('UTC')->addSeconds(max(60, min(86400, (int) config('exception-monitor.alerts.pending_seconds', 86400)))),
+            ]);
+            Database::connection()->table('exception_monitor_delivery_rules')->insertOrIgnore([
+                'delivery_id' => $delivery->id,
+                'rule_id' => $rule->id,
+                'rule_public_id' => $rule->public_id,
+                'rule_version' => $rule->row_version,
+                'matching_event_id' => $event->id,
+                'conditions_snapshot' => json_encode([
+                    'events' => $rule->event_types,
+                    'conditions' => $rule->conditions,
+                    'threshold_count' => $rule->threshold_count,
+                    'window_seconds' => $rule->window_seconds,
+                    'cooldown_seconds' => $rule->cooldown_seconds,
+                ], JSON_THROW_ON_ERROR),
+            ]);
             if ($delivery->wasRecentlyCreated) {
                 Database::connection()->afterCommit(fn () => $this->dispatcher->dispatch($delivery->id, $delivery->generation));
             }
@@ -86,7 +117,12 @@ final class EloquentAlertPlanner implements AlertPlanning
             if ($count !== $rule->threshold_count) {
                 continue;
             }
-            $event = $this->createEvent($issue, 'error.threshold_reached', hash('sha256', 'threshold:'.$rule->public_id.':'.$rule->row_version.':'.$issue->id.':'.$start->timestamp), $occurrence->occurred_at, $occurrence->id, null, null, 'live', ['count' => (string) $count, 'window_start' => $start->toISOString(), 'window_seconds' => $seconds, 'threshold_rule_version' => $rule->row_version]);
+            $event = $this->createEvent($issue, 'error.threshold_reached', hash('sha256', 'threshold:'.$rule->public_id.':'.$rule->row_version.':'.$issue->id.':'.$start->timestamp), $occurrence->occurred_at, $occurrence->id, null, null, 'live', [
+                'count' => (string) $count,
+                'window_start' => $start->toISOString(),
+                'window_seconds' => $seconds,
+                'threshold_rule_version' => $rule->row_version,
+            ]);
             if ($event->wasRecentlyCreated) {
                 $this->plan($event, $issue, $rule);
                 $event->planning_state = 'planned';
@@ -109,9 +145,35 @@ final class EloquentAlertPlanner implements AlertPlanning
 
     private function createEvent(Issue $issue, string $type, string $key, CarbonImmutable $time, ?int $occurrence, ?string $action, ?string $actor, string $provenance, array $extra): AlertEvent
     {
-        $payload = json_encode(array_merge(['class' => $issue->exception_class, 'message' => $issue->message, 'file' => $issue->file, 'line' => $issue->line, 'count' => (string) $issue->lifetime_count], $extra), JSON_THROW_ON_ERROR);
+        $payload = json_encode(array_merge([
+            'class' => $issue->exception_class,
+            'message' => $issue->message,
+            'file' => $issue->file,
+            'line' => $issue->line,
+            'count' => (string) $issue->lifetime_count,
+        ], $extra), JSON_THROW_ON_ERROR);
 
-        return AlertEvent::query()->createOrFirst(['installation_id' => $issue->installation_id, 'generation' => $this->installations->current()->generation, 'event_key' => $key], ['public_id' => (string) Str::uuid(), 'issue_id' => $issue->id, 'event_type' => $type, 'occurrence_id' => $occurrence, 'action_public_id' => $action, 'issue_state_version' => $issue->state_version, 'alert_generation' => $issue->alert_generation, 'occurred_at' => $time, 'recorded_at' => CarbonImmutable::now('UTC'), 'provenance' => $provenance, 'actor_key' => $actor, 'payload_ciphertext' => Crypt::encryptString($payload), 'payload_digest' => hash('sha256', $payload), 'planning_state' => 'disabled', 'expires_at' => CarbonImmutable::now('UTC')->addDays(30)]);
+        return AlertEvent::query()->createOrFirst([
+            'installation_id' => $issue->installation_id,
+            'generation' => $this->installations->current()->generation,
+            'event_key' => $key,
+        ], [
+            'public_id' => (string) Str::uuid(),
+            'issue_id' => $issue->id,
+            'event_type' => $type,
+            'occurrence_id' => $occurrence,
+            'action_public_id' => $action,
+            'issue_state_version' => $issue->state_version,
+            'alert_generation' => $issue->alert_generation,
+            'occurred_at' => $time,
+            'recorded_at' => CarbonImmutable::now('UTC'),
+            'provenance' => $provenance,
+            'actor_key' => $actor,
+            'payload_ciphertext' => Crypt::encryptString($payload),
+            'payload_digest' => hash('sha256', $payload),
+            'planning_state' => 'disabled',
+            'expires_at' => CarbonImmutable::now('UTC')->addDays(30),
+        ]);
     }
 
     public function cancelOccurrence(Issue $issue): void
@@ -119,6 +181,10 @@ final class EloquentAlertPlanner implements AlertPlanning
         if (! $this->ready()) {
             return;
         }
-        Delivery::query()->where('installation_id', $issue->installation_id)->where('issue_id', $issue->id)->where('event_family', 'occurrence')->whereIn('status', ['pending', 'retrying', 'failed'])->update(['status' => 'cancelled', 'cancellation_reason' => 'issue_suppressed', 'completed_at' => CarbonImmutable::now('UTC')->format('Y-m-d H:i:s.u')]);
+        Delivery::query()->where('installation_id', $issue->installation_id)->where('issue_id', $issue->id)->where('event_family', 'occurrence')->whereIn('status', ['pending', 'retrying', 'failed'])->update([
+            'status' => 'cancelled',
+            'cancellation_reason' => 'issue_suppressed',
+            'completed_at' => CarbonImmutable::now('UTC')->format('Y-m-d H:i:s.u'),
+        ]);
     }
 }

@@ -13,6 +13,46 @@ final class CaptureConcurrencyTest extends TestCase
 {
     use CapturesExceptions;
 
+    public function test_concurrent_source_importers_deduplicate_and_preserve_checkpoint_progress(): void
+    {
+        if (DB::getDriverName() !== 'mysql' || ! function_exists('pcntl_fork')) {
+            $this->markTestSkipped('Requires MySQL/MariaDB and pcntl.');
+        }
+        for ($n = 0; $n < 12; $n++) {
+            $this->capture(import: false);
+        }
+        app(\TelescopeMonitor\Telescope\StoredEntries::class)->verifySource();
+        DB::disconnect();
+        $children = [];
+        for ($n = 0; $n < 3; $n++) {
+            $pid = pcntl_fork();
+            if ($pid === 0) {
+                DB::purge();
+                try {
+                    for ($pass = 0; $pass < 5; $pass++) {
+                        app(\TelescopeMonitor\Capture\CaptureOperations::class)->import(4);
+                    }
+                    exit(0);
+                } catch (\Throwable $e) {
+                    fwrite(STDERR, $e::class);
+                    exit(2);
+                }
+            }
+            $this->assertGreaterThan(0, $pid);
+            $children[] = $pid;
+        }
+        foreach ($children as $pid) {
+            pcntl_waitpid($pid, $status);
+            $this->assertSame(0, pcntl_wexitstatus($status));
+        }
+        DB::purge();
+        $this->assertDatabaseCount('exception_monitor_capture_inbox', 12);
+        $this->assertSame((int) DB::table('telescope_entries')->max('sequence'), (int) DB::table('exception_monitor_installations')->value('source_sequence_checkpoint'));
+        $this->process();
+        $this->assertDatabaseCount('exception_monitor_occurrences', 12);
+        $this->assertSame(12, (int) DB::table('exception_monitor_issues')->value('lifetime_count'));
+    }
+
     public function test_concurrent_first_occurrences_and_duplicate_claims_count_exactly_once(): void
     {
         if (DB::getDriverName() !== 'mysql' || ! function_exists('pcntl_fork')) {
@@ -61,7 +101,20 @@ final class CaptureConcurrencyTest extends TestCase
             $this->markTestSkipped('Requires MySQL/MariaDB and pcntl.');
         }
         for ($n = 0; $n < 12; $n++) {
-            DB::table('telescope_entries')->insert(['uuid' => (string) Str::uuid(), 'batch_id' => (string) Str::uuid(), 'type' => 'exception', 'content' => json_encode(['class' => 'RuntimeException', 'message' => 'Historical concurrent fixture', 'file' => base_path('app/Services/Payment.php'), 'line' => 42, 'trace' => []]), 'created_at' => now('UTC')->subMinute()->format('Y-m-d H:i:s'), 'should_display_on_index' => true]);
+            DB::table('telescope_entries')->insert([
+                'uuid' => (string) Str::uuid(),
+                'batch_id' => (string) Str::uuid(),
+                'type' => 'exception',
+                'content' => json_encode([
+                    'class' => 'RuntimeException',
+                    'message' => 'Historical concurrent fixture',
+                    'file' => base_path('app/Services/Payment.php'),
+                    'line' => 42,
+                    'trace' => [],
+                ]),
+                'created_at' => now('UTC')->subMinute()->format('Y-m-d H:i:s'),
+                'should_display_on_index' => true,
+            ]);
         }
         DB::disconnect();
         $children = [];

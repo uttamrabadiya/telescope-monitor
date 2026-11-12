@@ -43,7 +43,8 @@ final class BootstrapService
             'capabilities' => $this->capabilities->current(),
             'installation' => $installation ? [
                 'id' => $installation->public_id,
-                'state' => $installation->state, 'generation' => $installation->generation,
+                'state' => $installation->state,
+                'generation' => $installation->generation,
                 'setup' => $installation->setup_state ?? [],
                 'config_revision' => $installation->config_revision,
             ] : null,

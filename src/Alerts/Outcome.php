@@ -15,7 +15,14 @@ final readonly class Outcome
 
     public static function remote(string $kind, string $code, ?int $status = null, ?CarbonImmutable $at = null): self
     {
-        if (! in_array($kind, ['retryable', 'permanent', 'uncertain'], true) || ! in_array($code, ['remote_throttled', 'remote_rejected', 'remote_acceptance_unknown', 'remote_temporarily_unavailable', 'destination_blocked', 'destination_unavailable'], true)) {
+        if (! in_array($kind, ['retryable', 'permanent', 'uncertain'], true) || ! in_array($code, [
+            'remote_throttled',
+            'remote_rejected',
+            'remote_acceptance_unknown',
+            'remote_temporarily_unavailable',
+            'destination_blocked',
+            'destination_unavailable',
+        ], true)) {
             throw new \InvalidArgumentException;
         }
 

@@ -35,6 +35,13 @@ final class Note extends Model
 
     protected function casts(): array
     {
-        return ['installation_id' => 'integer', 'issue_id' => 'integer', 'row_version' => 'integer', 'body_version' => 'integer', 'edited_at' => 'immutable_datetime', 'deleted_at' => 'immutable_datetime'];
+        return [
+            'installation_id' => 'integer',
+            'issue_id' => 'integer',
+            'row_version' => 'integer',
+            'body_version' => 'integer',
+            'edited_at' => 'immutable_datetime',
+            'deleted_at' => 'immutable_datetime',
+        ];
     }
 }

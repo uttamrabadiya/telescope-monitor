@@ -9,7 +9,14 @@ use TelescopeMonitor\Storage\Database;
 
 final class KeyRewrap
 {
-    public const TARGETS = ['secrets' => ['secrets', 'ciphertext'], 'inbox' => ['capture_inbox', 'payload_ciphertext'], 'evidence' => ['occurrence_evidence', 'payload_ciphertext'], 'events' => ['alert_events', 'payload_ciphertext'], 'deliveries' => ['deliveries', 'payload_ciphertext'], 'notes' => ['notes', 'body_ciphertext']];
+    public const TARGETS = [
+        'secrets' => ['secrets', 'ciphertext'],
+        'inbox' => ['capture_inbox', 'payload_ciphertext'],
+        'evidence' => ['occurrence_evidence', 'payload_ciphertext'],
+        'events' => ['alert_events', 'payload_ciphertext'],
+        'deliveries' => ['deliveries', 'payload_ciphertext'],
+        'notes' => ['notes', 'body_ciphertext'],
+    ];
 
     public function __construct(private InstallationRepository $installations, private OperationJournal $journal) {}
 
@@ -57,7 +64,14 @@ final class KeyRewrap
                 app(CaptureObservation::class)->record('key_rewrap', 'warning', 'Some values could not be decrypted; their ciphertext was preserved. Restore the required current/previous host keys and retry from cursor zero.', ['generation' => $i->generation, 'attempt_failed' => true]);
             }
 
-            return ['scanned' => $ids->count(), 'rewrapped' => $rewrapped, 'failed' => $failed, 'next_cursor' => $cursor, 'has_more' => $more, 'complete' => ! $more && $failed === 0];
+            return [
+                'scanned' => $ids->count(),
+                'rewrapped' => $rewrapped,
+                'failed' => $failed,
+                'next_cursor' => $cursor,
+                'has_more' => $more,
+                'complete' => ! $more && $failed === 0,
+            ];
         });
     }
 }

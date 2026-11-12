@@ -60,10 +60,28 @@ final class EloquentCollaborationRepository implements CollaborationRepository
     private function viewResource(SavedView $v, string $hash, array $caps): array
     {
         $own = hash_equals($v->owner_lookup_hash, $hash);
-        $definition = ['name' => $v->name, 'visibility' => $v->visibility, 'filters' => $v->filters, 'sort' => $v->sort_key, 'range' => $v->relative_range['key'] ?? ''];
+        $definition = [
+            'name' => $v->name,
+            'visibility' => $v->visibility,
+            'filters' => $v->filters,
+            'sort' => $v->sort_key,
+            'range' => $v->relative_range['key'] ?? '',
+        ];
         $supported = $this->definitions->supported($v->filter_schema_version, $definition);
 
-        return ['id' => $v->public_id, 'name' => $v->name, 'visibility' => $v->visibility, 'owner' => $this->identity->label($v->owner_actor_key), 'own' => $own, 'version' => $v->row_version, 'filter_schema_version' => $v->filter_schema_version, 'definition' => $definition, 'state' => $supported ? 'ready' : 'needs_repair', 'reason' => $supported ? null : 'This definition uses unsupported filters or an unavailable feature. Replace its filters or restore deployment support.', 'can_edit' => $own ? ($v->visibility === 'personal' || $caps['operate'] || $caps['manage']) : ($v->visibility === 'shared' && $caps['manage'])];
+        return [
+            'id' => $v->public_id,
+            'name' => $v->name,
+            'visibility' => $v->visibility,
+            'owner' => $this->identity->label($v->owner_actor_key),
+            'own' => $own,
+            'version' => $v->row_version,
+            'filter_schema_version' => $v->filter_schema_version,
+            'definition' => $definition,
+            'state' => $supported ? 'ready' : 'needs_repair',
+            'reason' => $supported ? null : 'This definition uses unsupported filters or an unavailable feature. Replace its filters or restore deployment support.',
+            'can_edit' => $own ? ($v->visibility === 'personal' || $caps['operate'] || $caps['manage']) : ($v->visibility === 'shared' && $caps['manage']),
+        ];
     }
 
     public function views(int $page = 1): array
@@ -74,7 +92,13 @@ final class EloquentCollaborationRepository implements CollaborationRepository
         $caps = $this->caps->current();
         $rows = $this->accessible($i, $hash)->orderBy('name')->orderBy('id')->paginate(50, ['*'], 'page', $page);
 
-        return ['items' => $rows->getCollection()->map(fn ($v) => $this->viewResource($v, $hash, $caps))->all(), 'page' => $rows->currentPage(), 'last_page' => $rows->lastPage(), 'total' => (string) $rows->total(), 'builtins' => array_keys($this->definitions->builtins())];
+        return [
+            'items' => $rows->getCollection()->map(fn ($v) => $this->viewResource($v, $hash, $caps))->all(),
+            'page' => $rows->currentPage(),
+            'last_page' => $rows->lastPage(),
+            'total' => (string) $rows->total(),
+            'builtins' => array_keys($this->definitions->builtins()),
+        ];
     }
 
     public function view(string $id): array
@@ -96,7 +120,13 @@ final class EloquentCollaborationRepository implements CollaborationRepository
         }
         $ids = array_values(array_filter($refs, fn ($ref) => is_string($ref) && Str::isUuid($ref)));
         foreach ($this->accessible($i, $hash)->whereIn('public_id', $ids)->get() as $v) {
-            if ($this->definitions->supported($v->filter_schema_version, ['name' => $v->name, 'visibility' => $v->visibility, 'filters' => $v->filters, 'sort' => $v->sort_key, 'range' => $v->relative_range['key'] ?? ''])) {
+            if ($this->definitions->supported($v->filter_schema_version, [
+                'name' => $v->name,
+                'visibility' => $v->visibility,
+                'filters' => $v->filters,
+                'sort' => $v->sort_key,
+                'range' => $v->relative_range['key'] ?? '',
+            ])) {
                 $allowed[$v->public_id] = $v->name;
             }
         }
@@ -115,7 +145,12 @@ final class EloquentCollaborationRepository implements CollaborationRepository
             $refs[] = $row->default_view_ref;
         }$allowed = $this->references($i, $hash, $refs);
 
-        return ['labels' => $allowed, 'version' => $row->row_version ?? 0, 'shortcuts' => array_values(array_filter($shortcuts, fn ($s) => isset($allowed[$s['ref']]))), 'default_view_ref' => $row && isset($allowed[$row->default_view_ref ?? '']) ? $row->default_view_ref : null];
+        return [
+            'labels' => $allowed,
+            'version' => $row->row_version ?? 0,
+            'shortcuts' => array_values(array_filter($shortcuts, fn ($s) => isset($allowed[$s['ref']]))),
+            'default_view_ref' => $row && isset($allowed[$row->default_view_ref ?? '']) ? $row->default_view_ref : null,
+        ];
     }
 
     private function noteResource(Note $n, string $hash, array $caps): array
@@ -133,7 +168,19 @@ final class EloquentCollaborationRepository implements CollaborationRepository
         }
         $own = hash_equals($n->author_lookup_hash, $hash);
 
-        return ['id' => $n->public_id, 'author' => $this->identity->label($n->author_actor_key), 'own' => $own, 'body' => $body, 'state' => $state, 'version' => $n->row_version, 'created_at' => $n->created_at->toISOString(), 'edited_at' => $n->edited_at?->toISOString(), 'deleted_at' => $n->deleted_at?->toISOString(), 'can_edit' => $own && $caps['operate'] && ! $n->deleted_at, 'can_delete' => ! $n->deleted_at && ($caps['manage'] || ($own && $caps['operate']))];
+        return [
+            'id' => $n->public_id,
+            'author' => $this->identity->label($n->author_actor_key),
+            'own' => $own,
+            'body' => $body,
+            'state' => $state,
+            'version' => $n->row_version,
+            'created_at' => $n->created_at->toISOString(),
+            'edited_at' => $n->edited_at?->toISOString(),
+            'deleted_at' => $n->deleted_at?->toISOString(),
+            'can_edit' => $own && $caps['operate'] && ! $n->deleted_at,
+            'can_delete' => ! $n->deleted_at && ($caps['manage'] || ($own && $caps['operate'])),
+        ];
     }
 
     public function notes(string $id, int $page): array
@@ -145,7 +192,12 @@ final class EloquentCollaborationRepository implements CollaborationRepository
         $caps = $this->caps->current();
         $rows = Note::query()->where('installation_id', $i)->where('issue_id', $issue->id)->orderByDesc('created_at')->orderByDesc('id')->paginate(25, ['*'], 'page', $page);
 
-        return ['items' => $rows->getCollection()->map(fn ($n) => $this->noteResource($n, $hash, $caps))->all(), 'page' => $rows->currentPage(), 'last_page' => $rows->lastPage(), 'total' => (string) $rows->total()];
+        return [
+            'items' => $rows->getCollection()->map(fn ($n) => $this->noteResource($n, $hash, $caps))->all(),
+            'page' => $rows->currentPage(),
+            'last_page' => $rows->lastPage(),
+            'total' => (string) $rows->total(),
+        ];
     }
 
     private function version(int $current, int $expected): void
@@ -182,14 +234,45 @@ final class EloquentCollaborationRepository implements CollaborationRepository
 
     private function audit(Issue $issue, string $type, string $action, string $actor, array $metadata, bool $notify = false): void
     {
-        Activity::query()->create(['public_id' => (string) Str::uuid(), 'installation_id' => $issue->installation_id, 'issue_id' => $issue->id, 'event_type' => $type, 'actor_kind' => 'user', 'actor_key' => $actor, 'subject_type' => 'issue', 'subject_public_id' => $issue->public_id, 'action_public_id' => $action, 'occurred_at' => CarbonImmutable::now('UTC'), 'metadata' => $metadata, 'expires_at' => CarbonImmutable::now('UTC')->addDays(app(RetentionPolicy::class)->effective()['activity_days'])]);
+        Activity::query()->create([
+            'public_id' => (string) Str::uuid(),
+            'installation_id' => $issue->installation_id,
+            'issue_id' => $issue->id,
+            'event_type' => $type,
+            'actor_kind' => 'user',
+            'actor_key' => $actor,
+            'subject_type' => 'issue',
+            'subject_public_id' => $issue->public_id,
+            'action_public_id' => $action,
+            'occurred_at' => CarbonImmutable::now('UTC'),
+            'metadata' => $metadata,
+            'expires_at' => CarbonImmutable::now('UTC')->addDays(app(RetentionPolicy::class)->effective()['activity_days']),
+        ]);
         if ($notify && ! $issue->is_test) {
             $planner = app(AlertPlanning::class);
             if ($planner->ready()) {
                 $planner->activity($issue, $type, $action, $actor, $metadata);
             } else {
                 $json = json_encode($metadata, JSON_THROW_ON_ERROR);
-                AlertEvent::query()->create(['public_id' => (string) Str::uuid(), 'installation_id' => $issue->installation_id, 'issue_id' => $issue->id, 'generation' => $this->installations->current()->generation, 'event_type' => $type, 'event_key' => hash('sha256', $action.':'.$type), 'action_public_id' => $action, 'issue_state_version' => $issue->state_version, 'alert_generation' => $issue->alert_generation, 'occurred_at' => CarbonImmutable::now('UTC'), 'recorded_at' => CarbonImmutable::now('UTC'), 'provenance' => 'manual', 'actor_key' => $actor, 'payload_ciphertext' => Crypt::encryptString($json), 'payload_digest' => hash('sha256', $json), 'planning_state' => 'disabled', 'expires_at' => CarbonImmutable::now('UTC')->addDays(30)]);
+                AlertEvent::query()->create([
+                    'public_id' => (string) Str::uuid(),
+                    'installation_id' => $issue->installation_id,
+                    'issue_id' => $issue->id,
+                    'generation' => $this->installations->current()->generation,
+                    'event_type' => $type,
+                    'event_key' => hash('sha256', $action.':'.$type),
+                    'action_public_id' => $action,
+                    'issue_state_version' => $issue->state_version,
+                    'alert_generation' => $issue->alert_generation,
+                    'occurred_at' => CarbonImmutable::now('UTC'),
+                    'recorded_at' => CarbonImmutable::now('UTC'),
+                    'provenance' => 'manual',
+                    'actor_key' => $actor,
+                    'payload_ciphertext' => Crypt::encryptString($json),
+                    'payload_digest' => hash('sha256', $json),
+                    'planning_state' => 'disabled',
+                    'expires_at' => CarbonImmutable::now('UTC')->addDays(30),
+                ]);
 
             }
         }
@@ -243,7 +326,19 @@ final class EloquentCollaborationRepository implements CollaborationRepository
             if ($i->state !== 'active') {
                 throw new Conflict('Monitoring is undergoing maintenance. Reload before retrying.');
             }
-            $receipt = ActionReceipt::query()->createOrFirst(['installation_id' => $i->id, 'actor_lookup_hash' => $hash, 'operation' => 'collaboration.'.$operation, 'client_key' => $clientKey], ['public_id' => (string) Str::uuid(), 'generation' => $i->generation, 'actor_key' => $actor->key, 'keyed_request_digest' => $digest, 'state' => 'pending', 'expires_at' => CarbonImmutable::now('UTC')->addDays(30)]);
+            $receipt = ActionReceipt::query()->createOrFirst([
+                'installation_id' => $i->id,
+                'actor_lookup_hash' => $hash,
+                'operation' => 'collaboration.'.$operation,
+                'client_key' => $clientKey,
+            ], [
+                'public_id' => (string) Str::uuid(),
+                'generation' => $i->generation,
+                'actor_key' => $actor->key,
+                'keyed_request_digest' => $digest,
+                'state' => 'pending',
+                'expires_at' => CarbonImmutable::now('UTC')->addDays(30),
+            ]);
             $receipt = ActionReceipt::query()->whereKey($receipt->id)->lockForUpdate()->firstOrFail();
             if ($receipt->generation !== $i->generation || ! hash_equals($receipt->keyed_request_digest, $digest)) {
                 throw new Conflict('This action key belongs to a different request. Use a new key after reloading.');
@@ -293,7 +388,14 @@ final class EloquentCollaborationRepository implements CollaborationRepository
     private function writeNote(string $op, Issue $issue, array $v, string $hash, string $actor, array $caps, string $action): array
     {
         if ($op === 'note.create') {
-            $n = Note::query()->create(['public_id' => (string) Str::uuid(), 'installation_id' => $issue->installation_id, 'issue_id' => $issue->id, 'author_actor_key' => $actor, 'author_lookup_hash' => $hash, 'body_ciphertext' => Crypt::encryptString($this->noteText($v['body']))]);
+            $n = Note::query()->create([
+                'public_id' => (string) Str::uuid(),
+                'installation_id' => $issue->installation_id,
+                'issue_id' => $issue->id,
+                'author_actor_key' => $actor,
+                'author_lookup_hash' => $hash,
+                'body_ciphertext' => Crypt::encryptString($this->noteText($v['body'])),
+            ]);
             $type = 'note.added';
         } else {
             $n = Note::query()->where('installation_id', $issue->installation_id)->where('issue_id', $issue->id)->where('public_id', $v['note'])->lockForUpdate()->firstOrFail();
@@ -326,7 +428,17 @@ final class EloquentCollaborationRepository implements CollaborationRepository
     {
         if ($op === 'view.create') {
             $this->sharedPermission($v['visibility'], $caps);
-            $row = SavedView::query()->create(['public_id' => (string) Str::uuid(), 'installation_id' => $i, 'owner_actor_key' => $actor, 'owner_lookup_hash' => $hash, 'name' => $v['name'], 'visibility' => $v['visibility'], 'filters' => $v['filters'], 'sort_key' => $v['sort'], 'relative_range' => ['key' => $v['range']]]);
+            $row = SavedView::query()->create([
+                'public_id' => (string) Str::uuid(),
+                'installation_id' => $i,
+                'owner_actor_key' => $actor,
+                'owner_lookup_hash' => $hash,
+                'name' => $v['name'],
+                'visibility' => $v['visibility'],
+                'filters' => $v['filters'],
+                'sort_key' => $v['sort'],
+                'relative_range' => ['key' => $v['range']],
+            ]);
         } else {
             $row = $this->viewRow($i, $id, $hash, true);
             $own = hash_equals($row->owner_lookup_hash, $hash);

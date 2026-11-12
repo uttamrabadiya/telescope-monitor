@@ -26,7 +26,12 @@ final class ProviderRouter implements NotificationProvider
 
     public function github(string $method, array $target, string $path, ?array $body = null): HttpResult
     {
-        return $this->request($method, 'https://api.github.com/repos/'.$target['owner'].'/'.$target['repo'].$path, 'github', ['Authorization' => 'Bearer '.$target['token'], 'Accept' => 'application/vnd.github+json', 'X-GitHub-Api-Version' => '2026-03-10', 'Content-Type' => 'application/json'], $body === null ? '' : json_encode($body, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        return $this->request($method, 'https://api.github.com/repos/'.$target['owner'].'/'.$target['repo'].$path, 'github', [
+            'Authorization' => 'Bearer '.$target['token'],
+            'Accept' => 'application/vnd.github+json',
+            'X-GitHub-Api-Version' => '2026-03-10',
+            'Content-Type' => 'application/json',
+        ], $body === null ? '' : json_encode($body, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
     }
 
     public function ticket(array $target, HttpResult $r): ?array
@@ -117,7 +122,14 @@ final class ProviderRouter implements NotificationProvider
             } else {
                 $text = Envelope::text($envelope);
                 $text = str_replace(['&', '<', '>'], ['&amp;', '&lt;', '&gt;'], $text);
-                $body = json_encode(['text' => $text, 'mrkdwn' => false, 'parse' => 'none', 'link_names' => false, 'unfurl_links' => false, 'unfurl_media' => false], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+                $body = json_encode([
+                    'text' => $text,
+                    'mrkdwn' => false,
+                    'parse' => 'none',
+                    'link_names' => false,
+                    'unfurl_links' => false,
+                    'unfurl_media' => false,
+                ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
                 $headers = ['Content-Type' => 'application/json'];
             }
             $r = $this->request('POST', $target['url'], $target['provider'], $headers, $body);

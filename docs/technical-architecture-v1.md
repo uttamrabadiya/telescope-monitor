@@ -1,3 +1,5 @@
+> Capture amendment: [Telescope-source capture](telescope-source-capture.md) supersedes the synchronous inbox-write path below. Host hooks execute zero monitoring database queries; a separate importer performs buffering and processing.
+
 # Telescope Monitor v1 Technical Architecture
 
 Status: Architecture accepted and replacement implementation started  

@@ -7,12 +7,15 @@ return [
     'path' => env('EXCEPTION_MONITOR_PATH', 'exception-monitor'),
     'middleware' => ['web'],
     'authorization' => [
-        'driver' => 'telescope', // Use 'gates' for separate view/operate/manage gates.
-        'allow_guest_jobs' => false, // Deployed guest-only access needs explicit queued-work permission.
+        'driver' => 'telescope',
+        // Use 'gates' for separate view/operate/manage gates.
     ],
     'guard' => null,
     'capture' => [
         'enabled' => true,
+        // Deployment-only signing: null uses APP_KEY with domain separation.
+        'signing_key' => env('EXCEPTION_MONITOR_CAPTURE_KEY'),
+        'signing_previous_keys' => [],
         'bridge_jobs' => true,
         'sql_templates' => false,
         'sql_max_bytes' => 2048,
@@ -30,7 +33,20 @@ return [
         'operate' => 'operateExceptionMonitor',
         'manage' => 'manageExceptionMonitor',
     ],
-    'alerts' => ['enabled' => true, 'allowed_environments' => ['production'], 'mailer' => null, 'max_cooldown_seconds' => 86400, 'max_threshold_count' => 100000, 'pending_seconds' => 86400],
+    'alerts' => [
+        'enabled' => true,
+        'allowed_environments' => ['production'],
+        'mailer' => null,
+        'email' => [
+            'include_context' => true,
+            'include_stack_trace' => true,
+            'max_frames' => 8,
+            'allowed_tags' => [],
+        ],
+        'max_cooldown_seconds' => 86400,
+        'max_threshold_count' => 100000,
+        'pending_seconds' => 86400,
+    ],
     'integrations' => ['credentials' => [], 'webhooks' => ['ports' => [443], 'private_targets' => []]],
     'operations' => ['freshness_seconds' => 300, 'maintenance_seconds' => 3600, 'preview_limit' => 10000],
     'retention_limits' => [],

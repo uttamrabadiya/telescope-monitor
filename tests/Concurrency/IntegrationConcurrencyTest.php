@@ -54,7 +54,14 @@ final class IntegrationConcurrencyTest extends TestCase
     public function test_concurrent_confirmations_make_one_repository_reservation_and_delivery(): void
     {
         $this->requireEngine();
-        $c = app(IntegrationManagement::class)->command('connection.create', null, (string) Str::uuid(), ['provider' => 'github', 'name' => 'Repository', 'enabled' => true, 'owner' => 'acme', 'repo' => 'app', 'credential' => 'controlled-token']);
+        $c = app(IntegrationManagement::class)->command('connection.create', null, (string) Str::uuid(), [
+            'provider' => 'github',
+            'name' => 'Repository',
+            'enabled' => true,
+            'owner' => 'acme',
+            'repo' => 'app',
+            'credential' => 'controlled-token',
+        ]);
         $this->capture();
         $this->process();
         $issue = DB::table('exception_monitor_issues')->value('public_id');
@@ -71,8 +78,22 @@ final class IntegrationConcurrencyTest extends TestCase
     public function test_slack_claim_reservation_is_shared_across_different_errors(): void
     {
         $this->requireEngine();
-        $c = app(IntegrationManagement::class)->command('connection.create', null, (string) Str::uuid(), ['provider' => 'slack', 'name' => 'Slack', 'enabled' => true, 'endpoint' => 'https://hooks.slack.com/services/T/B/CONTROLLED']);
-        app(AlertManagement::class)->command('rule.create', null, (string) Str::uuid(), ['name' => 'New', 'enabled' => true, 'events' => ['error.created'], 'conditions' => ['environments' => ['testing']], 'connections' => [$c['id']], 'threshold_count' => null, 'window_seconds' => null, 'cooldown_seconds' => 0]);
+        $c = app(IntegrationManagement::class)->command('connection.create', null, (string) Str::uuid(), [
+            'provider' => 'slack',
+            'name' => 'Slack',
+            'enabled' => true,
+            'endpoint' => 'https://hooks.slack.com/services/T/B/CONTROLLED',
+        ]);
+        app(AlertManagement::class)->command('rule.create', null, (string) Str::uuid(), [
+            'name' => 'New',
+            'enabled' => true,
+            'events' => ['error.created'],
+            'conditions' => ['environments' => ['testing']],
+            'connections' => [$c['id']],
+            'threshold_count' => null,
+            'window_seconds' => null,
+            'cooldown_seconds' => 0,
+        ]);
         $this->capture('first');
         $this->process();
         $this->capture('second', null, null, \LogicException::class);

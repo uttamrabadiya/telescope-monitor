@@ -38,7 +38,10 @@ final class WorkbenchServiceProvider extends ServiceProvider
         $this->app['config']->set('exception-monitor.middleware', ['web']);
         $this->app['config']->set('mail.default', 'array');
         $this->app['config']->set('queue.default', 'database');
-        $this->app['config']->set('exception-monitor.assignments', ['enabled' => (bool) env('EXCEPTION_MONITOR_WORKBENCH_ASSIGNMENTS', false), 'directory' => WorkbenchAssignmentDirectory::class]);
+        $this->app['config']->set('exception-monitor.assignments', [
+            'enabled' => (bool) env('EXCEPTION_MONITOR_WORKBENCH_ASSIGNMENTS', false),
+            'directory' => WorkbenchAssignmentDirectory::class,
+        ]);
         $this->app['config']->set('session.driver', 'file');
         $this->app['config']->set('session.files', dirname(__DIR__, 2).'/storage/framework/sessions');
         $this->app->bind(ActorResolver::class, fn () => new class implements ActorResolver
@@ -67,8 +70,15 @@ final class WorkbenchServiceProvider extends ServiceProvider
             Artisan::command('workbench:integration-demo', function () {
                 Telescope::startRecording(false);
                 $exception = new \RuntimeException('Payment callback failed in the controlled preview');
-                Telescope::recordException(IncomingExceptionEntry::make($exception, ['class' => $exception::class, 'message' => $exception->getMessage(), 'file' => base_path('app/Services/Payment.php'), 'line' => 58, 'trace' => []]));
+                Telescope::recordException(IncomingExceptionEntry::make($exception, [
+                    'class' => $exception::class,
+                    'message' => $exception->getMessage(),
+                    'file' => base_path('app/Services/Payment.php'),
+                    'line' => 58,
+                    'trace' => [],
+                ]));
                 Telescope::store(app(EntriesRepository::class));
+                app(CaptureOperations::class)->import(100);
                 app(CaptureOperations::class)->process(100);
                 $id = DB::table('exception_monitor_issues')->where('is_test', false)->latest('id')->value('public_id');
                 $this->line(rtrim(config('app.url'), '/').'/exception-monitor/errors/'.$id.'?tab=links');

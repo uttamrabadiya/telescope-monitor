@@ -16,10 +16,23 @@ final class SourceMarker
         if (strlen($environment) > 64 || $environment === '' || ! mb_check_encoding($environment, 'UTF-8')) {
             throw new CaptureFailure('environment_invalid');
         }
-        $key = $this->keys->key();
+        $key = $this->keys->forInstallation($installation);
         $time = CarbonImmutable::parse($time)->utc()->format('Uu');
-        $core = implode('|', ['em2c', $installation->public_id, $installation->generation, $installation->source_epoch, $time, $this->b64($environment), $key['id']]);
-        $group = implode('|', ['em2g', (int) config('exception-monitor.capture.grouping_version', 1), $this->fingerprint->hash($environment, $content), $probe ?? '-']);
+        $core = implode('|', [
+            'em2c',
+            $installation->public_id,
+            $installation->generation,
+            $installation->source_epoch,
+            $time,
+            $this->b64($environment),
+            $key['id'],
+        ]);
+        $group = implode('|', [
+            'em2g',
+            (int) config('exception-monitor.capture.grouping_version', 1),
+            $this->fingerprint->hash($environment, $content),
+            $probe ?? '-',
+        ]);
         $signature = $this->b64(hash_hmac('sha256', $uuid.'\0'.$core.'\0'.$group, $key['value'], true));
         if (strlen($core) > 255 || strlen($group.'|'.$signature) > 255) {
             throw new CaptureFailure('marker_too_large');
@@ -28,10 +41,29 @@ final class SourceMarker
         return [$core, $group.'|'.$signature];
     }
 
-    public function read(Installation $i, string $uuid, array $tags): ?array
+    public function read(Installation $i, string $uuid, array $tags, ?array $content = null): ?array
     {
         if (! Str::isUuid($uuid)) {
             return null;
+        }
+        if (array_filter($tags, fn ($tag) => is_string($tag) && str_starts_with($tag, 'em3|'))) {
+            if ($content === null || ! ($m = app(SourceStamp::class)->read($uuid, $content, $tags))) {
+                return null;
+            }
+            $group = $content;
+            $group['file'] = $m['grouping_file'];
+            return [
+                'installation_id' => $i->id,
+                'generation' => $i->generation,
+                'source_epoch' => $i->source_epoch,
+                'environment' => $m['environment'],
+                'occurred_at' => $m['occurred_at'],
+                'captured_at' => $m['captured_at'],
+                'time_precision' => 'microsecond',
+                'grouping_version' => $m['grouping_version'],
+                'fingerprint_hash' => $this->fingerprint->hash($m['environment'], $group),
+                'probe_id' => $m['probe_id'],
+            ];
         }
         $core = array_values(array_filter($tags, fn ($t) => is_string($t) && str_starts_with($t, 'em2c|')));
         $group = array_values(array_filter($tags, fn ($t) => is_string($t) && str_starts_with($t, 'em2g|')));

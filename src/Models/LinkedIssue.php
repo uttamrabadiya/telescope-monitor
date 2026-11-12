@@ -36,6 +36,14 @@ final class LinkedIssue extends Model
 
     protected function casts(): array
     {
-        return ['installation_id' => 'integer', 'issue_id' => 'integer', 'connection_id' => 'integer', 'create_delivery_id' => 'integer', 'remote_number' => 'integer', 'row_version' => 'integer', 'checked_at' => 'immutable_datetime'];
+        return [
+            'installation_id' => 'integer',
+            'issue_id' => 'integer',
+            'connection_id' => 'integer',
+            'create_delivery_id' => 'integer',
+            'remote_number' => 'integer',
+            'row_version' => 'integer',
+            'checked_at' => 'immutable_datetime',
+        ];
     }
 }

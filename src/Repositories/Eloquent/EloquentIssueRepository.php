@@ -15,11 +15,13 @@ final class EloquentIssueRepository implements IssueRepository
                 $data[$key] = $value->format('Y-m-d H:i:s.u');
             }
         }
-        Issue::query()->insertOrIgnore([array_merge($data, [
-            'public_id' => (string) Str::uuid(),
-            'created_at' => now('UTC')->format('Y-m-d H:i:s.u'),
-            'updated_at' => now('UTC')->format('Y-m-d H:i:s.u'),
-        ])]);
+        Issue::query()->insertOrIgnore([
+            array_merge($data, [
+                'public_id' => (string) Str::uuid(),
+                'created_at' => now('UTC')->format('Y-m-d H:i:s.u'),
+                'updated_at' => now('UTC')->format('Y-m-d H:i:s.u'),
+            ]),
+        ]);
 
         return Issue::query()->where('installation_id', $data['installation_id'])->where('environment', $data['environment'])->where('is_test', $data['is_test'])->where('grouping_version', $data['grouping_version'])->where('fingerprint_hash', $data['fingerprint_hash'])->lockForUpdate()->firstOrFail();
     }

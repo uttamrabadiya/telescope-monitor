@@ -28,7 +28,12 @@ final class DestinationPolicy
         }
         $url = 'https://'.(str_contains($host, ':') ? '['.$host.']' : $host).($port !== 443 ? ':'.$port : '').($p['path'] ?? '/').(isset($p['query']) ? '?'.$p['query'] : '');
 
-        return ['host' => $host, 'port' => $port, 'url' => $url, 'display' => 'https://'.(str_contains($host, ':') ? '['.$host.']' : $host).($port !== 443 ? ':'.$port : '')];
+        return [
+            'host' => $host,
+            'port' => $port,
+            'url' => $url,
+            'display' => 'https://'.(str_contains($host, ':') ? '['.$host.']' : $host).($port !== 443 ? ':'.$port : ''),
+        ];
     }
 
     private function invalid(): never
@@ -62,7 +67,23 @@ final class DestinationPolicy
         }
         foreach ($ips as $ip) {
             $public = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE) !== false;
-            foreach (['100.64.0.0/10', '198.18.0.0/15', '192.0.0.0/24', '192.0.2.0/24', '198.51.100.0/24', '203.0.113.0/24', '224.0.0.0/4', '::ffff:0:0/96', '2001:db8::/32', 'ff00::/8', '2002::/16', '2001::/32', '64:ff9b::/96', '64:ff9b:1::/48', 'fec0::/10'] as $cidr) {
+            foreach ([
+                '100.64.0.0/10',
+                '198.18.0.0/15',
+                '192.0.0.0/24',
+                '192.0.2.0/24',
+                '198.51.100.0/24',
+                '203.0.113.0/24',
+                '224.0.0.0/4',
+                '::ffff:0:0/96',
+                '2001:db8::/32',
+                'ff00::/8',
+                '2002::/16',
+                '2001::/32',
+                '64:ff9b::/96',
+                '64:ff9b:1::/48',
+                'fec0::/10',
+            ] as $cidr) {
                 if ($this->inRange($ip, $cidr)) {
                     $public = false;
                 }

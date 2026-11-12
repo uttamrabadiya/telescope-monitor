@@ -84,7 +84,17 @@ final class IntegrationsTest extends TestCase
 
     private function rule(array $connections): void
     {
-        $this->postJson('/exception-monitor/api/v1/alerting/rules', ['client_key' => (string) Str::uuid(), 'name' => 'Operations', 'enabled' => true, 'events' => ['error.created', 'error.regressed'], 'conditions' => ['environments' => ['testing'], 'class' => null, 'origin' => null, 'tag' => null], 'connections' => $connections, 'threshold_count' => null, 'window_seconds' => null, 'cooldown_seconds' => 0])->assertOk();
+        $this->postJson('/exception-monitor/api/v1/alerting/rules', [
+            'client_key' => (string) Str::uuid(),
+            'name' => 'Operations',
+            'enabled' => true,
+            'events' => ['error.created', 'error.regressed'],
+            'conditions' => ['environments' => ['testing'], 'class' => null, 'origin' => null, 'tag' => null],
+            'connections' => $connections,
+            'threshold_count' => null,
+            'window_seconds' => null,
+            'cooldown_seconds' => 0,
+        ])->assertOk();
     }
 
     private function send(): void
@@ -104,7 +114,12 @@ final class IntegrationsTest extends TestCase
 
     private function preview(string $issue, string $connection, array $extra = []): array
     {
-        $v = array_replace(['connection' => $connection, 'preview_key' => (string) Str::uuid(), 'title' => 'Investigate this exception', 'labels' => []], $extra);
+        $v = array_replace([
+            'connection' => $connection,
+            'preview_key' => (string) Str::uuid(),
+            'title' => 'Investigate this exception',
+            'labels' => [],
+        ], $extra);
         $p = $this->postJson('/exception-monitor/api/v1/issues/'.$issue.'/github/preview', $v)->assertOk()->json('exception_monitor_private');
 
         return $v + ['preview_digest' => $p['digest'], 'link_version' => $p['link_version']];
@@ -231,10 +246,21 @@ final class IntegrationsTest extends TestCase
     public function test_url_policy_rejects_credentials_fragments_slack_lookalikes_and_unsupported_ports(): void
     {
         $this->assertSame('https://hooks.example.test/events%20queue', app(DestinationPolicy::class)->url('https://hooks.example.test/events%20queue', 'webhook')['url']);
-        foreach (['http://hooks.example.test/a', 'https://user:secret@hooks.example.test/a', 'https://hooks.example.test/a#x', 'https://hooks.example.test:8443/a'] as $url) {
+        foreach ([
+            'http://hooks.example.test/a',
+            'https://user:secret@hooks.example.test/a',
+            'https://hooks.example.test/a#x',
+            'https://hooks.example.test:8443/a',
+        ] as $url) {
             $this->postJson('/exception-monitor/api/v1/integrations', ['client_key' => (string) Str::uuid(), 'provider' => 'webhook', 'name' => 'Bad', 'enabled' => true, 'endpoint' => $url])->assertUnprocessable();
         }
-        $this->postJson('/exception-monitor/api/v1/integrations', ['client_key' => (string) Str::uuid(), 'provider' => 'slack', 'name' => 'Bad', 'enabled' => true, 'endpoint' => 'https://hooks.slack.com.evil.test/services/T/B/S'])->assertUnprocessable();
+        $this->postJson('/exception-monitor/api/v1/integrations', [
+            'client_key' => (string) Str::uuid(),
+            'provider' => 'slack',
+            'name' => 'Bad',
+            'enabled' => true,
+            'endpoint' => 'https://hooks.slack.com.evil.test/services/T/B/S',
+        ])->assertUnprocessable();
     }
 
     public function test_dns_rebinding_and_mixed_private_records_stop_requests_and_redirects_are_not_followed(): void
@@ -399,7 +425,12 @@ final class IntegrationsTest extends TestCase
         $c = $this->create('github');
         $issue = $this->issue();
         $url = '/exception-monitor/api/v1/issues/'.$issue.'/github/link';
-        $this->postJson($url, ['client_key' => (string) Str::uuid(), 'connection' => $c['id'], 'version' => 0, 'number' => 'https://github.com/other/repo/issues/1'])->assertUnprocessable();
+        $this->postJson($url, [
+            'client_key' => (string) Str::uuid(),
+            'connection' => $c['id'],
+            'version' => 0,
+            'number' => 'https://github.com/other/repo/issues/1',
+        ])->assertUnprocessable();
         $this->http->responses = [$this->ticket(42, ['pull_request' => ['url' => 'private']])];
         $this->postJson($url, ['client_key' => (string) Str::uuid(), 'connection' => $c['id'], 'version' => 0, 'number' => '42'])->assertConflict();
         $this->assertDatabaseCount('exception_monitor_linked_issues', 0);
@@ -515,11 +546,23 @@ final class IntegrationsTest extends TestCase
         $this->rule([$c['id']]);
         $this->issue();
         $this->assertDatabaseCount('exception_monitor_deliveries', 0);
-        $this->patchJson('/exception-monitor/api/v1/integrations/'.$c['id'], ['client_key' => (string) Str::uuid(), 'version' => 1, 'name' => 'Webhook', 'enabled' => true, 'events' => ['error.created']])->assertOk();
+        $this->patchJson('/exception-monitor/api/v1/integrations/'.$c['id'], [
+            'client_key' => (string) Str::uuid(),
+            'version' => 1,
+            'name' => 'Webhook',
+            'enabled' => true,
+            'events' => ['error.created'],
+        ])->assertOk();
         $this->capture('other', null, null, \LogicException::class);
         $this->process();
         $this->assertDatabaseCount('exception_monitor_deliveries', 1);
-        $this->patchJson('/exception-monitor/api/v1/integrations/'.$c['id'], ['client_key' => (string) Str::uuid(), 'version' => 2, 'name' => 'Webhook', 'enabled' => true, 'events' => ['error.regressed']])->assertOk();
+        $this->patchJson('/exception-monitor/api/v1/integrations/'.$c['id'], [
+            'client_key' => (string) Str::uuid(),
+            'version' => 2,
+            'name' => 'Webhook',
+            'enabled' => true,
+            'events' => ['error.regressed'],
+        ])->assertOk();
         $this->send();
         $this->assertCount(0, $this->http->requests);
         $this->assertSame('cancelled', DB::table('exception_monitor_deliveries')->value('status'));
@@ -527,7 +570,9 @@ final class IntegrationsTest extends TestCase
 
     public function test_deployment_references_are_allowlisted_and_not_copied_into_database_ciphertext(): void
     {
-        config(['exception-monitor.integrations.credentials' => ['repository-key' => ['purpose' => 'github_token', 'value' => 'DEPLOYMENT_PRIVATE']]]);
+        config([
+            'exception-monitor.integrations.credentials' => ['repository-key' => ['purpose' => 'github_token', 'value' => 'DEPLOYMENT_PRIVATE']],
+        ]);
         $c = $this->create('github', ['credential' => null, 'credential_reference' => 'repository-key']);
         $this->assertNull(DB::table('exception_monitor_secrets')->where('secret_name', 'github_token')->value('ciphertext'));
         $issue = $this->issue();
@@ -540,7 +585,15 @@ final class IntegrationsTest extends TestCase
         $this->travel(3)->minutes();
         app(Credentials::class)->cleanup();
         $this->assertSame('retired', DB::table('exception_monitor_secrets')->where('deployment_reference', 'repository-key')->value('state'));
-        $this->postJson('/exception-monitor/api/v1/integrations', ['client_key' => (string) Str::uuid(), 'provider' => 'github', 'name' => 'Unknown', 'enabled' => true, 'owner' => 'acme', 'repo' => 'other', 'credential_reference' => 'ARBITRARY_ENV'])->assertUnprocessable();
+        $this->postJson('/exception-monitor/api/v1/integrations', [
+            'client_key' => (string) Str::uuid(),
+            'provider' => 'github',
+            'name' => 'Unknown',
+            'enabled' => true,
+            'owner' => 'acme',
+            'repo' => 'other',
+            'credential_reference' => 'ARBITRARY_ENV',
+        ])->assertUnprocessable();
     }
 
     public function test_automatic_creation_excludes_synthetic_and_historical_reconciliation(): void

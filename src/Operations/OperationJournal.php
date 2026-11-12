@@ -29,7 +29,13 @@ final class OperationJournal
                 $row->operation_public_id = $run;
                 $row->last_started_at = $started;
             } else {
-                $history[] = ['id' => $run, 'started_at' => $started->toISOString(), 'completed_at' => CarbonImmutable::now('UTC')->toISOString(), 'state' => $state, 'counts' => $metadata];
+                $history[] = [
+                    'id' => $run,
+                    'started_at' => $started->toISOString(),
+                    'completed_at' => CarbonImmutable::now('UTC')->toISOString(),
+                    'state' => $state,
+                    'counts' => $metadata,
+                ];
                 $history = array_slice($history, -10);
                 if ($state === 'passed') {
                     $row->last_success_at = CarbonImmutable::now('UTC');

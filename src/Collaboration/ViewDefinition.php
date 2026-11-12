@@ -9,13 +9,32 @@ use TelescopeMonitor\Http\Requests\InvestigationRequest;
 
 final class ViewDefinition
 {
-    public const FILTERS = ['status', 'environment', 'origin', 'class', 'search', 'tag', 'first_after', 'first_before', 'last_after', 'last_before', 'include_tests', 'assignee'];
+    public const FILTERS = [
+        'status',
+        'environment',
+        'origin',
+        'class',
+        'search',
+        'tag',
+        'first_after',
+        'first_before',
+        'last_after',
+        'last_before',
+        'include_tests',
+        'assignee',
+    ];
 
     public function __construct(private Assignments $assignments) {}
 
     public function validate(array $values): array
     {
-        $v = Validator::make($values, ['name' => ['required', 'string', 'max:80'], 'visibility' => ['required', Rule::in(['personal', 'shared'])], 'filters' => ['present', 'array'], 'sort' => ['required', Rule::in(['last_seen', 'first_seen', 'occurrences'])], 'range' => ['required', Rule::in(['1h', '24h', '7d', '30d'])]])->validate();
+        $v = Validator::make($values, [
+            'name' => ['required', 'string', 'max:80'],
+            'visibility' => ['required', Rule::in(['personal', 'shared'])],
+            'filters' => ['present', 'array'],
+            'sort' => ['required', Rule::in(['last_seen', 'first_seen', 'occurrences'])],
+            'range' => ['required', Rule::in(['1h', '24h', '7d', '30d'])],
+        ])->validate();
         if (array_diff(array_keys($v['filters']), self::FILTERS)) {
             throw ValidationException::withMessages(['filters' => 'Unsupported saved filters. Replace them with current inbox filters.']);
         }
@@ -54,7 +73,12 @@ final class ViewDefinition
 
     public function builtins(): array
     {
-        $out = ['builtin:unresolved' => ['status' => 'unresolved'], 'builtin:resolved' => ['status' => 'resolved'], 'builtin:ignored' => ['status' => 'ignored'], 'builtin:snoozed' => ['status' => 'snoozed']];
+        $out = [
+            'builtin:unresolved' => ['status' => 'unresolved'],
+            'builtin:resolved' => ['status' => 'resolved'],
+            'builtin:ignored' => ['status' => 'ignored'],
+            'builtin:snoozed' => ['status' => 'snoozed'],
+        ];
         if ($this->assignments->enabled()) {
             $out['builtin:assigned_to_me'] = ['status' => 'unresolved', 'assignee' => 'me'];
         }

@@ -60,12 +60,38 @@ final class EloquentAlertManagement implements AlertManagement
             }
         }
 
-        return ['id' => $c->public_id, 'provider' => $c->provider, 'name' => $c->display_name, 'email' => $email, 'display' => $c->target_public['display'], 'enabled' => $c->enabled, 'disconnected' => $c->disconnected_at !== null, 'version' => $c->row_version, 'state' => $state, 'last_test_at' => $c->last_test_at?->toISOString(), 'last_test_outcome' => $c->last_test_outcome, 'last_accepted_at' => $c->options['last_accepted_at'] ?? null, 'failed_count' => (string) Delivery::query()->where('connection_id', $c->id)->where('status', 'failed')->count()];
+        return [
+            'id' => $c->public_id,
+            'provider' => $c->provider,
+            'name' => $c->display_name,
+            'email' => $email,
+            'display' => $c->target_public['display'],
+            'enabled' => $c->enabled,
+            'disconnected' => $c->disconnected_at !== null,
+            'version' => $c->row_version,
+            'state' => $state,
+            'last_test_at' => $c->last_test_at?->toISOString(),
+            'last_test_outcome' => $c->last_test_outcome,
+            'last_accepted_at' => $c->options['last_accepted_at'] ?? null,
+            'failed_count' => (string) Delivery::query()->where('connection_id', $c->id)->where('status', 'failed')->count(),
+        ];
     }
 
     private function rule(AlertRule $r): array
     {
-        return ['id' => $r->public_id, 'name' => $r->name, 'enabled' => $r->enabled, 'version' => $r->row_version, 'definition_version' => $r->definition_version, 'events' => $r->event_types, 'conditions' => $r->conditions, 'connections' => Connection::query()->join('exception_monitor_rule_connections as rc', 'rc.connection_id', '=', 'exception_monitor_connections.id')->where('rc.rule_id', $r->id)->pluck('public_id')->all(), 'threshold_count' => $r->threshold_count, 'window_seconds' => $r->window_seconds, 'cooldown_seconds' => $r->cooldown_seconds];
+        return [
+            'id' => $r->public_id,
+            'name' => $r->name,
+            'enabled' => $r->enabled,
+            'version' => $r->row_version,
+            'definition_version' => $r->definition_version,
+            'events' => $r->event_types,
+            'conditions' => $r->conditions,
+            'connections' => Connection::query()->join('exception_monitor_rule_connections as rc', 'rc.connection_id', '=', 'exception_monitor_connections.id')->where('rc.rule_id', $r->id)->pluck('public_id')->all(),
+            'threshold_count' => $r->threshold_count,
+            'window_seconds' => $r->window_seconds,
+            'cooldown_seconds' => $r->cooldown_seconds,
+        ];
     }
 
     public function configuration(): array
@@ -73,7 +99,27 @@ final class EloquentAlertManagement implements AlertManagement
         $i = $this->installation();
         abort_unless($this->caps->allows('manage'), 403);
 
-        return ['rules' => AlertRule::query()->where('installation_id', $i)->whereNull('deleted_at')->orderBy('name')->orderBy('id')->limit(100)->get()->map(fn ($r) => $this->rule($r))->all(), 'connections' => Connection::query()->where('installation_id', $i)->whereIn('provider', ['email', 'slack', 'webhook'])->orderBy('display_name')->orderBy('id')->limit(100)->get()->map(fn ($c) => $this->connection($c, true))->all(), 'events' => EventCatalog::LABELS, 'allowed_environments' => config('exception-monitor.alerts.allowed_environments', ['production']), 'enabled' => (bool) config('exception-monitor.alerts.enabled', true), 'queue_asynchronous' => $this->dispatcher->asynchronous(), 'mailer' => config('exception-monitor.alerts.mailer') ?? config('mail.default'), 'max_cooldown_seconds' => min(86400, (int) config('exception-monitor.alerts.max_cooldown_seconds', 86400)), 'allowed_tags' => config('exception-monitor.capture.allowed_tags', []), 'starter' => ['name' => 'Production errors', 'enabled' => false, 'events' => ['error.created', 'error.regressed'], 'conditions' => ['environments' => ['production'], 'class' => null, 'origin' => null, 'tag' => null], 'connections' => [], 'threshold_count' => null, 'window_seconds' => null, 'cooldown_seconds' => 1800]];
+        return [
+            'rules' => AlertRule::query()->where('installation_id', $i)->whereNull('deleted_at')->orderBy('name')->orderBy('id')->limit(100)->get()->map(fn ($r) => $this->rule($r))->all(),
+            'connections' => Connection::query()->where('installation_id', $i)->whereIn('provider', ['email', 'slack', 'webhook'])->orderBy('display_name')->orderBy('id')->limit(100)->get()->map(fn ($c) => $this->connection($c, true))->all(),
+            'events' => EventCatalog::LABELS,
+            'allowed_environments' => config('exception-monitor.alerts.allowed_environments', ['production']),
+            'enabled' => (bool) config('exception-monitor.alerts.enabled', true),
+            'queue_asynchronous' => $this->dispatcher->asynchronous(),
+            'mailer' => config('exception-monitor.alerts.mailer') ?? config('mail.default'),
+            'max_cooldown_seconds' => min(86400, (int) config('exception-monitor.alerts.max_cooldown_seconds', 86400)),
+            'allowed_tags' => config('exception-monitor.capture.allowed_tags', []),
+            'starter' => [
+                'name' => 'Production errors',
+                'enabled' => false,
+                'events' => ['error.created', 'error.regressed'],
+                'conditions' => ['environments' => ['production'], 'class' => null, 'origin' => null, 'tag' => null],
+                'connections' => [],
+                'threshold_count' => null,
+                'window_seconds' => null,
+                'cooldown_seconds' => 1800,
+            ],
+        ];
     }
 
     private function resource(Delivery $d): array
@@ -82,7 +128,29 @@ final class EloquentAlertManagement implements AlertManagement
         $e = AlertEvent::query()->where('installation_id', $d->installation_id)->find($d->event_id);
         $issue = $d->issue_id ? Issue::query()->where('installation_id', $d->installation_id)->find($d->issue_id) : null;
 
-        return ['id' => $d->public_id, 'status' => $d->status, 'action' => $d->action, 'event' => $e ? EventCatalog::canonical($e->event_type) : 'unavailable', 'environment' => $issue->environment ?? 'test', 'issue_id' => $issue?->public_id, 'destination' => $c?->target_public['display'] ?? 'Unavailable target', 'destination_name' => $c->display_name ?? 'Unavailable target', 'channel' => $c->provider ?? 'email', 'attempts' => $d->attempt_count_total, 'cycle' => $d->retry_cycle, 'cycle_attempts' => $d->cycle_attempts, 'eligible_at' => $d->eligible_at->toISOString(), 'expires_at' => $d->expires_at->toISOString(), 'lease_until' => $d->lease_until?->toISOString(), 'sent_at' => $d->sent_at?->toISOString(), 'completed_at' => $d->completed_at?->toISOString(), 'created_at' => $d->created_at->toISOString(), 'reason' => $d->cancellation_reason ?? $d->last_error_code, 'can_retry' => $this->caps->allows('operate') && ($d->action !== 'connection_test' || $this->caps->allows('manage')) && $d->status === 'failed', 'can_review_resend' => ! str_starts_with($d->action, 'github_') && $this->caps->allows('operate') && ($d->action !== 'connection_test' || $this->caps->allows('manage')) && ($d->status === 'failed' || $d->cancellation_reason === 'export_policy_changed')];
+        return [
+            'id' => $d->public_id,
+            'status' => $d->status,
+            'action' => $d->action,
+            'event' => $e ? EventCatalog::canonical($e->event_type) : 'unavailable',
+            'environment' => $issue->environment ?? 'test',
+            'issue_id' => $issue?->public_id,
+            'destination' => $c?->target_public['display'] ?? 'Unavailable target',
+            'destination_name' => $c->display_name ?? 'Unavailable target',
+            'channel' => $c->provider ?? 'email',
+            'attempts' => $d->attempt_count_total,
+            'cycle' => $d->retry_cycle,
+            'cycle_attempts' => $d->cycle_attempts,
+            'eligible_at' => $d->eligible_at->toISOString(),
+            'expires_at' => $d->expires_at->toISOString(),
+            'lease_until' => $d->lease_until?->toISOString(),
+            'sent_at' => $d->sent_at?->toISOString(),
+            'completed_at' => $d->completed_at?->toISOString(),
+            'created_at' => $d->created_at->toISOString(),
+            'reason' => $d->cancellation_reason ?? $d->last_error_code,
+            'can_retry' => $this->caps->allows('operate') && ($d->action !== 'connection_test' || $this->caps->allows('manage')) && $d->status === 'failed',
+            'can_review_resend' => ! str_starts_with($d->action, 'github_') && $this->caps->allows('operate') && ($d->action !== 'connection_test' || $this->caps->allows('manage')) && ($d->status === 'failed' || $d->cancellation_reason === 'export_policy_changed'),
+        ];
     }
 
     public function history(array $f): array
@@ -116,7 +184,14 @@ final class EloquentAlertManagement implements AlertManagement
         }
         $rows = $q->orderByDesc('id')->paginate(25, ['*'], 'page', $f['page'] ?? 1);
 
-        return ['items' => $rows->getCollection()->map(fn ($d) => $this->resource($d))->all(), 'page' => $rows->currentPage(), 'last_page' => $rows->lastPage(), 'total' => (string) $rows->total(), 'as_of' => CarbonImmutable::now('UTC')->toISOString(), 'acceptance_note' => 'Sent means transport acceptance, not inbox receipt. Notification recovery is at least once. Ambiguous GitHub creation is held for review instead of blindly retried.'];
+        return [
+            'items' => $rows->getCollection()->map(fn ($d) => $this->resource($d))->all(),
+            'page' => $rows->currentPage(),
+            'last_page' => $rows->lastPage(),
+            'total' => (string) $rows->total(),
+            'as_of' => CarbonImmutable::now('UTC')->toISOString(),
+            'acceptance_note' => 'Sent means transport acceptance, not inbox receipt. Notification recovery is at least once. Ambiguous GitHub creation is held for review instead of blindly retried.',
+        ];
     }
 
     public function detail(string $id): array
@@ -138,7 +213,29 @@ final class EloquentAlertManagement implements AlertManagement
             $state = 'unreadable';
         }
 
-        return ['delivery' => $this->resource($d), 'payload' => $payload, 'payload_state' => $state, 'payload_text' => $payload ? (str_starts_with($d->action, 'github_') ? ($payload['github_title']."\n\n".$payload['github_body']) : ($payload['webhook_body'] ?? Envelope::text($payload))) : null, 'rules' => Database::connection()->table('exception_monitor_delivery_rules')->where('delivery_id', $d->id)->get()->map(fn ($r) => ['id' => $r->rule_public_id, 'version' => (int) $r->rule_version, 'conditions' => json_decode($r->conditions_snapshot, true), 'name' => AlertRule::query()->whereKey($r->rule_id)->value('name') ?? 'Removed rule'])->all(), 'attempts' => DeliveryAttempt::query()->where('installation_id', $i)->where('delivery_id', $d->id)->orderBy('sequence_number')->limit(200)->get()->map(fn ($a) => ['sequence' => $a->sequence_number, 'cycle' => $a->retry_cycle, 'started_at' => $a->started_at->toISOString(), 'completed_at' => $a->completed_at?->toISOString(), 'outcome' => $a->outcome, 'status' => $a->getAttribute('provider_status'), 'code' => $a->safe_error_code, 'summary' => $a->getAttribute('sanitized_error_summary'), 'retry_after_at' => $a->getAttribute('retry_after_at')?->toISOString()])->all()];
+        return [
+            'delivery' => $this->resource($d),
+            'payload' => $payload,
+            'payload_state' => $state,
+            'payload_text' => $payload ? (str_starts_with($d->action, 'github_') ? ($payload['github_title']."\n\n".$payload['github_body']) : ($payload['webhook_body'] ?? Envelope::text($payload))) : null,
+            'rules' => Database::connection()->table('exception_monitor_delivery_rules')->where('delivery_id', $d->id)->get()->map(fn ($r) => [
+                'id' => $r->rule_public_id,
+                'version' => (int) $r->rule_version,
+                'conditions' => json_decode($r->conditions_snapshot, true),
+                'name' => AlertRule::query()->whereKey($r->rule_id)->value('name') ?? 'Removed rule',
+            ])->all(),
+            'attempts' => DeliveryAttempt::query()->where('installation_id', $i)->where('delivery_id', $d->id)->orderBy('sequence_number')->limit(200)->get()->map(fn ($a) => [
+                'sequence' => $a->sequence_number,
+                'cycle' => $a->retry_cycle,
+                'started_at' => $a->started_at->toISOString(),
+                'completed_at' => $a->completed_at?->toISOString(),
+                'outcome' => $a->outcome,
+                'status' => $a->getAttribute('provider_status'),
+                'code' => $a->safe_error_code,
+                'summary' => $a->getAttribute('sanitized_error_summary'),
+                'retry_after_at' => $a->getAttribute('retry_after_at')?->toISOString(),
+            ])->all(),
+        ];
     }
 
     public function preview(array $definition, ?string $id): array
@@ -148,9 +245,29 @@ final class EloquentAlertManagement implements AlertManagement
         $rule = $this->definitions->validate($definition);
         $issue = $id ? Issue::query()->where('installation_id', $i)->where('public_id', $id)->firstOrFail() : null;
         $general = $this->settings->group('general')['values'];
-        $envelope = $this->envelopes->sanitize(['version' => 1, 'delivery_id' => 'preview', 'event' => $rule['events'][0], 'label' => EventCatalog::LABELS[$rule['events'][0]], 'test' => true, 'application' => $general['display_name'], 'environment' => $issue->environment ?? $rule['conditions']['environments'][0], 'class' => $issue->exception_class ?? 'SyntheticMonitorCheck', 'message' => $issue->message ?? 'Synthetic delivery verification', 'file' => $issue->file ?? 'app/Example.php', 'line' => $issue->line ?? 1, 'count' => (string) ($issue->lifetime_count ?? 1), 'occurred_at' => CarbonImmutable::now('UTC')->toISOString(), 'url' => rtrim($general['dashboard_url'], '/').($issue ? '/errors/'.$issue->public_id : '/setup')]);
+        $envelope = $this->envelopes->sanitize([
+            'version' => 1,
+            'delivery_id' => 'preview',
+            'event' => $rule['events'][0],
+            'label' => EventCatalog::LABELS[$rule['events'][0]],
+            'test' => true,
+            'application' => $general['display_name'],
+            'environment' => $issue->environment ?? $rule['conditions']['environments'][0],
+            'class' => $issue->exception_class ?? 'SyntheticMonitorCheck',
+            'message' => $issue->message ?? 'Synthetic delivery verification',
+            'file' => $issue->file ?? 'app/Example.php',
+            'line' => $issue->line ?? 1,
+            'count' => (string) ($issue->lifetime_count ?? 1),
+            'occurred_at' => CarbonImmutable::now('UTC')->toISOString(),
+            'url' => rtrim($general['dashboard_url'], '/').($issue ? '/errors/'.$issue->public_id : '/setup'),
+        ]);
 
-        return ['envelope' => $envelope, 'text' => Envelope::text($envelope), 'digest' => hash('sha256', json_encode($envelope, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE)), 'detail' => 'Preview only; nothing was queued or sent. Test sends always use synthetic content.'];
+        return [
+            'envelope' => $envelope,
+            'text' => Envelope::text($envelope),
+            'digest' => hash('sha256', json_encode($envelope, JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE)),
+            'detail' => 'Preview only; nothing was queued or sent. Test sends always use synthetic content.',
+        ];
     }
 
     private function version(int $actual, int $expected): void
@@ -167,7 +284,20 @@ final class EloquentAlertManagement implements AlertManagement
 
     private function audit(?int $issue, string $subject, string $type, string $action, string $actor, array $metadata): void
     {
-        Activity::query()->create(['public_id' => (string) Str::uuid(), 'installation_id' => $this->installations->current()->id, 'issue_id' => $issue, 'event_type' => $type, 'actor_kind' => 'user', 'actor_key' => $actor, 'subject_type' => 'delivery_configuration', 'subject_public_id' => $subject, 'action_public_id' => $action, 'occurred_at' => CarbonImmutable::now('UTC'), 'metadata' => $metadata, 'expires_at' => CarbonImmutable::now('UTC')->addDays(app(RetentionPolicy::class)->effective()['activity_days'])]);
+        Activity::query()->create([
+            'public_id' => (string) Str::uuid(),
+            'installation_id' => $this->installations->current()->id,
+            'issue_id' => $issue,
+            'event_type' => $type,
+            'actor_kind' => 'user',
+            'actor_key' => $actor,
+            'subject_type' => 'delivery_configuration',
+            'subject_public_id' => $subject,
+            'action_public_id' => $action,
+            'occurred_at' => CarbonImmutable::now('UTC'),
+            'metadata' => $metadata,
+            'expires_at' => CarbonImmutable::now('UTC')->addDays(app(RetentionPolicy::class)->effective()['activity_days']),
+        ]);
     }
 
     private function revalidate(int $installation, ?int $connection = null): void
@@ -217,7 +347,14 @@ final class EloquentAlertManagement implements AlertManagement
             if ($i->state !== 'active') {
                 throw new Conflict('Monitoring is undergoing maintenance.');
             }
-            $receipt = ActionReceipt::query()->createOrFirst(['installation_id' => $i->id, 'actor_lookup_hash' => $hash, 'operation' => 'alerting.'.$op, 'client_key' => $key], ['public_id' => (string) Str::uuid(), 'generation' => $i->generation, 'actor_key' => $actor->key, 'keyed_request_digest' => $digest, 'state' => 'pending', 'expires_at' => CarbonImmutable::now('UTC')->addDays(30)]);
+            $receipt = ActionReceipt::query()->createOrFirst(['installation_id' => $i->id, 'actor_lookup_hash' => $hash, 'operation' => 'alerting.'.$op, 'client_key' => $key], [
+                'public_id' => (string) Str::uuid(),
+                'generation' => $i->generation,
+                'actor_key' => $actor->key,
+                'keyed_request_digest' => $digest,
+                'state' => 'pending',
+                'expires_at' => CarbonImmutable::now('UTC')->addDays(30),
+            ]);
             $receipt = ActionReceipt::query()->whereKey($receipt->id)->lockForUpdate()->firstOrFail();
             if ($receipt->generation !== $i->generation || ! hash_equals($receipt->keyed_request_digest, $digest)) {
                 throw new Conflict('This action key belongs to another request. Reload before retrying.');
@@ -247,9 +384,28 @@ final class EloquentAlertManagement implements AlertManagement
     {
         if ($op === 'connection.create') {
             $fp = $this->identity->digest(['provider' => 'email', 'email' => $v['email']]);
-            $c = Connection::query()->createOrFirst(['installation_id' => $i, 'provider' => 'email', 'target_fingerprint' => $fp], ['public_id' => (string) Str::uuid(), 'display_name' => trim($v['name']), 'enabled' => (bool) $v['enabled'], 'target_public' => ['display' => $this->definitions->mask($v['email'])], 'options' => []]);
+            $c = Connection::query()->createOrFirst(['installation_id' => $i, 'provider' => 'email', 'target_fingerprint' => $fp], [
+                'public_id' => (string) Str::uuid(),
+                'display_name' => trim($v['name']),
+                'enabled' => (bool) $v['enabled'],
+                'target_public' => ['display' => $this->definitions->mask($v['email'])],
+                'options' => [],
+            ]);
             if ($c->wasRecentlyCreated) {
-                Secret::query()->create(['public_id' => (string) Str::uuid(), 'installation_id' => $i, 'connection_id' => $c->id, 'owner_key' => 'connection:'.$c->public_id, 'secret_name' => 'email_address', 'revision' => 1, 'key_id' => (string) Str::uuid(), 'source' => 'database', 'ciphertext' => Crypt::encryptString($v['email']), 'state' => 'active', 'activated_at' => CarbonImmutable::now('UTC'), 'created_by_actor_key' => $actor]);
+                Secret::query()->create([
+                    'public_id' => (string) Str::uuid(),
+                    'installation_id' => $i,
+                    'connection_id' => $c->id,
+                    'owner_key' => 'connection:'.$c->public_id,
+                    'secret_name' => 'email_address',
+                    'revision' => 1,
+                    'key_id' => (string) Str::uuid(),
+                    'source' => 'database',
+                    'ciphertext' => Crypt::encryptString($v['email']),
+                    'state' => 'active',
+                    'activated_at' => CarbonImmutable::now('UTC'),
+                    'created_by_actor_key' => $actor,
+                ]);
             }
             if ($v['replaces'] ?? null) {
                 $old = $this->currentConnection($i, $v['replaces']);
@@ -333,10 +489,48 @@ final class EloquentAlertManagement implements AlertManagement
         if ($connections->count() !== count($v['connections']) || $connections->isEmpty()) {
             throw ValidationException::withMessages(['connections' => 'Choose enabled recipients for the explicit synthetic test.']);
         }
-        $json = json_encode(['class' => 'SyntheticMonitorCheck', 'message' => 'This is a synthetic integration delivery check.', 'file' => '', 'line' => 0, 'count' => '0'], JSON_THROW_ON_ERROR);
-        $event = AlertEvent::query()->create(['public_id' => (string) Str::uuid(), 'installation_id' => $i, 'generation' => $generation, 'event_type' => 'monitor.test', 'event_key' => hash('sha256', 'test:'.$action), 'action_public_id' => $action, 'issue_state_version' => 0, 'alert_generation' => 0, 'occurred_at' => CarbonImmutable::now('UTC'), 'recorded_at' => CarbonImmutable::now('UTC'), 'provenance' => 'synthetic_test', 'actor_key' => $actor, 'payload_ciphertext' => Crypt::encryptString($json), 'payload_digest' => hash('sha256', $json), 'planning_state' => 'planned', 'expires_at' => CarbonImmutable::now('UTC')->addDays(30)]);
+        $json = json_encode([
+            'class' => 'SyntheticMonitorCheck',
+            'message' => 'This is a synthetic integration delivery check.',
+            'file' => '',
+            'line' => 0,
+            'count' => '0',
+        ], JSON_THROW_ON_ERROR);
+        $event = AlertEvent::query()->create([
+            'public_id' => (string) Str::uuid(),
+            'installation_id' => $i,
+            'generation' => $generation,
+            'event_type' => 'monitor.test',
+            'event_key' => hash('sha256', 'test:'.$action),
+            'action_public_id' => $action,
+            'issue_state_version' => 0,
+            'alert_generation' => 0,
+            'occurred_at' => CarbonImmutable::now('UTC'),
+            'recorded_at' => CarbonImmutable::now('UTC'),
+            'provenance' => 'synthetic_test',
+            'actor_key' => $actor,
+            'payload_ciphertext' => Crypt::encryptString($json),
+            'payload_digest' => hash('sha256', $json),
+            'planning_state' => 'planned',
+            'expires_at' => CarbonImmutable::now('UTC')->addDays(30),
+        ]);
         foreach ($connections as $c) {
-            $d = Delivery::query()->create(['public_id' => (string) Str::uuid(), 'installation_id' => $i, 'generation' => $generation, 'event_id' => $event->id, 'connection_id' => $c->id, 'action' => 'connection_test', 'dedupe_key' => hash('sha256', 'test:'.$action.':'.$c->target_fingerprint), 'target_fingerprint' => $c->target_fingerprint, 'actor_required' => true, 'actor_key' => $actor, 'event_family' => 'test', 'status' => 'pending', 'eligible_at' => CarbonImmutable::now('UTC'), 'expires_at' => CarbonImmutable::now('UTC')->addDay()]);
+            $d = Delivery::query()->create([
+                'public_id' => (string) Str::uuid(),
+                'installation_id' => $i,
+                'generation' => $generation,
+                'event_id' => $event->id,
+                'connection_id' => $c->id,
+                'action' => 'connection_test',
+                'dedupe_key' => hash('sha256', 'test:'.$action.':'.$c->target_fingerprint),
+                'target_fingerprint' => $c->target_fingerprint,
+                'actor_required' => true,
+                'actor_key' => $actor,
+                'event_family' => 'test',
+                'status' => 'pending',
+                'eligible_at' => CarbonImmutable::now('UTC'),
+                'expires_at' => CarbonImmutable::now('UTC')->addDay(),
+            ]);
             if (isset($v['signing_key_id'])) {
                 $d->setAttribute('credential_key_id', $v['signing_key_id']);
                 $d->save();
@@ -356,7 +550,11 @@ final class EloquentAlertManagement implements AlertManagement
         abort_unless($this->caps->allows('manage'), 403);
         $event = AlertEvent::query()->where('installation_id', $i)->where('action_public_id', $id)->where('event_type', 'monitor.test')->firstOrFail();
 
-        return ['id' => $id, 'items' => Delivery::query()->where('event_id', $event->id)->get()->map(fn ($d) => $this->resource($d))->all(), 'queue_asynchronous' => $this->dispatcher->asynchronous()];
+        return [
+            'id' => $id,
+            'items' => Delivery::query()->where('event_id', $event->id)->get()->map(fn ($d) => $this->resource($d))->all(),
+            'queue_asynchronous' => $this->dispatcher->asynchronous(),
+        ];
     }
 
     public function reviewPreview(string $id): array
@@ -416,7 +614,21 @@ final class EloquentAlertManagement implements AlertManagement
                 throw new Conflict('The reviewed payload changed. Preview it again.');
             }
             $old = $d;
-            $d = $old->replicate(['public_id', 'sent_at', 'claim_token', 'lease_until', 'payload_ciphertext', 'payload_digest', 'payload_frozen_at', 'export_policy_revision', 'completed_at', 'last_error_code', 'cancellation_reason', 'attempt_count_total', 'cycle_attempts']);
+            $d = $old->replicate([
+                'public_id',
+                'sent_at',
+                'claim_token',
+                'lease_until',
+                'payload_ciphertext',
+                'payload_digest',
+                'payload_frozen_at',
+                'export_policy_revision',
+                'completed_at',
+                'last_error_code',
+                'cancellation_reason',
+                'attempt_count_total',
+                'cycle_attempts',
+            ]);
             $d->public_id = (string) Str::uuid();
             $d->revision = (int) Delivery::query()->where('installation_id', $i)->where('generation', $generation)->where('dedupe_key', $old->dedupe_key)->max('revision') + 1;
             $d->parent_delivery_id = $old->id;

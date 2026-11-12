@@ -24,7 +24,7 @@ jobs:
       - run: php workbench/build.php
       - run: composer test
       - run: composer analyse
-      - run: vendor/bin/pint --test
+      - run: composer format:check
       - run: git diff --exit-code -- dist
   database:
     runs-on: ubuntu-latest

@@ -128,7 +128,12 @@ final class RetentionSweep
         $i = $this->installations->current()->id;
         $cap = max(100, min(100000, (int) config('exception-monitor.operations.preview_limit', 10000)));
         $values = [];
-        foreach (['occurrence_days' => ['occurrence_evidence', 'occurrence_id'], 'delivery_days' => ['deliveries', 'completed_at'], 'aggregate_days' => ['metric_buckets', 'bucket_start_at'], 'activity_days' => ['activity', 'occurred_at']] as $key => [$table,$column]) {
+        foreach ([
+            'occurrence_days' => ['occurrence_evidence', 'occurrence_id'],
+            'delivery_days' => ['deliveries', 'completed_at'],
+            'aggregate_days' => ['metric_buckets', 'bucket_start_at'],
+            'activity_days' => ['activity', 'occurred_at'],
+        ] as $key => [$table,$column]) {
             $floor = now('UTC')->subDays($proposed[$key])->format('Y-m-d H:i:s.u');
             $q = $this->table($table, $i);
             if ($table === 'occurrence_evidence') {
@@ -145,6 +150,20 @@ final class RetentionSweep
             $values[$key] = ['eligible_count' => min($cap, $count), 'at_least' => $count > $cap, 'reduction' => $proposed[$key] < $before[$key]];
         }
 
-        return ['proposed' => $proposed, 'counts' => $values, 'limit' => $cap, 'as_of' => CarbonImmutable::now('UTC')->toISOString(), 'next_prune' => 'Host scheduler controlled; no future run is guaranteed.', 'preserves' => ['summaries and lifetime counts', 'minimal occurrence UUID identity', 'notes', 'saved views and preferences', 'GitHub associations'], 'note' => 'Estimates are bounded eligible-row counts, not a promise of one-batch deletion. Active references and parent chains may defer history cleanup. Increasing retention cannot restore expired evidence.'];
+        return [
+            'proposed' => $proposed,
+            'counts' => $values,
+            'limit' => $cap,
+            'as_of' => CarbonImmutable::now('UTC')->toISOString(),
+            'next_prune' => 'Host scheduler controlled; no future run is guaranteed.',
+            'preserves' => [
+                'summaries and lifetime counts',
+                'minimal occurrence UUID identity',
+                'notes',
+                'saved views and preferences',
+                'GitHub associations',
+            ],
+            'note' => 'Estimates are bounded eligible-row counts, not a promise of one-batch deletion. Active references and parent chains may defer history cleanup. Increasing retention cannot restore expired evidence.',
+        ];
     }
 }

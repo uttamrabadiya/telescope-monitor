@@ -36,7 +36,20 @@ final class EnvelopeCodec
         if ($item->kind !== 'exception_envelope') {
             throw new CaptureFailure('unknown_capture_kind');
         }
-        if (array_diff(array_keys($data), ['version', 'marker', 'origin', 'exception', 'execution', 'logs', 'queries', 'timeline', 'tags', 'impact', 'coverage', 'source'])) {
+        if (array_diff(array_keys($data), [
+            'version',
+            'marker',
+            'origin',
+            'exception',
+            'execution',
+            'logs',
+            'queries',
+            'timeline',
+            'tags',
+            'impact',
+            'coverage',
+            'source',
+        ])) {
             throw new CaptureFailure('malformed_envelope');
         }
         foreach (['marker', 'exception', 'execution', 'logs', 'queries', 'timeline', 'tags', 'coverage'] as $key) {
@@ -72,7 +85,20 @@ final class EnvelopeCodec
             throw new CaptureFailure('malformed_execution');
         }
         foreach (array_merge($data['logs'], $data['queries'], $data['timeline']) as $entry) {
-            if (! is_array($entry) || array_diff(array_keys($entry), ['type', 'level', 'message', 'connection', 'duration_ms', 'sql_template', 'sql_state', 'method', 'path', 'status', 'job_class', 'command'])) {
+            if (! is_array($entry) || array_diff(array_keys($entry), [
+                'type',
+                'level',
+                'message',
+                'connection',
+                'duration_ms',
+                'sql_template',
+                'sql_state',
+                'method',
+                'path',
+                'status',
+                'job_class',
+                'command',
+            ])) {
                 throw new CaptureFailure('malformed_timeline');
             }
         }

@@ -29,7 +29,12 @@ final class FakeMailProvider implements NotificationProvider
 
     public function send(array $envelope, array $target): Outcome
     {
-        $this->calls[] = ['envelope' => $envelope, 'target' => $target, 'transaction' => DB::transactionLevel(), 'recording' => Telescope::isRecording()];
+        $this->calls[] = [
+            'envelope' => $envelope,
+            'target' => $target,
+            'transaction' => DB::transactionLevel(),
+            'recording' => Telescope::isRecording(),
+        ];
         if ($this->during) {
             ($this->during)();
         }
@@ -60,7 +65,16 @@ final class EmailAlertsTest extends TestCase
 
     private function definition(array $connections, array $extra = []): array
     {
-        $base = ['name' => 'Testing errors', 'enabled' => true, 'events' => ['error.created', 'error.regressed'], 'conditions' => ['environments' => ['testing'], 'class' => null, 'origin' => null, 'tag' => null], 'connections' => $connections, 'threshold_count' => null, 'window_seconds' => null, 'cooldown_seconds' => 0];
+        $base = [
+            'name' => 'Testing errors',
+            'enabled' => true,
+            'events' => ['error.created', 'error.regressed'],
+            'conditions' => ['environments' => ['testing'], 'class' => null, 'origin' => null, 'tag' => null],
+            'connections' => $connections,
+            'threshold_count' => null,
+            'window_seconds' => null,
+            'cooldown_seconds' => 0,
+        ];
         if (isset($extra['conditions'])) {
             $extra['conditions'] = array_merge($base['conditions'], $extra['conditions']);
         }
@@ -126,7 +140,12 @@ final class EmailAlertsTest extends TestCase
         Telescope::tag(fn () => ['team:payments']);
         $a = $this->recipient();
         $this->rule([$a]);
-        $this->rule([$a], ['events' => ['error.threshold_reached'], 'threshold_count' => 1, 'window_seconds' => 300, 'conditions' => ['origin' => 'unknown', 'tag' => 'team:payments']]);
+        $this->rule([$a], [
+            'events' => ['error.threshold_reached'],
+            'threshold_count' => 1,
+            'window_seconds' => 300,
+            'conditions' => ['origin' => 'unknown', 'tag' => 'team:payments'],
+        ]);
         $this->capture();
         $this->process();
         $this->assertDatabaseCount('exception_monitor_deliveries', 1);
@@ -141,7 +160,12 @@ final class EmailAlertsTest extends TestCase
     public function test_threshold_counts_out_of_order_live_events_and_does_not_use_unfiltered_metrics(): void
     {
         $a = $this->recipient();
-        $this->rule([$a], ['events' => ['error.threshold_reached'], 'threshold_count' => 2, 'window_seconds' => 900, 'conditions' => ['origin' => 'web']]);
+        $this->rule([$a], [
+            'events' => ['error.threshold_reached'],
+            'threshold_count' => 2,
+            'window_seconds' => 900,
+            'conditions' => ['origin' => 'web'],
+        ]);
         $this->capture();
         $this->capture();
         $this->process();
@@ -194,7 +218,13 @@ final class EmailAlertsTest extends TestCase
     {
         $a = $this->recipient();
         $this->rule([$a]);
-        $this->provider->outcomes = [Outcome::retryable(CarbonImmutable::now('UTC')->addMinutes(10)), Outcome::retryable(), Outcome::retryable(), Outcome::retryable(), Outcome::retryable()];
+        $this->provider->outcomes = [
+            Outcome::retryable(CarbonImmutable::now('UTC')->addMinutes(10)),
+            Outcome::retryable(),
+            Outcome::retryable(),
+            Outcome::retryable(),
+            Outcome::retryable(),
+        ];
         $this->capture();
         $this->process();
         $this->sendAll();
@@ -397,7 +427,7 @@ final class EmailAlertsTest extends TestCase
         $this->getJson('/exception-monitor/api/v1/deliveries')->assertOk()->assertDontSee('oncall@example.test')->assertJsonPath('exception_monitor_private.items.0.destination', 'o***@example.test');
     }
 
-    public function test_host_email_provider_uses_array_transport_and_plain_safe_content(): void
+    public function test_host_email_provider_uses_array_transport_and_multipart_safe_content(): void
     {
         config(['mail.default' => 'array', 'exception-monitor.alerts.mailer' => 'array']);
         $this->app->bind(NotificationProvider::class, HostEmailProvider::class);
@@ -412,7 +442,8 @@ final class EmailAlertsTest extends TestCase
         $this->assertSame('oncall@example.test', $message->getTo()[0]->getAddress());
         $this->assertStringContainsString('Open investigation:', $message->getTextBody());
         $this->assertStringNotContainsString('private-value', $message->getTextBody());
-        $this->assertNull($message->getHtmlBody());
+        $this->assertStringContainsString('Telescope Monitor', $message->getHtmlBody());
+        $this->assertStringNotContainsString('private-value', $message->getHtmlBody());
     }
 
     public function test_reviewed_resend_requires_current_digest_and_creates_a_linked_new_identity(): void
@@ -538,7 +569,14 @@ final class EmailAlertsTest extends TestCase
         $this->capture();
         $this->process();
         $old = $this->delivery();
-        $replacement = $this->postJson('/exception-monitor/api/v1/alerting/email', ['client_key' => (string) Str::uuid(), 'name' => 'Replacement', 'email' => 'new@example.test', 'enabled' => true, 'replaces' => $a, 'replaces_version' => 1])->assertOk()->json('exception_monitor_private.id');
+        $replacement = $this->postJson('/exception-monitor/api/v1/alerting/email', [
+            'client_key' => (string) Str::uuid(),
+            'name' => 'Replacement',
+            'email' => 'new@example.test',
+            'enabled' => true,
+            'replaces' => $a,
+            'replaces_version' => 1,
+        ])->assertOk()->json('exception_monitor_private.id');
         $this->assertNotSame($a, $replacement);
         $this->assertSame('cancelled', $this->delivery()->status);
         $this->assertSame($old->connection_id, $this->delivery()->connection_id);

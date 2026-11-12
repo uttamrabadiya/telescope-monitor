@@ -21,6 +21,13 @@ final class EloquentInstallationRepository implements InstallationRepository
             }
         }
 
+        // Schema discovery belongs to explicit setup/health checks, never capture.
+        $installation = $this->current();
+        $installation->schema_version = $this->schemaVersion();
+        if ($installation->isDirty('schema_version')) {
+            $installation->save();
+        }
+
         return 'ready';
     }
 
@@ -42,7 +49,15 @@ final class EloquentInstallationRepository implements InstallationRepository
             return $existing;
         }
 
-        return Installation::query()->createOrFirst(['singleton_key' => 'default'], ['public_id' => (string) Str::uuid(), 'source_epoch' => (string) Str::uuid(), 'schema_version' => $this->schemaVersion(), 'setup_state' => []]);
+        $created = Installation::query()->createOrFirst(['singleton_key' => 'default'], [
+            'public_id' => (string) Str::uuid(),
+            'source_epoch' => (string) Str::uuid(),
+            // Zero means not yet verified by an explicit storage check.
+            'schema_version' => 0,
+            'setup_state' => [],
+        ]);
+
+        return $created->refresh();
     }
 
     public function lock(): Installation
@@ -57,11 +72,11 @@ final class EloquentInstallationRepository implements InstallationRepository
         return Installation::query()->where('singleton_key', 'default')->sharedLock()->firstOrFail();
     }
 
-    public function verifySource(string $signature): void
+    public function verifySource(string $signature): Installation
     {
         $installation = $this->current();
         if ($installation->source_signature === null) {
-            Database::connection()->transaction(function () use ($signature) {
+            $installation = Database::connection()->transaction(function () use ($signature) {
                 $installation = $this->lock();
                 if ($installation->source_signature === null) {
                     $installation->source_signature = $signature;
@@ -69,10 +84,14 @@ final class EloquentInstallationRepository implements InstallationRepository
                 } elseif (! hash_equals($installation->source_signature, $signature)) {
                     throw new CaptureFailure('source_epoch_review_required');
                 }
+
+                return $installation;
             }, 5);
         } elseif (! hash_equals($installation->source_signature, $signature)) {
             throw new CaptureFailure('source_epoch_review_required');
         }
+
+        return $installation;
     }
 
     public function checkpoint(Installation $installation, int $sequence): void

@@ -23,24 +23,27 @@ final class CaptureObservation
             if (isset($metadata['generation']) && $metadata['generation'] !== $i->generation) {
                 return;
             }
-            Telescope::withoutRecording(fn () => $this->health->record($i->id, [[
-                'phase' => $metadata['phase'] ?? 'completed',
-                'key' => $key,
-                'label' => match ($key) {
-                    'capture_worker' => 'Capture processing',
-                    'capture_recovery' => 'Capture recovery',
-                    'capture_prune' => 'Capture pruning',
-                    'delivery_worker' => 'Email delivery processing',
-                    'delivery_recovery' => 'Email delivery recovery',
-                    'delivery_prune' => 'Email delivery pruning',
-                    'delivery_dispatch' => 'Email dispatch',
-                    default => 'Capture ingestion',
-                },
-                'state' => $state,
-                'kind' => 'observation',
-                'detail' => $detail,
-                'metadata' => $metadata + ['generation' => $i->generation],
-            ]]));
+            Telescope::withoutRecording(fn () => $this->health->record($i->id, [
+                [
+                    'phase' => $metadata['phase'] ?? 'completed',
+                    'key' => $key,
+                    'label' => match ($key) {
+                        'capture_worker' => 'Capture processing',
+                        'capture_import' => 'Telescope importer',
+                        'capture_recovery' => 'Capture recovery',
+                        'capture_prune' => 'Capture pruning',
+                        'delivery_worker' => 'Email delivery processing',
+                        'delivery_recovery' => 'Email delivery recovery',
+                        'delivery_prune' => 'Email delivery pruning',
+                        'delivery_dispatch' => 'Email dispatch',
+                        default => 'Capture ingestion',
+                    },
+                    'state' => $state,
+                    'kind' => 'observation',
+                    'detail' => $detail,
+                    'metadata' => $metadata + ['generation' => $i->generation],
+                ],
+            ]));
         } catch (Throwable) {
         }
     }
