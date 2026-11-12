@@ -1,327 +1,385 @@
-# Telescope Monitor
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="art/logo-dark.svg">
+    <img src="art/logo.svg" width="440" height="96" alt="Telescope Monitor">
+  </picture>
+</p>
 
-A Composer package for a complete error-monitoring experience built on Laravel Telescope, using Telescope's storage connection by default and the host application's authentication, mailer, queue and scheduler.
+<p align="center">Turn Telescope exceptions into an error-monitoring workflow, inside your Laravel application.</p>
 
-## Current implementation status
+<p align="center">
+  <img src="https://img.shields.io/badge/PHP-8.3%2B-777BB4" alt="Requires PHP 8.3 or newer">
+  <img src="https://img.shields.io/badge/Laravel-13-FF2D20" alt="Requires Laravel 13">
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-4040C8" alt="MIT license"></a>
+</p>
 
-The previous dashboard-only prototype has been archived and removed from the active source tree. Phases 1–7 are implemented. **Phase 8 has a review-only release candidate; publication is held until the remaining acceptance gates pass.** See the [release verification report](docs/release-verification-v1.0.0-rc.1.md) and [release notes](docs/release-notes-v1.0.0-rc.1.md).
+<p align="center">
+  <a href="#installation">Installation</a> ·
+  <a href="#running-in-production">Running in production</a> ·
+  <a href="#your-first-error">Your first error</a> ·
+  <a href="#configuration">Configuration</a> ·
+  <a href="#documentation">Documentation</a>
+</p>
 
-Implemented now:
+Telescope Monitor groups exceptions, preserves sanitized investigation evidence, and helps your team resolve errors and receive useful alerts. It uses your application's Telescope access policy, mailer and queue configuration. The dashboard ships with compiled assets: no frontend setup is needed in your app.
 
-- Package discovery, safe migration/config publishing and prototype-schema detection.
-- Stable installation identity and configuration revisions.
-- Explicit host capability checks for viewing, operating and administration.
-- A package-owned Vue 3/TypeScript dashboard with compiled assets and locally shipped Figtree fonts.
-- Resumable setup position, editable general/privacy/retention preferences, deployment locks and stale-edit protection.
-- Authorized, bounded redaction preview that does not persist sample text.
-- Configuration diagnostics that distinguish configured, observed and unverified states.
-- Zero package database queries in host capture; deployment-signed Telescope source, a separate importer, encrypted buffering and replay-safe occurrence identities.
-- Sanitized evidence independent of Telescope retention, event-time metrics, bounded recovery/reconciliation and evidence pruning.
-- A real queued synthetic capture check in onboarding, with truthful pending, filtered, disabled and verified states.
-- Overview/trends and a filtered, paginated error inbox, with test data excluded by default.
-- Stable occurrence URLs, retained stack/context/activity, scoped insights, activity and explicit expired/unreadable states.
-- Versioned, idempotent Resolve/Reopen/Ignore/Snooze/Unsnooze actions with actor audit, suppression cutoffs and bounded expiry maintenance.
-- Encrypted plain-text notes with safe links, author edits, conflict recovery and body-removing tombstones.
-- Personal/shared saved definitions, copy/rename/delete and per-actor favorites/order/defaults with private-view isolation.
-- Optional host-directory assignments, unavailable-reference handling and assignment filtering; disabled until deployment configuration enables a provider.
+**Pre-release:** the package is not published on Packagist yet. Install from a local checkout using the Composer path repository below. Release qualification and remaining gaps are recorded in the [verification report](docs/release-verification-v1.0.0-rc.1.md).
 
-- Typed alert rules for new errors, regressions, fixed UTC frequency thresholds and optional activity events.
-- Canonical encrypted email destinations, sanitized previews and explicit queued synthetic tests.
-- Transactional delivery intent, overlapping-rule coalescing, shared cooldown gates, bounded attempts, leases, recovery and reviewed resends.
-- Filtered delivery history, frozen-payload detail, attempt outcomes and processing/recovery observations.
+## What you get
 
-Slack, signed webhooks and GitHub Issues share the durable delivery system. Operational completion, retention previews and the explicitly confirmed deployment purge are implemented. No recipient or enabled rule is seeded automatically. The development preview uses the non-network array mailer.
+| Investigate | Respond | Connect |
+| --- | --- | --- |
+| Grouped errors, occurrences and trends | Resolve, reopen, ignore and snooze | Email and Slack alerts |
+| Stack frames, request/job context and activity | Notes, saved views and optional assignments | Signed webhooks |
+| Optional sanitized SQL templates | New-error, regression, frequency and activity rules | Create or link GitHub Issues |
 
-The [phased plan](docs/implementation-plan-v1.md), [product specification](docs/product-specification-v1.md), [architecture](docs/technical-architecture-v1.md) and [schema](docs/database-schema-v1.md) define the intended v1 release. The approved [mockups](docs/design/mockups-v1/README.md) remain the visual reference.
+**Zero monitoring database queries in host capture.** Hooks prepare signed metadata in memory. Telescope performs its existing storage work; a separate importer handles monitoring reads, writes, sanitization and alert planning. The monitoring dashboard and explicit monitoring commands intentionally query storage.
+
+```text
+Your app → Telescope storage → Importer → Error dashboard
+                                      ↘ Delivery queue → Notifications
+```
+
+Telescope is the initial durable buffer. Keep its records long enough for the importer to catch up; evidence becomes independent of Telescope after successful buffering.
 
 ## Requirements
 
-The declared constraints are PHP 8.3+, Laravel 13 and Telescope 5.27+. Exact verified combinations and database qualifications are in the release verification report; constraints alone are not compatibility evidence. Install current security updates. The Laravel 13.0.0 minimum fixture was blocked by Composer advisories and is not certified. Consumers install compiled dashboard assets through Composer and need no Node.js installation or host frontend integration. The Composer name remains provisional and the package is not published.
+| Dependency | Requirement |
+| --- | --- |
+| PHP | 8.3+ with cURL, mbstring and your database PDO driver |
+| Laravel | 13.x |
+| Laravel Telescope | 5.27+ within the supported 5.x series, enabled with ExceptionWatcher |
+| Queue | Laravel database or Redis queue for notifications and queued setup checks |
+| Background processes | A supervised importer, queue workers and Laravel's scheduler |
 
-## Install in a host application
+These are Composer constraints; verified combinations and remaining compatibility gates are documented in the release report. Node.js is needed only when developing this package.
 
-Install and configure official Telescope as a production dependency first. Until this package is published, add this repository as a Composer path repository and require `telescope-monitor/telescope-monitor:@dev`.
+## Installation
 
-This pre-release uses a clean naming reset: configuration, environment variables, commands, queues, routes, capture metadata and all 25 package tables use Telescope Monitor names. Earlier installations require a fresh package schema and configuration; there is no data conversion or compatibility alias. Remove their previously published package migrations before publishing these six migrations, update host schedules and worker queue names, clear configuration/route caches, and restart workers and importers. Recreate only disposable development storage; do not run a host-wide database reset against shared application data.
+### 1. Install Telescope first
 
-```sh
-php artisan telescope-monitor:install
-php artisan telescope-monitor:migrate
+If Telescope is already installed and recording exceptions, continue to step 2. Otherwise, follow [Laravel's Telescope installation guide](https://laravel.com/docs/13.x/telescope#installation) and configure it for your environment. It must be available as a production dependency when monitoring production.
+
+Telescope's filters still decide what is stored. An exception filtered out by Telescope cannot be imported automatically. For production, see [retain context only for failed batches](#retain-context-only-for-failed-batches) to keep related queries and logs without persisting successful executions.
+
+### 2. Add this package with Composer
+
+Clone this repository beside your Laravel app, then run these commands **from your app directory**. Adjust the path if your checkout lives elsewhere:
+
+```bash
+composer config repositories.telescope-monitor '{"type":"path","url":"../telescope-monitor","options":{"symlink":true,"versions":{"telescope-monitor/telescope-monitor":"dev-main"}}}'
+composer require telescope-monitor/telescope-monitor:dev-main
 ```
 
-The installer preserves existing configuration and skips a migration already published under its stable filename suffix. It does not migrate automatically. A database containing the old prototype tables without the replacement installation marker is rejected explicitly. Back up that host and review a conversion or choose a fresh database; the installer never drops those tables.
+The symlink lets your app use changes from the local checkout without publishing a release. Production deployments must also have the package source available; your laptop's path is not a deployable dependency source.
 
-By default, monitoring routes use Laravel Telescope's own `Authorize` middleware and `Telescope::check($request)`. The package does not add Laravel's session-login `auth` middleware. With Laravel's default Telescope application provider, local access is allowed and other environments use `viewTelescope`. A custom `Telescope::auth(...)` callback is honored, including a callback that denies local access. Configure Telescope's existing access policy; no separate monitor login route is required.
+### 3. Choose storage and install
 
-```php
-'middleware' => ['web'],
-'authorization' => [
-    'driver' => 'telescope',
-],
-```
-
-All Telescope-authorized visitors have view, operate and manage capabilities in this default mode. Web sessions and CSRF protection remain enabled. Existing published configurations are preserved: remove `auth` from the monitoring middleware array to adopt this mode, then clear/rebuild configuration and route caches. Open `/telescope-monitor/setup` directly.
-
-Signed-in users retain their provider-backed identity. Authorized visits without a user use a stable **Telescope operator (shared)** identity; no host user record is created and nobody is signed in automatically. Guest notes and personal saved views belong to that shared identity, so authorized guests share their ownership. Existing account-owned private views remain with their original account.
-
-Queued manual work re-resolves the saved user (or uses an actual guest context for a shared operator) and calls the current `Telescope::check()` policy. There is no separate guest-job opt-in. The legacy `allow_guest_jobs` setting is ignored and can be removed from published configuration. The worker scope supplies no browser cookies, authorization headers or invented loopback address, and restores the host request/auth/gate state afterward. Default local and gate-based policies work without a separate login; revoked/throwing policies fail closed before provider I/O. Request-only policies must explicitly support the marked `telescope-monitor.worker` context through the host's Telescope policy rather than relying on replayed browser credentials. Restart workers after policy/code changes.
-
-For applications needing separate viewer/operator/admin roles, opt into `authorization.driver = 'gates'` and define the existing capability gates:
-
-```php
-use Illuminate\Support\Facades\Gate;
-
-Gate::define('viewTelescopeMonitor', fn ($user) => $user->can('view-operations'));
-Gate::define('operateTelescopeMonitor', fn ($user) => $user->can('operate-monitoring'));
-Gate::define('manageTelescopeMonitor', fn ($user) => $user->can('manage-monitoring'));
-```
-
-Replace the predicates with actual host permissions. Gate mode requires a resolvable authenticated actor, and each capability also requires view access. Add the host's login middleware if desired. Custom hosts can bind `TelescopeMonitor\Auth\ActorResolver`; the package does not require a particular User model. Unknown authorization drivers deny access.
-
-## Database storage
-
-Monitoring storage resolves in this order:
-
-1. `telescope-monitor.database.connection`, configured by `TELESCOPE_MONITOR_DB_CONNECTION`.
-2. `telescope.storage.database.connection`.
-3. Laravel's `database.default` when neither setting names a connection.
-
-Leave the override unset to keep all monitoring tables alongside Telescope. To use a different database, define a **named Laravel connection** in `config/database.php`, for example `monitoring`, and set:
+By default, package tables use Telescope's database connection, falling back to Laravel's default connection. To use a separate database, define a named connection in `config/database.php` and set this **before migrating**:
 
 ```dotenv
 TELESCOPE_MONITOR_DB_CONNECTION=monitoring
 ```
 
-This variable is a connection name, not a database name or URL. Credentials and the actual database name remain in the host's Laravel connection configuration. An unknown or invalid name fails; it never silently redirects writes to the primary database. Provision the database and permissions before installation; the package creates its tables, not the database server/catalog.
+Leave it unset to inherit Telescope's connection. `monitoring` is a Laravel connection name, not a database name; provision the database and permissions first.
 
-Configure storage before the first install, then run:
-
-```sh
+```bash
 php artisan telescope-monitor:install
 php artisan telescope-monitor:migrate
 ```
 
-The dedicated migration command runs only the six published package migrations, recording them on the effective monitoring connection. For a connection different from the host default, new migrations publish under `database/migrations/telescope-monitor` so ordinary host migration discovery does not run them accidentally. Already published filenames are preserved across both locations. `--pretend` and production `--force` are supported. Do not run all host migrations against the monitoring database.
+Use `php artisan telescope-monitor:migrate --force` in production. The installer publishes configuration and missing package migrations; the migration command runs only those package migrations on the selected connection. You do not need to publish or build frontend assets.
 
-Models, queries, transactions, after-commit callbacks, schema checks, retention and purge use the same effective connection. Package foreign keys remain within that database. Host users, sessions, cache and queue storage keep their existing configuration; the queue connection is a separate setting. Telescope source reads still use Telescope's own storage configuration even when the monitoring override points elsewhere.
+<details>
+<summary>Moving from the earlier pre-release name?</summary>
 
-Changing the connection selects a different installation; it does **not** copy existing history or relocate tables. Existing installations require a planned transfer of the complete package schema/data and migration ledger with workers stopped, or an explicitly fresh setup on the new connection. Preserve encryption keys. Rebuild cached configuration and restart workers after configuration changes. Do not drop old tables until a separately verified transfer is complete.
+This pre-release uses a clean naming reset. Configuration, environment variables, commands, routes, queues, capture markers and all 25 package tables use Telescope Monitor names. There are no compatibility aliases or automatic data conversion.
 
-Separate databases do not provide a distributed transaction between Telescope source writes, monitoring records and queue broker writes. Durable receipts and recovery still apply, but source filtering/pruning, storage outages and missing signed markers remain capture limits. The same-database default minimizes those coordination concerns.
+Stop old monitoring processes, back up existing data, and prepare a fresh package schema and `config/telescope-monitor.php`. Review/remove the old package's published migration files before publishing the renamed migrations; update host schedules and queue names. Remove stale configuration/route caches and restart host workers. Do not reset a shared application database to perform this change. Existing monitoring history is not automatically transferred.
 
-## Configuration
+</details>
 
-Publishable configuration lives in `config/telescope-monitor.php`. The path, auth guard, middleware, capability names, queue selection and deployment locks are host-managed. Dashboard preferences are stored in package tables.
+### 4. Open the dashboard
 
-A deployment can lock a preference:
-
-```php
-'locked' => [
-    'privacy.identify_users' => false,
-    'retention.occurrence_days' => 14,
-],
+```text
+https://your-app.test/telescope-monitor/setup
 ```
 
-The UI identifies these values as deployment-managed. The canonical dashboard URL is derived from the trusted host `app.url` and package path and is locked. No request Host header supplies notification link configuration. Preference edits require the current version; stale edits return a conflict and preserve the browser draft.
+Access follows your existing Telescope authorization policy. No separate monitoring login is added. With Laravel's default Telescope policy, local access is permitted and non-local access uses `viewTelescope`.
 
-For an alternate dashboard path, configure `TELESCOPE_MONITOR_PATH=operations/monitor`. Root, wildcard and traversal paths are invalid. The package excludes only its exact routes/descendants from Telescope collection and registers its fixed private-envelope redaction key without replacing host entry/batch filter callbacks.
+All Telescope-authorized visitors receive monitoring view, operate and manage access by default. Anonymous authorized visitors share one operator identity, including ownership of personal views and notes. See [access configuration](docs/configuration-reference.md#dashboard-access) for separate roles and worker authorization.
 
-Privacy preferences restrict capture before durable buffering and are checked again at ingestion. Retention sweeps must be scheduled explicitly. Infrastructure credentials remain host-managed. Email uses the host mailer and explicitly configured destinations; SMTP credentials remain host-managed; integration credentials use encrypted connection records.
+## Running in production
 
-## Capture operations
+Run the following processes from your application's directory, using Supervisor or your existing process manager. Use the same deployment configuration and signing/encryption keys in all processes.
 
-After an upgrade, rerun `telescope-monitor:install` and `migrate` to publish only missing migrations. Restart long-lived workers after installing code or changing host deployment configuration.
+### Importer
 
-Run a separate, supervised Telescope importer (never from a host request, job or termination callback):
-
-```sh
+```bash
 php artisan telescope-monitor:import --watch --process --limit=100 --sleep=2
 ```
 
-This polls accepted Telescope exceptions, sanitizes/encrypts their evidence and processes due inbox work outside application execution. A one-pass command is `php artisan telescope-monitor:import --limit=100 --process`. For minute-level latency, schedule that command with `withoutOverlapping()` instead. Restart the importer explicitly after deployment; `queue:restart` does not restart it.
+The importer handles bounded source pages, processes due inbox records, then waits two seconds between passes. Initial backlogs may take multiple passes. Increase `--limit` deliberately when catching up.
 
-Without `--process`, use an asynchronous database/Redis capture worker (`php artisan queue:work --queue=telescope-monitor-capture --timeout=60 --tries=1`) or the explicit process command. Select a named connection with `telescope-monitor.queues.connection` and pass the same connection to the worker. Jobs contain identifiers only. Keep queue `retry_after` above the timeout; inbox leases last 120 seconds. The importer is required even if a capture queue worker already runs.
+<details>
+<summary>Example Supervisor configuration for the importer</summary>
 
-Schedule bounded sweeps in the host application's console routes:
+Replace the application path, PHP executable and user with your deployment values. The log directory must exist and be writable.
+
+```ini
+[program:telescope-monitor-importer]
+directory=/var/www/your-app
+command=/usr/bin/php artisan telescope-monitor:import --watch --process --limit=100 --sleep=2
+user=www-data
+autostart=true
+autorestart=true
+startsecs=5
+stopsignal=TERM
+stopasgroup=true
+killasgroup=true
+stopwaitsecs=120
+redirect_stderr=true
+stdout_logfile=/var/www/your-app/storage/logs/telescope-monitor-importer.log
+stdout_logfile_maxbytes=10MB
+stdout_logfile_backups=3
+```
+
+Supervise the queue workers below as separate programs too. Restart the importer explicitly on deployment; `php artisan queue:restart` only restarts Laravel queue workers.
+
+</details>
+
+### Queue workers
+
+Run each command in a separate process:
+
+```bash
+php artisan queue:work --queue=telescope-monitor-capture --timeout=60 --tries=1
+php artisan queue:work --queue=telescope-monitor-deliveries --timeout=45 --tries=1
+```
+
+| Worker | Purpose |
+| --- | --- |
+| `telescope-monitor-capture` | Executes queued synthetic capture checks and dispatched capture work. Ordinary inbox processing is also handled by the importer's `--process` option. |
+| `telescope-monitor-deliveries` | Sends eligible email, Slack, webhook and GitHub operations. |
+
+Use a database or Redis queue, not `sync`. Workers inherit the host queue connection unless `telescope-monitor.queues.connection` selects another one; pass that connection to `queue:work` as well. Keep its `retry_after`/visibility timeout above the worker timeout. For the standard Laravel database queue, `DB_QUEUE_RETRY_AFTER=180` is a starting value if all workers using that connection have shorter timeouts.
+
+Keep your application's ordinary workers unchanged. The delivery ledger manages its own retries, which is why these workers use `--tries=1`.
+
+### Scheduler and retention
+
+Add these to `routes/console.php` (or your application's existing scheduler), keeping unrelated application schedules:
 
 ```php
 use Illuminate\Support\Facades\Schedule;
 
-Schedule::command('telescope-monitor:recover --limit=100')->everyMinute()->withoutOverlapping();
-Schedule::command('telescope-monitor:prune --limit=1000')->hourly()->withoutOverlapping();
+Schedule::command('telescope-monitor:recover --limit=100')
+    ->hourly()->withoutOverlapping();
+
+Schedule::command('telescope-monitor:recover-deliveries --limit=100')
+    ->everyMinute()->withoutOverlapping();
+
+Schedule::command('telescope-monitor:expire-snoozes --limit=100')
+    ->everyFiveMinutes()->withoutOverlapping();
+
+Schedule::command('telescope-monitor:prune --limit=1000')
+    ->hourly()->withoutOverlapping();
+
+Schedule::command('telescope-monitor:prune-deliveries --limit=1000')
+    ->hourly()->withoutOverlapping();
+
+Schedule::command('telescope:prune --hours=24')
+    ->hourly()->withoutOverlapping();
 ```
 
-`recover` redispatches pending/retryable input and expired worker leases. `reconcile` advances an oldest-first source checkpoint plus a persisted 15-minute overlap cursor; only valid signed source markers can prove reportability. Recovery never invents legacy reportability or sends retroactive notifications. `reconcile --hours=24 --limit=1000` explicitly scans the oldest bounded page in that time window without moving the normal checkpoint. Limits are 1–10,000; history windows are 1–720 hours. Repeated historical requests cover the same page unless the window/limit changes; normal incremental recovery is the route for continued catch-up.
+Ensure the server runs Laravel's scheduler every minute:
 
-The host capture hooks perform **zero package database reads or writes**, even when monitoring storage is unavailable. Signing uses deployment configuration (`capture.signing_key`, otherwise a domain-separated APP_KEY); no installation/settings/secret-table lookups or database-backed queue dispatches run in HTTP requests, host commands, jobs or scheduled host tasks. Grouping callbacks and privacy reads run in the importer. Current privacy is enforced before package buffering, at processing and on evidence reads. Telescope's own source storage and privacy remain independent.
+```cron
+* * * * * cd /var/www/your-app && /usr/bin/php artisan schedule:run >> /dev/null 2>&1
+```
 
-**Telescope is the initial durable buffer.** Its retention must cover importer outages. Pruning source before import loses those captures; previously buffered evidence remains independent. Signing failures preserve the host/Telescope exception but cannot create retrospective reportability proof. Installation/health checks and explicit monitoring commands still query storage. No new migration is needed. See [Telescope-source capture and upgrade guide](docs/telescope-source-capture.md) for deployment, key rotation, latency and purge/recovery guarantees.
+- **Capture recovery is a safety net:** `--process` already handles due inbox work; scheduled recovery also redispatches stranded synthetic checks.
+- **Delivery recovery is needed:** it queues eligible retries, deferred notifications and expired processing claims. The delivery worker does the sending.
+- **Pruning is bounded:** large cleanup backlogs may need repeated passes. The general prune includes delivery cleanup; the separate delivery prune is available for targeted maintenance.
+- **Telescope retention is separate:** this example keeps source data for 24 hours, including exceptions. Replace duplicate pruning schedules; `--keep-exceptions` would retain exceptions indefinitely. Increase the window if importer outages can last longer. Source pruned before import cannot be recovered.
 
-For deliberate local/admin operation without a worker, `telescope-monitor:process --limit=100` processes a bounded set inline **only in that CLI command**. It does not execute pending queued synthetic probes; those need an asynchronous worker.
+Do not also schedule import when Supervisor runs it. `reconcile` is a manual, non-alerting repair scan, not the normal ingestion schedule. Heartbeat is optional and is omitted here.
 
-Processed/cancelled inbox bodies are removed after 24 hours. Pending/failed ciphertext expires after the occurrence retention period. Expired evidence is unavailable immediately and physically deleted by pruning. Durable UUID identities and lifetime counts survive evidence expiry; replay cannot recreate expired snapshots or count them again. Five-minute metrics expire after 48 hours; hourly metrics follow aggregate retention. Activity expires after 90 days; disabled event records expire after 30 days. Back up the host encryption keys: losing them makes retained ciphertext unreadable and prevents marker verification. See the operations guide for host-key rewrap and explicitly confirmed purge.
+Prefer a scheduler instead of Supervisor? Replace watch mode with `Schedule::command('telescope-monitor:import --limit=100 --process')->everyMinute()->withoutOverlapping();`. Use one ingestion approach.
 
-Grouping v1 uses environment, exception class, application-relative file and line, excluding the message. A host `capture.grouping_callback` receives only that replay-stable input set and returns a bounded string; increment `capture.grouping_version` when changing its policy. `capture.source_timezone` defaults to the host application timezone for Telescope source-window queries; package timestamps always use UTC.
+## Your first error
 
-Normal envelopes are at most 128 KiB; source/context reads, traces, logs, tags and import pages have explicit limits. Related request bodies/headers/cookies, trace arguments/objects, query bindings and arbitrary context are never copied. Queries retain connection/duration by default; optional sanitized SQL templates are described below. Default text redaction handles common credential patterns; application-specific secrets still need configured redaction patterns and appropriate Telescope policy. Source records are governed separately by the host.
+1. Start the importer and both queue workers, then finish `/telescope-monitor/setup`.
+2. Review **Settings → Capture & privacy** and **Retention**. Run the synthetic capture check; its test occurrence is excluded from the normal inbox.
+3. Trigger an exception using an existing application test command or a development-only route. Confirm that Telescope stored it, then check **Errors** after the importer catches up.
+4. Configure your Laravel mailer, add an enabled recipient under **Settings → Email notifications**, and send an explicit synthetic delivery test.
+5. Create and enable an alert rule, select the matching environment and recipient, and trigger its event. Automatic rules allow `production` by default; add other environments to `alerts.allowed_environments` when needed.
+6. Check **Alerts → Delivery history**. `Sent` means the transport accepted the message; confirm actual inbox receipt separately.
 
-A changed source database signature or backwards source sequence stops reconciliation for explicit epoch review; the package never silently resets identity. A source that was filtered, unmarked, pruned or unavailable before durable buffering cannot be reconstructed. Setup and system health expose pending/failed counts, oldest pending receipt, safe error code and actual processing/maintenance times. The overview and investigation UI consume these observations; email delivery has its own durable ledger and observations described below.
+A new Telescope entry is an **occurrence**, not necessarily a new error group. Default grouping uses environment, exception class, application-relative file and line. Changing only the message does not create a new group. For a regression test, resolve a group and trigger that same exception again.
 
-## Backfill existing Telescope exceptions
+### Check capture isolation and recovery
 
-For retained exceptions that predate this package, use the explicit CLI importer. Choose the **original source environment**; legacy Telescope rows do not reliably prove it, and it is never guessed from the current app environment:
+Pause the importer, trigger a test exception and inspect Telescope. The exception should be stored without any `telescope_monitor_*` queries from the host capture path; it will not reach the monitor until import runs. Resume the importer or run:
 
-```sh
+```bash
+php artisan telescope-monitor:import --limit=100 --process
+```
+
+Repeat the pass: the same source UUID must not increase the occurrence count. Run this test within your Telescope retention window.
+
+### Import older Telescope history
+
+Unmarked exceptions from before installation require explicit backfill:
+
+```bash
 php artisan telescope-monitor:backfill --environment=production --limit=100 --dry-run
 php artisan telescope-monitor:backfill --environment=production --limit=100
 ```
 
-Replace `production` when appropriate. Default output is a readable page summary with candidate/import/duplicate/skip/pending/failure counts and copyable next commands. Dry runs distinguish importing the current page from previewing the next page, so previewed records are not accidentally skipped. Sequence IDs are cursors, not exception totals or a completion percentage. Continue the same snapshot with the printed command:
+Use the original source environment, and follow the printed continuation commands for further pages. Historical imports are sanitized and deduplicated; they do not trigger retrospective alerts. Missing or expired evidence cannot be reconstructed. [Backfill and recovery details](docs/telescope-source-capture.md).
 
-```sh
-php artisan telescope-monitor:backfill --environment=production --after=1234 --through=9876 --limit=100
-```
+## Configuration
 
-The numbers above are examples; use the command printed by your run. Add `--json` for the original machine-readable result fields (`through`, `next_after`, `has_more` and counters); failures also return a structured JSON error and a nonzero exit status. Each invocation scans at most 1–1,000 source exceptions and may stop earlier at the existing source byte budget. Repeat pages safely after interruption. Dry run validates candidate selection without writing package data or generating keys; it does not preview payload text or guarantee every payload can subsequently be sanitized/encrypted.
+The published file is `config/telescope-monitor.php`. Common deployment settings are:
 
-The command sanitizes and encrypts evidence before buffering, then attempts ingestion inline in the CLI. A worker may claim buffered work concurrently; pending/retryable work uses the existing capture recovery path. Rows carrying package markers are skipped: use normal recovery/reconciliation for those. Malformed, oversized and future-dated rows are skipped with counts, never raw content. Source rows/tags are not changed, and normal reconciliation checkpoints are not advanced.
+| Setting | Default / behavior |
+| --- | --- |
+| `TELESCOPE_MONITOR_ENABLED` | `true`; enables the package |
+| `TELESCOPE_MONITOR_PATH` | `telescope-monitor` |
+| `TELESCOPE_MONITOR_DB_CONNECTION` | Inherits Telescope's connection, then Laravel's default |
+| `TELESCOPE_MONITOR_CAPTURE_KEY` | Optional deployment signing key; otherwise derives from `APP_KEY` |
+| `TELESCOPE_MONITOR_RELEASE` | Optional release identifier captured with new exceptions |
+| `alerts.allowed_environments` | `['production']` |
+| `queues.connection` | Host queue connection |
 
-Imported occurrences have `historical_import` provenance and an explicit Historical import label. History-only groups show Historical until a live occurrence arrives. Original timestamps are preserved using `capture.source_timezone` (otherwise the app timezone); legacy reportability is marked unavailable. Current deployment release/source-link metadata is never retroactively attached. Imported history contributes to lifetime totals and retained event-time charts but cannot reopen/unsnooze an existing issue, generate retrospective alert events/deliveries/GitHub creation, or inflate a subsequent live alert's frequency count.
+Configure application identity, privacy, retention and recipients through the dashboard. Access policy, database/queue connections, infrastructure credentials, signing keys and deployment locks remain host-managed. Keep `APP_URL` correct for dashboard links in notifications.
 
-Identity is deduplicated by installation, source epoch and Telescope UUID, including repeated/concurrent runs and replay after evidence expiry. Totals count retained exception UUIDs; they do not reconstruct pruned history or multiply a row by denormalized family counters. Retention still applies from the original event time: very old records may have only a sanitized group summary and occurrence identity, with no retained snapshot. Purge generation/sequence/time fences prevent restoration of deliberately purged history. Disabled package capture, maintenance, source identity changes and unknown database connections are not bypassed. Explicit user actions on imported issues remain normal authorized actions and may notify according to current rules.
+SQL templates are off by default. Enable **Settings → Capture & privacy → Sanitized SQL templates** when needed. Supported values and bindings are excluded; identifiers remain visible, and unsupported SQL is omitted. Package privacy is enforced during import, processing and reads; it does not configure Telescope's independent source privacy.
 
-## Context, activity and optional SQL templates
+Use **Integrations** to configure Slack, signed webhooks and GitHub Issues, then choose notification destinations in alert rules. GitHub creation/linking is explicit by default. Optional assignments require a host directory adapter and are disabled until configured.
 
-The occurrence tab is **Context & activity**: execution metadata, descriptive request/job/command entries, grouped database measurements and related logs. It does not invent event timestamps or chronological ordering. Query measurements always have duration units when available; entries without SQL stay collapsed separately from readable templates. Empty tags are hidden and technical coverage is under Data availability.
+See the [configuration reference](docs/configuration-reference.md) for role gates, separate databases, deployment locks, SQL behavior, assignments, email settings and integration contracts. Keep previous signing/encryption keys during rotation as described in the [capture](docs/telescope-source-capture.md#signing-and-rotation) and [operations](docs/operations-guide-v1.md) guides.
 
-SQL templates are **off by default**. Enable **Settings → Capture & privacy → Sanitized SQL templates** with execution metadata enabled. Alternatively, `capture.sql_templates` sets the deployment default; a saved privacy preference overrides that default. To prohibit retention, lock `privacy.retain_sql_templates` to false. Template output defaults to 2,048 bytes, controlled by `capture.sql_max_bytes` and capped at 4,096 bytes; input inspection is bounded at 16 KiB. Oversized statements are omitted entirely rather than partially retaining them.
+### Retain context only for failed batches
 
-Templates are generated before encrypted buffering. Supported string, numeric, hex, bit, boolean/null and named parameter values become placeholders; bindings and comments are not copied. A conservative lexer accepts a subset of single-statement SELECT/INSERT/UPDATE/DELETE SQL for mysql/mariadb/sqlite query drivers. Ambiguous double quotes, backslash-escape syntax, executable/nested comments, unusual identifiers, variables, dollar quoting, unsupported statements/drivers and multiple statements are omitted. Schema identifiers and function names remain visible; templates are diagnostic text, never executed. If configured redaction changes a template, it is omitted. This deliberately trades coverage for privacy when quoting cannot be interpreted safely. Reference syntax: [MySQL string literal modes](https://dev.mysql.com/doc/refman/8.4/en/string-literals.html) and [SQL lexical distinctions](https://www.postgresql.org/docs/current/sql-syntax-lexical.html).
+Telescope can collect relevant entries in memory, then persist them only when the same execution batch contains a reportable exception or failed job. This keeps successful production batches out of Telescope storage while retaining useful failure context. See [Telescope batch filtering](https://laravel.com/framework/docs/13.x/telescope#filtering).
 
-Current policy is applied again during ingestion and evidence reads. Disabling retention hides previously stored templates; sanitized ciphertext follows ordinary retention rather than immediate physical erasure. Enabling later cannot reconstruct older snapshots whose SQL was never retained. Those show an explicit older-snapshot message and a Telescope link where original evidence may still exist. Exception/log messages continue using the existing application-specific redaction rules. Telescope's own source storage remains governed separately.
-
-Restart capture/delivery workers after updating this code before testing new captures. No database migration is required. Existing envelopes without SQL/activity fields remain readable; older workers must be restarted to recognize new fields. No retrospective source enrichment or automatic rewrite of old evidence occurs.
-
-## Investigation and lifecycle
-
-`/telescope-monitor/overview` is the dashboard landing page. The inbox at `/telescope-monitor/errors` defaults to unresolved groups across observed environments, most recently seen first. Select a range (1h, 24h, 7d or 30d) for event-time counts; older unresolved groups remain visible with zero in-range occurrences until you explicitly filter first/last-seen dates. Lifetime totals are separate. Status, environment, origin, exact class, permitted tag, text and date filters are validated; unknown filters are rejected. Search covers sanitized class/message literally, and terms appear in the authenticated page URL/browser history. Page sizes are 25, 50 or 100, with stable ID tie-breaking.
-
-Origin filtering finds groups with captured identity metadata, while tag filtering uses unexpired retained evidence. Displayed range counts cover all origins in each matching group; filtering a group does not manufacture origin-specific historical aggregates. Trends are captured-event counts, not a request error rate. Current buckets and retention/collection coverage are explicitly partial. Test groups require the Include test events control and remain labeled.
-
-Opening a group selects its latest retained occurrence, or its latest identity if no evidence remains. The `occurrence` URL parameter selects a specific identity; a foreign occurrence returns 404. Changing it replaces all evidence panels together, cancels stale reads and preserves inbox filters through the back link. Evidence expiry/decryption failures retain the header/history, and activity/retained-data insights remain accessible. Insights only use unexpired retained records and never label an unavailable route/release/user category as zero impact. The original Telescope link can be stale after source pruning. Notes are available in Notes & activity; GitHub controls explain their later integration phase.
-
-Lifecycle actions require `operate` as well as `view`. Every action carries the current `state_version` and a UUID idempotency key; count-only updates do not invalidate an operator edit. A stale state or key reused for a different canonical request returns 409 with permitted current metadata. Network retries reuse their pending key. Accepted changes commit state, receipt and actor activity together. Resolve records a persistent cutoff; ties/older captures preserve it. Reopen and unsnooze raise suppression at the actual action time, not a future deadline. Already-running external sends cannot be recalled. Destinations and rules require explicit configuration.
-
-Snooze offers 1h, 24h, 7d or a future ISO timestamp with an explicit UTC offset. Stored times are UTC, displayed times follow the configured dashboard timezone, and explicit offsets avoid ambiguous daylight-saving input. Expiry is enforced on ingestion and lifecycle writes even without a scheduler. Reads show an expired snooze as unresolved without mutating data. Schedule bounded physical expiry:
+In `app/Providers/TelescopeServiceProvider.php`, **replace the existing entry-filter registration** with the following entry and batch filters inside `register()`. Keep your existing sensitive-request hiding, authorization and other provider setup. Do not append this alongside the old restrictive entry filter: every registered filter must pass, and a batch filter cannot restore entries already discarded.
 
 ```php
-Schedule::command('telescope-monitor:expire-snoozes --limit=100')->everyMinute()->withoutOverlapping();
+use Illuminate\Support\Collection;
+use Laravel\Telescope\IncomingEntry;
+use Laravel\Telescope\Telescope;
+
+// Inside your existing register() method:
+$isLocal = $this->app->environment('local');
+
+Telescope::filter(function (IncomingEntry $entry) use ($isLocal) {
+    return $isLocal || in_array($entry->type, [
+        'exception',
+        'request',
+        'job',
+        'command',
+        'query',
+        'log',
+    ], true);
+});
+
+Telescope::filterBatch(function (Collection $entries) use ($isLocal) {
+    return $isLocal || $entries->contains(
+        fn (IncomingEntry $entry) =>
+            $entry->isReportableException() ||
+            $entry->isFailedJob()
+    );
+});
 ```
 
-The command accepts 1–10,000 rows, records each actual expiry once and sends no retrospective alerts. Error activity currently exposes the latest 100 records; retained insight categories are capped at 20 values.
-
-Optional code-host links require deployment-managed immutable release metadata, captured when the exception is recorded:
+In `config/telescope.php`, merge these entries into the existing `watchers` array, preserving any application-specific exclusions and other watcher options. The namespace import is `use Laravel\Telescope\Watchers;`.
 
 ```php
-'capture' => [
-    // Keep the other published capture options.
-    'release' => env('TELESCOPE_MONITOR_RELEASE'), // An immutable commit/tag, not a moving branch.
-    'source_link_template' => 'https://github.com/acme/store/blob/{release}/{file}#L{line}',
+'watchers' => [
+    Watchers\ExceptionWatcher::class => true,
+    Watchers\RequestWatcher::class => [
+        'enabled' => true,
+        'size_limit' => 64,
+    ],
+    Watchers\JobWatcher::class => true,
+    Watchers\CommandWatcher::class => [
+        'enabled' => true,
+    ],
+    Watchers\QueryWatcher::class => [
+        'enabled' => true,
+        'ignore_packages' => true,
+        'slow' => 100,
+    ],
+    Watchers\LogWatcher::class => [
+        'enabled' => true,
+        'level' => 'info',
+    ],
 ],
 ```
 
-Templates must use HTTPS with a fixed host, contain `{release}` and `{file}`, and include no credentials or query string. Paths/releases are encoded; absolute/traversal/vendor source paths do not receive guessed links. Existing evidence is never backfilled from current deployment configuration, and no source preview reads today's files. Named route/template projections are only captured from the authoritative live HTTP route when host RequestWatcher policy permits; request payloads remain excluded. Restart long-lived workers when deployment configuration changes.
+`slow => 100` labels slow queries; it does not restrict collection to slow queries. Log level `info` includes informational breadcrumbs and higher-severity messages; use `error` for less collection, or `debug` only when that extra detail is needed. Disabled watchers, ignored paths and entries below the configured log level cannot be recovered by batch filtering.
 
-Phase 3 reused the capture schema; Phase 4 adds the collaboration migration and advances schema version to 3. Follow the ordinary install/migrate upgrade procedure and restart workers when updating the package.
+| Production execution | Retained in Telescope |
+| --- | --- |
+| Successful batch without a reportable exception or failed job | No batch entries |
+| Batch containing a reportable exception or failed job | Available exception, request/job/command, query and log entries |
+| Local environment | All entries from enabled watchers, subject to their exclusions |
 
-## Notes and saved views
+A caught exception that is never reported cannot trigger this filter. To also retain HTTP 500+ responses without a reportable exception, add `$entry->isFailedRequest()` to the batch predicate. This setup intentionally replaces the earlier policy that retained scheduled-task or monitored-tag batches independently of failures.
 
-On upgrade, rerun `telescope-monitor:install` and `migrate`; publishing adds only the missing collaboration migration and preserves existing configuration. This creates notes, saved_views and view_preferences and an assignment lookup index. Existing installation identity, capture data and settings remain intact.
+**Storage reduction does not remove instrumentation overhead.** Watchers still collect entries in memory during execution, and very large failed batches can still produce substantial writes. Keep the [24-hour pruning schedule](#scheduler-and-retention), monitor actual volume, and avoid enabling unrelated watchers unnecessarily.
 
-Notes belong to an error across all occurrences. Viewers read notes; current operators add/edit their own notes; authors with operate or administrators can delete after confirmation. Bodies are plain text, normalized for line endings, privacy-redacted, limited to 10,000 Unicode characters and encrypted at rest. Safe credential-free HTTP(S) links open as anchors; HTML is literal text and mentions have no delivery behavior. Edits use row versions. A stale save retains the in-memory draft and offers reload/new-note recovery; leaving the issue prompts before discarding. Drafts never enter URLs/localStorage. Deleting clears ciphertext and retains metadata only. Notes outlive snapshot retention. Activity and notification snapshots contain note IDs, never note text or previous body revisions.
+**Telescope source privacy is separate from monitor privacy.** Retained failure batches can contain raw SQL, bindings, request data or log context. Keep Telescope's sensitive-data exclusions and avoid logging secrets. The importer sanitizes what enters the monitor, not Telescope's own tables. Enable **Settings → Capture & privacy → Sanitized SQL templates** if you want readable SQL templates in the monitor; otherwise retained queries provide measurements without SQL text. Monitor evidence limits can truncate large batches.
 
-Saved views store a validated schema-versioned definition, sort and relative range rather than results. Viewers can manage their own personal definitions. Operators/administrators publish shared views; owners edit their shared definitions and administrators may moderate shared definitions. Administrators cannot inspect another user's personal view by guessing its ID. Changing loaded filters shows Modified until an explicit Update or Save a copy. Rename preserves filters, deletion changes no error data, and conflicts preserve typed names. Names are limited to 80 characters; deployment privacy redaction also applies to names/search text before persistence.
+After deploying these changes, refresh cached configuration and restart long-running host workers/Octane processes so the new filters and watcher settings take effect. Test one successful execution and one reported failure: only the failure batch should remain in Telescope in production, then appear with available context after import.
 
-Favorites, order and one default reference are personal, versioned and limited to 100 shortcuts. Effective preferences recheck access and hide deleted, inaccessible or unsupported references. They do not grant access. The default applies to a bare inbox; explicit URL criteria override it. Unsupported schema/feature/tag definitions show Needs repair and cannot run until repaired or the relevant deployment support returns. Short view URLs hydrate the same validated filters into the visible controls. View lists and notes are paginated; supported definitions cannot contain SQL, arbitrary expressions, note content fields or selected-occurrence routing state.
+## Troubleshooting
 
-## Optional host assignments
+| Symptom | Check |
+| --- | --- |
+| Error is in Telescope but not the monitor | Importer is running, source has a supported signed marker, configuration matches, and the initial backlog has been imported. Use backfill for older unmarked rows. |
+| Error is absent from Telescope | Telescope/ExceptionWatcher is enabled and host filters accept the exception. |
+| Capture check stays pending | Asynchronous queue is configured and the capture worker is listening to the correct connection/queue. |
+| No notification | Enabled rule, matching event/environment, enabled destination, delivery worker, cooldown and delivery-history reason. |
+| Delivery remains retrying | Keep `recover-deliveries` scheduled and the delivery worker running. |
+| Access denied or synthetic delivery unauthorized | Current Telescope policy must authorize both the browser and the documented monitoring worker context. |
+| Source identity/sequence warning | Inspect source storage and use the explicit rebaseline workflow; do not reset checkpoints or purge history as a quick fix. |
 
-Assignments are **off by default**. Enable them in the host's published deployment configuration and supply a container-resolvable adapter:
-
-```php
-'assignments' => [
-    'enabled' => true,
-    'directory' => App\Monitoring\MonitoringDirectory::class,
-],
-```
-
-The adapter implements `TelescopeMonitor\Collaboration\AssignmentDirectory`:
-
-```php
-use TelescopeMonitor\Collaboration\AssignmentDirectory;
-use TelescopeMonitor\Data\Actor;
-
-final class MonitoringDirectory implements AssignmentDirectory
-{
-    /** @return list<Actor> */
-    public function search(string $query, int $limit): array
-    {
-        // Query your eligible monitoring operators; return at most $limit actors.
-        // Each Actor has a stable non-recycled key and a display label.
-    }
-
-    public function find(string $key): ?Actor
-    {
-        // Recheck current eligibility. Return null for removed/ineligible identities.
-    }
-}
-```
-
-These method bodies are a host-adapter outline, not a runnable user model implementation. Use your own database/directory, restrict results to eligible operators, cap results and apply short timeouts to remote lookups. Keys are opaque, case-sensitive Unicode strings up to 191 characters; labels are at most 120 characters. Prefer the same stable namespace used by your ActorResolver. No package-owned user records or host-user foreign keys are created. Optional `actor_label` is a deployment callback for displaying resolved note authors; unresolved identities show Former user, and lookup failures show Identity unavailable.
-
-Only an operator with view access can assign/clear. Directory eligibility is checked before the transaction; assignment never grants dashboard permission. No directory enumeration runs during exception capture or bootstrap. Lookup failure is visible, preserves the current reference and allows clearing without a provider lookup. A disabled provider hides controls and assignee filters while preserving references/history; re-enabling exposes them again. Reads do not silently clear removed users. Assignment increments issue state_version and records actor/previous/new metadata atomically, with external activity notifications available only through explicitly opted-in alert rules.
-
-Inbox filters support Assigned to me, Unassigned, or a chosen eligible host actor. The canonical explicit filter is `assignee=actor:<opaque-key>`; `me` and `unassigned` are symbolic filters. Saved assignee filters require configured assignment support and otherwise enter repair state. Restart long-lived workers after deployment configuration changes.
-
-For local UI verification only, `TELESCOPE_MONITOR_WORKBENCH_ASSIGNMENTS=1 vendor/bin/testbench serve --host=127.0.0.1 --port=8196` enables a development-only sample directory. The workbench adapter is excluded from consumer archives and refuses non-local environments. Normal package configuration remains disabled until the host explicitly configures it.
-
-## Diagnostics
-
-```sh
+```bash
 php artisan telescope-monitor:diagnose
-php artisan telescope-monitor:diagnose --json
+php artisan schedule:list
 ```
 
-Nonzero exit means a warning, failure or unverified condition remains. This is expected until capture, worker processing and maintenance have been observed. A configured queue does not prove a worker is processing, and an empty overview does not prove the application has no errors.
+After code or deployment configuration changes, refresh cached configuration as appropriate, restart host queue/Octane processes, and restart the importer. The installer preserves existing configuration: merge new settings deliberately.
 
-## Development workbench
+## Documentation
 
-```sh
+| Guide | Covers |
+| --- | --- |
+| [Configuration reference](docs/configuration-reference.md) | Access, storage, privacy, investigation, collaboration and integrations |
+| [Capture and importer](docs/telescope-source-capture.md) | Signing, process boundaries, recovery, key rotation and purge safety |
+| [Operations guide](docs/operations-guide-v1.md) | Retention, maintenance, purge and encryption-key rotation |
+| [Webhook receiver contract](docs/webhook-contract-v1.md) | Payloads, signatures and receiver deduplication |
+| [Release verification](docs/release-verification-v1.0.0-rc.1.md) | Tested environments, acceptance evidence and remaining release gates |
+| [Architecture](docs/technical-architecture-v1.md) | Design decisions and storage boundaries |
+
+## Developing the package
+
+In the package checkout, use Node.js 22.12+ (CI uses Node 24):
+
+```bash
 composer install
 npm ci
-npm run build
 composer workbench:build
-vendor/bin/testbench serve --host=127.0.0.1 --port=8195
+php vendor/bin/testbench serve --host=127.0.0.1 --port=8195
 ```
 
-Open `http://127.0.0.1:8195/telescope-monitor/setup`. This uses a disposable SQLite database, a local-only demonstration actor, the array mailer and no seeded external integration connections. Integration tests use their selected transport; only the separately labeled controlled preview disables external HTTP. Its provider is not Composer-discovered by consumers and denies access outside local/workbench environments. Installation seeds no example errors. The local preview may contain explicitly labeled synthetic occurrences created during verification; normal investigation views exclude them by default.
+Open `http://127.0.0.1:8195/telescope-monitor/setup`. Run importer/workers through `php vendor/bin/testbench` in place of `php artisan`. The workbench uses development configuration and the non-network array mailer; consumers do not install Node.js or Testbench.
 
-To exercise capture and alerts in this workbench, run the importer and capture/delivery workers in separate terminals (the capture worker executes queued synthetic probes):
-
-```sh
-php vendor/bin/testbench telescope-monitor:import --watch --process --limit=100 --sleep=2
-php vendor/bin/testbench queue:work --queue=telescope-monitor-capture --timeout=60 --tries=1
-php vendor/bin/testbench queue:work --queue=telescope-monitor-deliveries --timeout=45 --tries=1
-```
-
-Open `/telescope-monitor/settings/email`, add an enabled test address, select it and confirm **Send synthetic test**. Check its outcome under `/telescope-monitor/alerts/history`; the array mailer sends nothing outside this process. Build/preview/save rules at `/telescope-monitor/alerts`. Automatic rules default to production, so a local capture will not trigger a production rule. You can run `php vendor/bin/testbench telescope-monitor:recover-deliveries --limit=100` to exercise redispatch. Workbench addresses and rules are disposable fixtures, not installed host configuration.
-
-
-Build tooling uses Node 22.12+ or a compatible current Node release. `npm run build` typechecks, builds versioned assets under `dist`, and copies dependency license notices. The release contains `dist`; consumers do not run npm.
-
-## Verification
-
-```sh
+```bash
 composer test
 composer analyse
 composer format:check
@@ -330,246 +388,8 @@ npm run test:unit
 npm run build
 ```
 
-Run `composer format` to apply PHP formatting. PHP CS Fixer uses the shared
-`.php-cs-fixer.dist.php` configuration: PSR-12 with overrides for the project's
-existing Laravel style. Rules enforce four-space array indentation, remove unused
-imports, collapse consecutive blank lines to one and normalize array comma spacing.
-The project rule `TelescopeMonitor/long_array` wraps array literals longer than 120
-characters. Multiline arrays use one item per line, with trailing commas; shorter
-single-line arrays stay compact. Change the threshold in
-`scripts/php-cs-fixer/LongArrayFixer.php` if needed. Long individual strings are not split.
-It covers package PHP, tests and
-workbench source, excluding Blade templates, generated files and dependencies.
-CI runs `composer format:check` to report formatting differences without changing files.
-
-Use a disposable MySQL/MariaDB database for concurrency checks; the suite creates and rolls back its own package and Telescope tables:
-
-```sh
-MONITOR_DB=mysql DB_PORT=3306 DB_DATABASE=telescope_monitor_test DB_PASSWORD=testing composer test
-```
-
-Forked settings, capture, lifecycle and collaboration concurrency tests require `pcntl`; SQLite skips those five checks. Capture tests cover real HTTP, sync/terminal jobs and console failures, source filters, synthetic probes, replay, rollback, expiry, malformed envelopes and recovery. Read [the replacement progress record](docs/replacement-progress.md) for measured checks and remaining gates.
-
-## Prototype recovery
-
-The local ignored `.archive/prototype-2026-11-11.tar.gz` contains the previous source, tests, development configuration, approved planning copies and an online backup of its disposable workbench SQLite database. Its sibling manifest records file hashes. Additional old Testbench-generated fixtures discovered during cleanup are preserved under `.archive/legacy-testbench`.
-
-Restore an archive into a separate empty directory for inspection; do not unpack it over the replacement or approved documents. The archive, caches and IDE files are excluded from release archives. No host-application database or external service was reset during the cleanup.
+Use only a disposable database for engine/concurrency tests; the suite creates and rolls back package and Telescope tables. See [verification notes](docs/release-verification-v1.0.0-rc.1.md) for the engine matrix and limitations. Do not commit credentials or real exception data in examples, fixtures or screenshots.
 
 ## License
 
-MIT. Not an official Laravel package.
-
-## Email alerts and recovery (Phase 5)
-
-After updating the package, run `php artisan telescope-monitor:install` and `php artisan migrate` to publish the missing additive alerting migration. Existing configuration is preserved. This brings package storage to schema version 4 (23 physical tables).
-
-Configure your host Laravel mailer, sender address and credentials using its normal mail configuration. The package uses `mail.default`, or the named mailer in `telescope-monitor.alerts.mailer`. Configure that transport's connection/read timeout to at most 15 seconds. API/SMTP credentials remain in the host, never dashboard fields. Use `array` for local non-network checks; a successful array/log transport cannot prove external delivery.
-
-Deployment configuration defaults to:
-
-```php
-'alerts' => [
-    'enabled' => true,
-    'allowed_environments' => ['production'],
-    'mailer' => null, // Host default, or an explicit configured Laravel mailer.
-    'email' => [
-        'include_context' => true,
-        'include_stack_trace' => true,
-        'max_frames' => 8,
-        'allowed_tags' => [], // Explicit email export allowlist; empty by default.
-    ],
-    'max_cooldown_seconds' => 86400,
-    'max_threshold_count' => 100000,
-    'pending_seconds' => 86400,
-],
-```
-
-Emails use a responsive Telescope-themed HTML template with a plain-text alternative. Subjects identify the application/error group, exception class and sanitized message, for example `DEMO-APP-1H - App\Exceptions\WidgetNotFoundException: Widget not found`. The email includes event time, captured count, first/last seen, exception location and available retained route template, job or command metadata. Application stack frames are bounded (eight by default, at most twelve); arguments and source snippets are never exported. Missing or expired evidence and older frozen deliveries fall back to the summary without inventing details. Synthetic tests are clearly labeled.
-
-Email context freezes on the first delivery attempt; retries reuse it even if evidence later expires. Current privacy restrictions are rechecked before sending, and a stricter policy cancels an incompatible frozen delivery with `export_policy_changed`. Set `alerts.email.include_context` to `false` for summary-only email, or disable `include_stack_trace` separately. Tags require both `capture.allowed_tags` and the separate `alerts.email.allowed_tags`; only explicitly approved, non-sensitive tags should be allowed. Raw request URLs/query strings, headers, bodies, user identities, SQL and note text are excluded. Release metadata is included only when retained at capture.
-
-For an existing installation, merge these optional email settings into the published configuration as needed, clear/rebuild the host configuration cache and restart long-running queue workers (`php artisan queue:restart`). The richer email needs no migration. Test through **Settings → Email notifications** using the configured host mailer. Browser checks cover desktop/mobile layout; Gmail/Outlook inbox rendering still needs a host-owned delivery check.
-
-Select **Settings → Email notifications**, add and enable each recipient, select its checkbox and explicitly confirm a synthetic test. Tests use the configured host transport and require current manage access both when queued and when a worker claims them. The UI polls for a bounded period; unfinished results remain available in **Alerts → Delivery history**. Sending a test does not create a rule or notify other recipients.
-
-Create a rule under **Alerts**, choose events, allowed environments, optional exact class/origin/permitted tag, recipients and cooldown, preview, then explicitly enable and save. The starter draft is disabled and has no recipient. Automatic alerts default to production; add local/staging explicitly to the deployment allowlist if needed. A preview sends nothing. Saved changes use versions and preserve stale/unsaved drafts.
-
-Run a supervised delivery worker in addition to capture processing:
-
-```sh
-php artisan queue:work --queue=telescope-monitor-deliveries --timeout=45 --tries=1
-```
-
-The dispatcher supports Laravel database and Redis queues. Use the configured `telescope-monitor.queues.connection` consistently with the worker. Keep queue `retry_after` above the 45-second worker timeout; claims/reservations last 120 seconds. Queue jobs contain identifiers only. Host mail listeners run under Telescope recording suppression. Sync/null/unsupported queues leave delivery intent pending; they never send automatically within a monitored request.
-
-Add these bounded commands to the host's scheduler alongside capture maintenance:
-
-```php
-Schedule::command('telescope-monitor:recover-deliveries --limit=100')->everyMinute()->withoutOverlapping();
-Schedule::command('telescope-monitor:prune-deliveries --limit=1000')->hourly()->withoutOverlapping();
-```
-
-For an explicit CLI processing pass with a controlled transport, use `php artisan telescope-monitor:deliver --limit=100`. This command can send through the configured host mailer. Recovery only redispatches eligible work; a broker failure leaves the ledger recoverable. System health distinguishes observed processing/recovery from configuration and does not claim that workers remain alive.
-
-Delivery rules and recovery behavior:
-
-- One canonical email address is one destination: trim and lowercase the complete ASCII address, without plus/dot folding. Its encrypted target and fingerprint are immutable. Replacement disconnects the old destination and creates/reuses a distinct target; choose it explicitly in rules. Pending work is never redirected.
-- Overlapping rules coalesce one occurrence/recipient intent and retain each supporting rule. New/regression takes precedence over a simultaneous threshold. Threshold windows are fixed 5/15/60-minute UTC buckets, count retained matching projections and fire on crossing. Reconciliation/history and synthetic capture checks do not generate automatic email.
-- Claims recheck current installation generation, rules, target, state/snooze, privacy and required initiating permissions. Rule edits/deletion, recipient disconnection and lifecycle suppression can cancel pending work. A transport call already in flight cannot be recalled.
-- Cooldown is shared by error/canonical recipient/event family. Waiting consumes no provider attempt. A regression can defer until cooldown ends; an ordinary threshold within cooldown is suppressed. Activity has distinct event-family eligibility, so a resolved notification remains meaningful while resolved.
-- A retry cycle permits five provider attempts, with 60/300/900/3600-second backoff and a later provider Retry-After honored. Duplicate jobs and active leases do not consume attempts. Recovery is **at least once**: a crash after transport acceptance but before the local commit can duplicate an email. Unknown acceptance is recorded honestly.
-- The sanitized logical payload freezes before the first attempt. Email may include bounded, privacy-permitted retained execution metadata and application stack frames; request payloads, user identities, SQL, source code and note bodies remain excluded. Other channel payloads are unchanged. Unchanged retries reuse its delivery ID and frozen payload. A stricter privacy policy cancels incompatible retries; **Review and resend** requires confirmation of the current sanitized preview and creates a new delivery identity. Failed delivery retries are operator actions with durable audit receipts.
-- History masks recipient addresses for viewers; only administrators configure full addresses. Provider errors are classified into safe codes without raw exception or credential logging. `sent` means transport acceptance, **not inbox receipt**. Retention removes terminal deliveries/attempts and then unreferenced expired events; pending work expires after its configured lifetime.
-
-Real SMTP/API credentials, live inbox receipt and provider-specific behavior still require a host-owned acceptance check. Phase 6 extends this delivery boundary for Slack/webhooks and explicit GitHub issue workflows, described below.
-
-## Slack, signed webhooks and GitHub Issues (Phase 6)
-
-Run the package installer and migrations after updating. The additive integration migration creates linked-issue reservations, adds destination throttling and staged-test key references, and advances storage to **schema version 5 (24 physical tables)**. Configuration and existing published migration identities are preserved. PHP's **cURL extension** is now a Composer requirement for bounded HTTPS requests with TLS verification and destination-address pinning. Consumers still need no Node.js or Testbench.
-
-Use **Integrations** for connection setup. Administrators create/enable, version/edit, disconnect or replace a target. Operators create/link GitHub tickets through an enabled repository; viewers can inspect safe metadata/history. Stored tokens and endpoint URLs are never redisplayed. Changing a target creates a distinct canonical connection and cancels eligible old work; rules do not silently gain the replacement. Label changes do not move destinations.
-
-Use the existing `telescope-monitor-deliveries` worker, recovery and pruning commands. There is one ledger, attempt budget and provider interface. HTTP requests have a five-second connect timeout, fifteen-second total request timeout, no hidden retries and no redirects. A GitHub read check can perform two bounded GET requests. Keep the 45-second worker timeout below queue visibility/retry time and the 120-second claim lease. DNS resolution uses the host resolver; its availability/timeouts remain host-managed. Requests suppress Telescope recording and never persist raw response bodies, Authorization headers or transport exceptions.
-
-### Slack
-
-Configure a display name and an incoming webhook URL of the supported shape `https://hooks.slack.com/services/…/…/…`. The URL is an encrypted credential. The display name is supplied by an administrator and is not independently verified Slack channel identity. Select Slack connections alongside email/webhooks in **Alerts**. Explicit synthetic tests queue a labeled message and expose its durable outcome.
-
-Imported exception text is escaped, Slack markup/automatic mention parsing is disabled, and links/media do not unfurl. Claims serialize across all errors for one canonical Slack target and enforce at least one second between completed requests; provider throttling and later Retry-After are honored. Incoming-webhook acceptance is recorded separately from connection setup. OAuth, interactive Slack actions and GovSlack are outside this release. See the official [incoming-webhook contract](https://docs.slack.dev/messaging/sending-messages-using-incoming-webhooks/) and [rate-limit guidance](https://docs.slack.dev/apis/web-api/rate-limits/).
-
-### Signed webhooks
-
-Configure an HTTPS endpoint, enabled state and allowed events, then select the connection in an alert rule. The connection's event selection and the rule must both permit an automatic event. Tests use `monitor.test` independently of automatic event selection. The endpoint is encrypted; only its safe origin is shown. Existing rule support, current event selection and export policy are rechecked before attempts.
-
-The first signing secret is generated once. Copy it to the receiver and acknowledge it. Rotation is explicit: **Stage signing key → configure receiver → Test staged key → acknowledge the one-time key → Activate key**. Staging does not activate the key. A labeled test may use the staged key without changing normal delivery. A new credential action cannot overwrite an unacknowledged one-time secret. Lost one-time responses cannot retrieve a stored secret: stage another revision.
-
-The sender switches new attempts to the active revision. The previous revision has a displayed 24-hour transition deadline; receivers should accept both key IDs during that interval, then remove the old key. In-flight requests can carry the prior key. Scheduled pruning clears expired retiring ciphertext/references in bounded batches while preserving metadata and currently active keys.
-
-The [webhook receiver contract](docs/webhook-contract-v1.md) defines the UTF-8 JSON fields, exact-body HMAC headers, timestamp validation and transactional delivery-ID deduplication. Retries retain frozen body bytes, event ID and logical delivery ID while using a fresh attempt timestamp/signature and the current signing key. A stricter privacy policy cancels incompatible frozen work; it does not rewrite signed bytes under the same identity.
-
-Network policy is deployment-owned:
-
-```php
-'integrations' => [
-    'credentials' => [],
-    'webhooks' => [
-        'ports' => [443],
-        'private_targets' => [
-            // Explicit opt-in for an exact host AND its resolved address range.
-            // 'hooks.internal.example' => ['10.20.0.0/16'],
-        ],
-    ],
-],
-```
-
-Userinfo, fragments, unsupported schemes/ports and unapproved private/reserved addresses are rejected. Every attempt resolves A/AAAA records, validates all returned addresses against current policy and pins the selected address while verifying the original TLS hostname. Mixed public/private answers fail closed. Redirects, ambient proxies and connection reuse cannot move a credential-bearing request to another destination. Link-local metadata addresses are denied. The UI cannot override these rules. These controls follow the [OWASP SSRF guidance](https://cheatsheetseries.owasp.org/cheatsheets/Server_Side_Request_Forgery_Prevention_Cheat_Sheet.html); live DNS/TLS and deployment egress policy still require host acceptance checks.
-
-### GitHub Issues
-
-Configure a public GitHub owner/repository and a repository-scoped fine-grained token. The connection check queues read-only repository metadata and up to 100 existing labels; it creates no ticket and cannot conclusively prove write access. Creation requires the token's repository Issues write permission. Tokens can be replaced for the same repository; the repository cannot be redirected through token replacement. GitHub App authentication and Enterprise/custom API origins are deferred. Requests use `api.github.com` and the supported `2026-03-10` API contract. See [GitHub issue endpoints](https://docs.github.com/en/rest/issues/issues) and [provider failure/rate-limit guidance](https://docs.github.com/en/rest/using-the-rest-api/troubleshooting-the-rest-api).
-
-From an error's **Linked issues** tab:
-
-1. Choose Create GitHub issue, a configured repository, optional title and observed existing labels.
-2. Preview the exact sanitized title/body, including a stable installation/error/operation marker and an investigation link. Context, stack traces and notes are excluded. This preview sends nothing.
-3. Explicitly confirm. The preview's digest/current policy are rechecked, its bytes freeze, and one durable repository reservation prevents duplicate clicks/workers from scheduling independent creation.
-4. Refresh local status or open the creation delivery. Validated acceptance stores the remote number, canonical URL and last-known state. Local Resolve/Ignore never closes/reopens a ticket.
-
-**Link existing issue** validates a positive repository issue number or canonical `https://github.com/owner/repo/issues/number` URL by a read-only request. Unrelated repositories and pull requests are rejected. Multiple local errors can deliberately link the same ticket. Explicit refresh preserves last-known state when the provider is unavailable; unavailable does not mean closed. **Unlink locally** removes only the association after confirmation, never the external ticket, and retains its operation history.
-
-A timeout, missing/invalid success response, server-side ambiguity, expired creation lease or lost local outcome commit becomes **Needs review**. Such creation never retries blindly. Check repository inspects a bounded page and never treats absence as proof of non-creation. Resolve it by linking an existing issue or reviewing a new attempt with an explicit, audited confirmation that no ticket exists. A new attempt receives a new ID/marker and a parent reference; it may still duplicate a remotely accepted issue. Definitive provider rejections and throttling use classified bounded retries, not ambiguous-creation recovery. User-requested writes reauthorize the initiator at worker execution.
-
-Optional automatic creation is off by default. Enable it per connection and select explicit deployment-allowed environments. It handles new live error groups only, never reconciliation or synthetic captures. Repeated occurrences and regressions keep the existing association. A prior reservation or unlink tombstone is never implicitly recreated by capture.
-
-Deployment-managed credentials use an allowlisted reference, not an arbitrary environment-variable name supplied by a request:
-
-```php
-'integrations' => [
-    'credentials' => [
-        'production-repository' => [
-            'purpose' => 'github_token',
-            'value' => env('MONITOR_REPOSITORY_TOKEN'),
-        ],
-        'oncall-slack' => [
-            'purpose' => 'endpoint',
-            'value' => env('MONITOR_SLACK_WEBHOOK'),
-        ],
-    ],
-    'webhooks' => ['ports' => [443], 'private_targets' => []],
-],
-```
-
-The dashboard selects an approved reference. Its value is loaded at execution, not copied into ciphertext or serialized into a job. A changed Slack reference cannot redirect old work because the runtime endpoint must still match its immutable target fingerprint. A GitHub reference may rotate its token for the same repository.
-
-### Controlled local preview
-
-This session's separate preview runs at `http://127.0.0.1:8197/telescope-monitor/integrations`, with an isolated temporary SQLite fixture and explicitly controlled HTTP/DNS adapters. It labels itself **Controlled preview · no external requests are sent**. Its development provider and fixtures are excluded from consumer archives and deny access outside local/workbench environments. The normal workbench stays separate.
-
-The preview already contains example connections and an error with linked/Needs review examples. Its worker uses `TELESCOPE_MONITOR_WORKBENCH_INTEGRATIONS=1`; `php vendor/bin/testbench workbench:integration-mode` under that flag confirms that external I/O is disabled. A normal production installation does not use these adapters. Real Slack delivery, webhook receiver processing, GitHub permissions and inbox receipt were not exercised against live accounts during this phase.
-
-## Operations, retention and purge (Phase 7)
-
-Update the package, run `php artisan telescope-monitor:install`, then `php artisan migrate`. The additive operations migration delivers the final logical table, purge_runs, and irreversible retention cutoffs: **schema version 6 / 25 physical tables**. Fresh installation metadata also reflects the available schema. Existing configuration, migration identities and credentials are preserved.
-
-The setup checklist now records real completion. It requires installation/recording readiness, reviewed application/privacy preferences, a recent current-generation synthetic capture with readable evidence, an actual accepted test on an enabled notification target **or an explicit skip**, and operations review. Tests use the actual queue/capture path; a synchronous queue does not manufacture success. GitHub read-only checks do not count as notification delivery. A webhook proof must match its currently active signing key. Optional notifications/assignments remain visible, and a passed connection test never silently enables an alert rule. Purge invalidates previous-generation setup proof; source rebaselining requires a new capture proof for the new epoch.
-
-**Settings → Retention** shows effective values, value sources, locks and deployment bounds. A reduction requires a bounded impact preview in the UI before saving. Estimates are dated eligible-row counts, may be capped as “at least,” and are not a promise of deletion in one batch. The actual next scheduled prune is unknown inside the host; no future execution time is invented. **Settings → Operations & maintenance** shows starts, successes, failures, bounded run history, backlogs/expired leases, credential availability, source boundaries and CLI recovery guidance. A stale or start-only observation does not prove a living worker. A local heartbeat may be invoked manually and does not independently monitor the host.
-
-Add the local heartbeat and unified retention sweep to the existing host scheduler:
-
-```php
-Schedule::command('telescope-monitor:heartbeat')->everyMinute()->withoutOverlapping();
-Schedule::command('telescope-monitor:prune --limit=1000')->hourly()->withoutOverlapping();
-```
-
-Keep capture/delivery recovery, reconciliation and snooze expiry scheduled as previously documented. `prune` now covers the full retained graph; `prune-deliveries` remains available for only delivery/event cleanup. Maintenance is bounded by family and records real starts/outcomes/counters. Configuration checks are separate from these observations.
-
-Defaults are occurrence evidence 30 days, completed delivery/attempt history 30 days, hourly aggregates 90 days and activity/security history 90 days. Five-minute trends retain a fixed 48 hours. Deployment limits can tighten supported ranges:
-
-```php
-'retention_limits' => [
-    'occurrence_days' => ['min' => 1, 'max' => 30], // Supported 1–90.
-    'delivery_days' => ['min' => 1, 'max' => 30],   // Supported 1–90.
-    'aggregate_days' => ['min' => 30, 'max' => 180], // Supported 30–365.
-    'activity_days' => ['min' => 1, 'max' => 90],  // Supported 1–365.
-],
-'operations' => [
-    'freshness_seconds' => 300,
-    'maintenance_seconds' => 3600,
-    'preview_limit' => 10000,
-],
-```
-
-The server enforces bounds and locks again under the configuration fence. Incompatible ranges fail visibly instead of substituting a weaker limit. Dashboard changes persist monotonic expiry cutoffs, so increasing retention cannot rehydrate previously expired evidence. A record's existing expiry remains a cap; a later increase applies to new records/buckets. When changing deployment-enforced limits, restart long-running workers and run retention under the stricter policy before subsequently relaxing that deployment policy. Saved database policy is reread by processing; correctness does not depend solely on cache invalidation.
-
-Normal retention clears eligible evidence/tags, metrics, terminal delivery/attempt/event history, activity, receipts and expired buffer bytes. It preserves summaries/lifetime counts, minimal occurrence UUID identity, notes, saved views/preferences and GitHub associations. Pending references and uncertain GitHub reservations hold needed records; healthy live leases are not destroyed. Completed inbox cleanup does not invent failed captures, and delayed jobs cannot ingest an expired buffer. All tables can require repeated bounded runs after a long maintenance gap.
-
-Purge and source rebaselining are **deployment commands, never dashboard Delete buttons**. Start with the read-only preview and read the complete scope in the [operations guide](docs/operations-guide-v1.md). This phase's destructive verification ran only against isolated copies; neither the normal workbench nor its earlier preview/database was purged.
-
-```sh
-php artisan telescope-monitor:purge INSTALLATION_UUID --preview
-php artisan telescope-monitor:purge INSTALLATION_UUID --confirm=INSTALLATION_UUID --limit=500 --batches=1
-php artisan telescope-monitor:purge INSTALLATION_UUID --confirm=INSTALLATION_UUID --resume=RUN_UUID --limit=500 --batches=100
-```
-
-An incomplete run prints its status and stays draining/purging. Resume the same ID until verification completes. Old queued jobs/claim completions cannot commit through the generation fence. Source sequence/time boundaries prevent old Telescope rows from resurrecting data. Post-cutoff signed source entries can be recovered as history after resume, without historical alerts. Settings, credentials, alert rules, saved views/preferences, installation identity and minimal receipts/purge ledger survive; error-domain data is cleared. Telescope source and already accepted external messages/tickets remain external.
-
-If Telescope storage resets or moves, inspect before explicitly rebaselining:
-
-```sh
-php artisan telescope-monitor:source-baseline INSTALLATION_UUID --preview
-php artisan telescope-monitor:source-baseline INSTALLATION_UUID --confirm=INSTALLATION_UUID
-```
-
-Rebaselining changes the source epoch, excludes existing source rows and preserves prior time protection. It preserves existing monitor error data. It does not silently erase purge cutoffs or retroactively alert historical data.
-
-For host-key rotation, configure the current `APP_KEY` and supported `APP_PREVIOUS_KEYS` first, then rewrap **all** encrypted targets in bounded pages. Keep previous keys until every target has completed, not just secrets. The command preserves plaintext/digests/logical IDs/revisions and reports unreadable ciphertext without blanking it. See [Laravel's encryption-key guidance](https://laravel.com/framework/docs/13.x/encryption#gracefully-rotating-encryption-keys).
-
-```sh
-php artisan telescope-monitor:rewrap INSTALLATION_UUID secrets --confirm=INSTALLATION_UUID --limit=100 --after=0
-```
-
-Repeat for `inbox`, `evidence`, `events`, `deliveries` and `notes`; use each returned `next_cursor` while `has_more` is true. A failed row is preserved, the command fails visibly, and it must be retried from cursor zero after restoring the required key. This workflow is distinct from webhook signing-key rotation. The dashboard never edits host keys or .env. Restart workers after code/deployment changes, following [Laravel's worker deployment guidance](https://laravel.com/framework/docs/13.x/queues#queue-workers-and-deployment).
-
-This session's separate operational preview is `http://127.0.0.1:8198/telescope-monitor/settings/operations`. It uses a copied temporary SQLite fixture and controlled transports, selected only by the development flag `TELESCOPE_MONITOR_WORKBENCH_OPERATIONS=1`. Old fixture records were aged solely to exercise retention preview. No real provider requests were sent; no production or original workbench data was purged. The current release report records additional real queue/transport verification and the remaining compatibility, crash, UI and workload gates. Publication remains held.
+Telescope Monitor is available under the [MIT license](LICENSE). The README logo reuses the dashboard's [Heroicons sparkle mark](dist/licenses/heroicons.txt).
