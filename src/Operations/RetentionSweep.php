@@ -30,11 +30,16 @@ final class RetentionSweep
         return Database::connection()->table('telescope_monitor_'.$name)->where('installation_id', $i);
     }
 
-    private function erase($query, int $limit): int
+    private function erase(Builder $query, int $limit): int
     {
-        $ids = (clone $query)->orderBy('id')->limit($limit)->pluck('id');
+        // MySQL rejects a DELETE whose predicates directly read the target table.
+        // LIMIT forces this derived table to materialize instead of being merged,
+        // preserving bounded eligibility checks within the same delete statement.
+        $eligible = (clone $query)->select('id')->orderBy('id')->limit($limit);
 
-        return $query->whereIn('id', $ids)->delete();
+        return $query->newQuery()->from($query->from)->whereIn('id', function (Builder $ids) use ($eligible) {
+            $ids->select('eligible.id')->fromSub($eligible, 'eligible');
+        })->delete();
     }
 
     private function evidence(int $i): Builder

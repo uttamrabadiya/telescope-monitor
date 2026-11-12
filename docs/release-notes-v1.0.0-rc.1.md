@@ -21,6 +21,7 @@ Telescope 5.27+ within the supported major versions.
   command context and prevent unrelated later errors inheriting a command name.
 - Fix stale repeatable-read settings, metric-counter and duplicate-receipt reads
   under MySQL/MariaDB concurrency.
+- Fix bounded pruning on MySQL, which rejects direct target-table subqueries.
 - Align Composer/Git archives, include linked consumer guides, and validate archive
   contents and compiled assets in CI.
 - Add lowest/latest dependency checks and process-death delivery recovery coverage.
