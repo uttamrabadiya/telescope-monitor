@@ -43,7 +43,11 @@ jobs:
           MYSQL_ROOT_PASSWORD: testing
           MYSQL_DATABASE: telescope_monitor_test
         ports: ['3306:3306']
+        # Disposable test data: avoid disk flushes for thousands of DDL operations.
+        # The server stays running through worker-death tests; this is not a
+        # database-server or power-loss durability test.
         options: >-
+          --tmpfs /var/lib/mysql:rw,size=2147483648
           --health-cmd="mysqladmin ping -h localhost -ptesting || mariadb-admin ping -h localhost -ptesting"
           --health-interval=10s --health-timeout=5s --health-retries=10
     env:
@@ -61,7 +65,7 @@ jobs:
           coverage: none
       - run: composer validate --strict
       - run: composer install --no-interaction --prefer-dist
-      - run: composer test -- --stop-on-error --stop-on-failure
+      - run: composer test -- --debug --stop-on-error --stop-on-failure
 
   dependencies:
     runs-on: ubuntu-latest

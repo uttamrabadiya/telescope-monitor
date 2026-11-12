@@ -81,6 +81,10 @@ Run `composer install`, `npm ci`, `composer test`, `composer analyse`,
 Engine tests require a **disposable** `telescope_monitor_test` database:
 `MONITOR_DB=mysql DB_PORT=<isolated-port> vendor/bin/phpunit`.
 Fork tests require pcntl and the MySQL PDO driver; SIGKILL checks also require posix.
+CI database files use a disposable tmpfs mount to avoid repeated schema-creation
+I/O. These tests exercise worker process death with the database server still
+running; they do not simulate database-server death or power loss. Per-test debug
+output identifies progress instead of waiting for each 63-test summary line.
 
 After committing the reviewed tree, build both distributions into new empty paths:
 
