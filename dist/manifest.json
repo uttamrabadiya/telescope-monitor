@@ -1,0 +1,43 @@
+{
+  "node_modules/@fontsource/figtree/files/figtree-latin-400-normal.woff": {
+    "file": "assets/figtree-latin-400-normal-BD4aNku5.woff",
+    "src": "node_modules/@fontsource/figtree/files/figtree-latin-400-normal.woff"
+  },
+  "node_modules/@fontsource/figtree/files/figtree-latin-400-normal.woff2": {
+    "file": "assets/figtree-latin-400-normal-g7Dtegnw.woff2",
+    "src": "node_modules/@fontsource/figtree/files/figtree-latin-400-normal.woff2"
+  },
+  "node_modules/@fontsource/figtree/files/figtree-latin-500-normal.woff": {
+    "file": "assets/figtree-latin-500-normal-B_yy1phn.woff",
+    "src": "node_modules/@fontsource/figtree/files/figtree-latin-500-normal.woff"
+  },
+  "node_modules/@fontsource/figtree/files/figtree-latin-500-normal.woff2": {
+    "file": "assets/figtree-latin-500-normal-BWnGEVsr.woff2",
+    "src": "node_modules/@fontsource/figtree/files/figtree-latin-500-normal.woff2"
+  },
+  "node_modules/@fontsource/figtree/files/figtree-latin-600-normal.woff": {
+    "file": "assets/figtree-latin-600-normal-BM_oTo4n.woff",
+    "src": "node_modules/@fontsource/figtree/files/figtree-latin-600-normal.woff"
+  },
+  "node_modules/@fontsource/figtree/files/figtree-latin-600-normal.woff2": {
+    "file": "assets/figtree-latin-600-normal-Cv_xCTDl.woff2",
+    "src": "node_modules/@fontsource/figtree/files/figtree-latin-600-normal.woff2"
+  },
+  "resources/js/main.ts": {
+    "file": "assets/monitor-C3RdHnGr.js",
+    "name": "main",
+    "src": "resources/js/main.ts",
+    "isEntry": true,
+    "css": [
+      "assets/main-fICx5XUm.css"
+    ],
+    "assets": [
+      "assets/figtree-latin-400-normal-g7Dtegnw.woff2",
+      "assets/figtree-latin-400-normal-BD4aNku5.woff",
+      "assets/figtree-latin-500-normal-BWnGEVsr.woff2",
+      "assets/figtree-latin-500-normal-B_yy1phn.woff",
+      "assets/figtree-latin-600-normal-Cv_xCTDl.woff2",
+      "assets/figtree-latin-600-normal-BM_oTo4n.woff"
+    ]
+  }
+}

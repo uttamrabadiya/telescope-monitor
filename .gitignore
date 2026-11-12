@@ -12,4 +12,3 @@
 /workbench/database/*.sqlite*
 /workbench/storage/
 /testbench.yaml.local
-/dist
