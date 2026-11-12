@@ -11,7 +11,7 @@ isolated evaluation; stable 1.0.0 qualification remains pending the gates below.
 | --- | --- |
 | Failed Artisan origin with exception-only filtering | Fixed. Match the exact input of the live Laravel kernel exception-reporting call after CommandFinished. Nested commands restore the outer context; later unrelated reports cannot inherit a finished command. OriginsTest reproduces both failures before the fix and verifies the corrected signed/imported evidence. |
 | MySQL 8.4 / MariaDB 11.4 races | The latest pre-fix GitHub run failed four MariaDB checks; MySQL was cancelled by matrix fail-fast. Fixed stale repeatable-read snapshots in settings, metric counters and duplicate action receipts/occurrences. Local MariaDB 11.7.2: all 14 existing engine concurrency tests pass (114 assertions). Maintained-engine CI must pass on the release commit. |
-| Secure minimum dependencies | Laravel floor raised from 13.0 to the tested 13.42.0. Telescope floor stays 5.27.0. Current locked Composer and npm audits report zero advisories. Lowest/latest dependency jobs added; these must pass before tagging. |
+| Secure minimum dependencies | Laravel floor raised from 13.0 to the tested 13.42.0. Telescope floor stays 5.27.0. Current locked Composer and npm audits report zero advisories. The custom formatter requires PHP CS Fixer 3.95.30+, now reflected in its development constraint. Lowest/latest dependency jobs added; these must pass before tagging. |
 | Process-death recovery | Existing expired-lease, uncertain acceptance and GitHub commit-loss tests retained. Added SIGKILL checks before claim, during send and after synthetic provider acceptance. These exercise committed database claims and recovery with a clock-controlled lease expiry. They do not certify real SMTP/GitHub receipt or every database/Redis worker crash permutation. |
 | UI failure/conflict/keyboard/accessibility coverage | Still a stable-release qualification gate. Existing screenshots and interactions are historical evidence, not a new complete accessibility certification. |
 | Representative query profiles | No production throughput or latency claim. Engine profiling remains required before making such claims. |
@@ -25,6 +25,12 @@ isolated evaluation; stable 1.0.0 qualification remains pending the gates below.
 - Larastan level 5 passes; PHP CS Fixer passes on PHP 8.3.
 - Vue/TypeScript production build passes and reproduces committed assets.
 - Five frontend tests pass.
+- Six new SIGKILL service-boundary tests pass on MariaDB 11.7.2 (48 assertions).
+- Fresh Laravel 13.42.0 / Telescope 5.28.0 host installs from the Git distribution
+  with `--no-dev`, discovers the provider, migrates 25 package tables and tolerates
+  repeat installation. A real failed Artisan command under exception-only filtering
+  is stored once, imported once and retains `command` origin.
+- Git/Composer distribution manifests match exactly (254 files).
 - Strict Composer validation and live locked dependency audits are required again
   on the final release tree.
 
