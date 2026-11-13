@@ -20,8 +20,16 @@ final class Envelope
             $data[$key] = mb_strcut($this->redactor->text((string) ($data[$key] ?? ''), $patterns), 0, $max, 'UTF-8');
         }
 
+        if (isset($data['github_context'])) {
+            $data['github_context'] = app(\TelescopeMonitor\Integrations\GitHubContext::class)->sanitize($data['github_context']);
+        }
+
         if (isset($data['email_context'])) {
             $data['email_context'] = app(EmailContext::class)->sanitize($data['email_context']);
+        }
+
+        if (isset($data['slack_context'])) {
+            $data['slack_context'] = app(SlackContext::class)->sanitize($data['slack_context']);
         }
 
         if (isset($data['webhook_body'])) {

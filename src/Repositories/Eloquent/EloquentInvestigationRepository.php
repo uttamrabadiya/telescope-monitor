@@ -211,7 +211,7 @@ final class EloquentInvestigationRepository implements InvestigationRepository
         if (! $selected) {
             $selected = Occurrence::query()->join('telescope_monitor_occurrence_evidence as e', 'e.occurrence_id', '=', 'telescope_monitor_occurrences.id')->where('telescope_monitor_occurrences.installation_id', $installation)->where('issue_id', $issue->id)->where('e.expires_at', '>', now('UTC')->format('Y-m-d H:i:s.u'))->where('telescope_monitor_occurrences.occurred_at', '>', app(RetentionPolicy::class)->floors()['evidence'])->orderByDesc('occurred_at')->orderByDesc('telescope_monitor_occurrences.id')->first(['telescope_monitor_occurrences.*']) ?? $history->getCollection()->first();
         }
-        $evidence = $selected ? app(EvidenceReader::class)->read($selected->public_id) : null;
+        $evidence = $selected ? app(EvidenceReader::class)->read($selected->public_id, app(\TelescopeMonitor\Auth\Capabilities::class)->allows('operate')) : null;
         $retained = Occurrence::query()->join('telescope_monitor_occurrence_evidence as e', 'e.occurrence_id', '=', 'telescope_monitor_occurrences.id')->where('issue_id', $issue->id)->where('telescope_monitor_occurrences.installation_id', $installation)->where('e.expires_at', '>', now('UTC')->format('Y-m-d H:i:s.u'))->where('telescope_monitor_occurrences.occurred_at', '>', app(RetentionPolicy::class)->floors()['evidence']);
         $breakdowns = [];
         foreach (['origin' => 'telescope_monitor_occurrences.origin', 'route' => 'e.route_name', 'release' => 'e.release'] as $key => $column) {

@@ -13,7 +13,7 @@ final class EvidenceReader
 {
     public function __construct(private InstallationRepository $installations, private OccurrenceRepository $occurrences, private OccurrenceEvidenceRepository $evidence) {}
 
-    public function read(string $publicId): ?array
+    public function read(string $publicId, bool $includeReproduce = false): ?array
     {
         $occurrence = $this->occurrences->findByPublicId($publicId, $this->installations->current()->id);
         if (! $occurrence) {
@@ -40,6 +40,9 @@ final class EvidenceReader
             }
             $payload = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
             $payload = app(Sanitizer::class)->restrict($payload, app(CapturePolicy::class)->read());
+            if (isset($payload['reproduce']) && ! $includeReproduce) {
+                $payload['reproduce'] = ['version' => 1, 'state' => 'restricted'];
+            }
             $snapshot = $payload['source'] ?? null;
             foreach ($payload['exception']['trace'] as &$frame) {
                 $frame['source_url'] = app(SourceSnapshot::class)->link($snapshot, $frame['file'] ?? '', (int) ($frame['line'] ?? 0));

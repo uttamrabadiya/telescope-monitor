@@ -146,6 +146,9 @@ final class IntegrationsTest extends TestCase
         $body = json_decode($r['body'], true);
         $this->assertFalse($body['mrkdwn']);
         $this->assertFalse($body['link_names']);
+        $this->assertSame('header', $body['blocks'][0]['type']);
+        $this->assertStringContainsString('First seen', $r['body']);
+        $this->assertStringContainsString('Open investigation', $r['body']);
         $this->assertStringNotContainsString('<!channel>', $r['body']);
         $this->assertStringContainsString('&lt;!channel&gt;', $r['body']);
         $this->assertFalse($r['recording']);
@@ -153,6 +156,35 @@ final class IntegrationsTest extends TestCase
         $config = $this->getJson('/telescope-monitor/api/v1/integrations')->assertOk()->getContent();
         $this->assertStringNotContainsString('PRIVATESECRET', $config);
         $this->assertStringNotContainsString('TOPSECRET', json_encode(DB::table('telescope_monitor_delivery_attempts')->get()));
+    }
+
+    public function test_slack_context_freezes_on_retry_and_stricter_privacy_prevents_resending_it(): void
+    {
+        $a = $this->create('slack');
+        $this->rule([$a['id']]);
+        $this->issue();
+        $evidence = DB::table('telescope_monitor_occurrence_evidence')->first();
+        $payload = json_decode(\Illuminate\Support\Facades\Crypt::decryptString($evidence->payload_ciphertext), true);
+        $payload['execution'] = ['method' => 'GET', 'path_template' => '/widgets/{widget}', 'path' => '/widgets/PRIVATE-ID'];
+        $json = json_encode($payload);
+        DB::table('telescope_monitor_occurrence_evidence')->where('id', $evidence->id)->update([
+            'payload_ciphertext' => \Illuminate\Support\Facades\Crypt::encryptString($json),
+            'payload_digest' => hash('sha256', $json),
+        ]);
+        $this->http->responses = [new HttpResult(503), new HttpResult(503)];
+        $this->send();
+        $first = $this->http->requests[0]['body'];
+        $this->assertStringContainsString('widgets', $first);
+        $this->assertStringNotContainsString('PRIVATE-ID', $first);
+        DB::table('telescope_monitor_occurrence_evidence')->delete();
+        $this->travel(61)->seconds();
+        $this->send();
+        $this->assertSame($first, $this->http->requests[1]['body']);
+        config(['telescope-monitor.locked' => ['privacy.retain_execution_context' => false]]);
+        $this->travel(601)->seconds();
+        $this->send();
+        $this->assertCount(2, $this->http->requests);
+        $this->assertSame('export_policy_changed', DB::table('telescope_monitor_deliveries')->value('cancellation_reason'));
     }
 
     public function test_destination_throttle_serializes_different_issues_and_waits_do_not_consume_attempts(): void
@@ -627,4 +659,50 @@ final class IntegrationsTest extends TestCase
         $this->assertSame('unavailable', DB::table('telescope_monitor_linked_issues')->value('state'));
         $this->assertCount(1, $this->http->requests);
     }
+    public function test_adding_a_disconnected_repository_reconnects_it_with_the_new_token(): void
+    {
+        $first = $this->create('github');
+        $this->command($first['id'], 'test')->assertStatus(202);
+        $this->deleteJson('/telescope-monitor/api/v1/integrations/'.$first['id'], [
+            'client_key' => (string) Str::uuid(),
+            'version' => $first['version'],
+        ])->assertOk();
+        $this->assertSame('cancelled', DB::table('telescope_monitor_deliveries')->value('status'));
+        $again = $this->create('github', ['credential' => 'replacement_TOKEN', 'name' => 'Reconnected repo']);
+        $this->assertSame($first['id'], $again['id']);
+        $this->assertDatabaseCount('telescope_monitor_connections', 1);
+        $connection = Connection::query()->firstOrFail();
+        $this->assertTrue($connection->enabled);
+        $this->assertNull($connection->disconnected_at);
+        $this->assertSame('Reconnected repo', $connection->display_name);
+        $this->assertSame('replacement_TOKEN', app(Credentials::class)->target($connection)['token']);
+        $this->assertSame('cancelled', DB::table('telescope_monitor_deliveries')->value('status'));
+        $this->assertSame(1, DB::table('telescope_monitor_secrets')->where('state', 'active')->where('secret_name', 'github_token')->count());
+        $this->command($again['id'], 'test')->assertStatus(202);
+        $this->http->responses = [new HttpResult(200, '{"full_name":"acme/app"}'), new HttpResult(200, '[]')];
+        $this->send();
+        $this->assertSame('Bearer replacement_TOKEN', $this->http->requests[0]['headers']['Authorization']);
+        $this->assertSame('sent', DB::table('telescope_monitor_deliveries')->orderByDesc('id')->value('status'));
+    }
+
+    public function test_enabling_a_disconnected_connection_clears_disconnected_status(): void
+    {
+        foreach (['github', 'slack', 'webhook'] as $provider) {
+            $c = $this->create($provider);
+            $disconnected = $this->deleteJson('/telescope-monitor/api/v1/integrations/'.$c['id'], [
+                'client_key' => (string) Str::uuid(),
+                'version' => $c['version'],
+            ])->assertOk()->json('telescope_monitor_private');
+            $this->patchJson('/telescope-monitor/api/v1/integrations/'.$c['id'], [
+                'client_key' => (string) Str::uuid(),
+                'version' => $disconnected['version'],
+                'name' => 'Restored',
+                'enabled' => true,
+            ])->assertOk();
+            $connection = Connection::query()->where('public_id', $c['id'])->firstOrFail();
+            $this->assertTrue($connection->enabled);
+            $this->assertNull($connection->disconnected_at);
+        }
+    }
+
 }

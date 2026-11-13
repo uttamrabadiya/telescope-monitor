@@ -7,12 +7,14 @@
 /workbench export-ignore
 /docs/* export-ignore
 /docs/configuration-reference.md -export-ignore
+/docs/reproduce.md -export-ignore
+/docs/slack-notification-example.json -export-ignore
 /docs/telescope-source-capture.md -export-ignore
 /docs/operations-guide-v1.md -export-ignore
 /docs/webhook-contract-v1.md -export-ignore
 /docs/technical-architecture-v1.md -export-ignore
-/docs/release-notes-v1.0.0-rc.1.md -export-ignore
-/docs/release-verification-v1.0.0-rc.1.md -export-ignore
+/docs/release-notes-v1.0.0-rc.2.md -export-ignore
+/docs/release-verification-v1.0.0-rc.2.md -export-ignore
 /node_modules export-ignore
 /PRODUCT.md export-ignore
 /DESIGN.md export-ignore

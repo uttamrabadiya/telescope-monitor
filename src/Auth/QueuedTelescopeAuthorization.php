@@ -15,6 +15,20 @@ use Laravel\Telescope\Telescope;
 /** Recheck Telescope as the saved actor, without borrowing another request's credentials. */
 final class QueuedTelescopeAuthorization
 {
+    private ?Request $workerRequest = null;
+
+    /** True only inside this service's isolated CLI policy evaluation, never from client input. */
+    public function isWorkerContext(?Request $request = null): bool
+    {
+        $request ??= app('request');
+
+        return app()->runningInConsole()
+            && $request === $this->workerRequest
+            && $request === app('request')
+            && $request->method() === 'CLI'
+            && $request->attributes->get('telescope-monitor.worker') === true;
+    }
+
     public function allows(?Authenticatable $user): bool
     {
         $originalAuth = Auth::getFacadeRoot();
@@ -39,7 +53,9 @@ final class QueuedTelescopeAuthorization
                 return $this->guards[$name] ??= new RequestGuard(fn () => $name === $this->actorGuard ? $this->actor : null, $this->context);
             }
         };
+        $previousWorkerRequest = $this->workerRequest;
         try {
+            $this->workerRequest = $request;
             Auth::swap($scopedAuth);
             RequestFacade::swap($request);
             $request->setUserResolver(fn ($requested = null) => $requested === null || $requested === $guard ? $user : null);
@@ -49,6 +65,7 @@ final class QueuedTelescopeAuthorization
         } catch (\Throwable) {
             return false;
         } finally {
+            $this->workerRequest = $previousWorkerRequest;
             Gate::swap($originalGate);
             RequestFacade::swap($originalRequest);
             $originalRequest->setUserResolver($originalUserResolver);

@@ -4,7 +4,7 @@ namespace TelescopeMonitor\Integrations;
 
 final readonly class HttpResult
 {
-    public function __construct(public int $status = 0, public string $body = '', public array $headers = []) {}
+    public function __construct(public int $status = 0, public string $body = '', public array $headers = [], public ?string $failure = null) {}
 
     public function json(): array
     {

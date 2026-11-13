@@ -49,6 +49,7 @@ final class EnvelopeCodec
             'impact',
             'coverage',
             'source',
+            'reproduce',
         ])) {
             throw new CaptureFailure('malformed_envelope');
         }
@@ -56,6 +57,9 @@ final class EnvelopeCodec
             if (! isset($data[$key]) || ! is_array($data[$key])) {
                 throw new CaptureFailure('malformed_envelope');
             }
+        }
+        if (isset($data['reproduce']) && ! app(Reproduce::class)->valid($data['reproduce'])) {
+            throw new CaptureFailure('malformed_reproduce');
         }
         $marker = $data['marker'];
         foreach (['generation', 'source_epoch', 'environment', 'occurred_at', 'grouping_version', 'fingerprint_hash'] as $key) {

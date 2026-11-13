@@ -113,7 +113,7 @@ final class Sanitizer
         return $out;
     }
 
-    public function envelope(array $content, array $marker, array $batch, array $tags, ?array $trace = null): array
+    public function envelope(array $content, array $marker, array $batch, array $tags, ?array $trace = null, ?array $reproduce = null): array
     {
         $policy = $marker['policy'];
         unset($marker['policy']);
@@ -215,11 +215,17 @@ final class Sanitizer
             'coverage' => array_replace($coverage, $batch['coverage'] ?? []),
         ];
 
+        if ($reproduce !== null) {
+            $envelope['reproduce'] = $reproduce;
+        }
         return $this->fit($envelope);
     }
 
     public function restrict(array $envelope, array $policy): array
     {
+        if (isset($envelope['reproduce'])) {
+            $envelope['reproduce'] = app(Reproduce::class)->restrict($envelope['reproduce'], $policy['privacy']);
+        }
         $e = $envelope['exception'];
         $e['class'] = $this->text($e['class'], $policy, 512);
         $e['message'] = $this->text($e['message'], $policy);
@@ -328,7 +334,9 @@ final class Sanitizer
     private function fit(array $envelope): array
     {
         while (strlen(json_encode($envelope, JSON_THROW_ON_ERROR)) > 131072) {
-            if ($envelope['timeline']) {
+            if (($envelope['reproduce']['state'] ?? null) === 'ready') {
+                $envelope['reproduce'] = ['version' => 1, 'state' => 'too_large'];
+            } elseif ($envelope['timeline']) {
                 array_pop($envelope['timeline']);
                 $envelope['coverage']['timeline'] = 'truncated';
             } elseif ($envelope['logs']) {

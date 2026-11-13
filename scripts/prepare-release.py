@@ -45,7 +45,7 @@ with zipfile.ZipFile(archive) as package:
         if content != (root / name_in_zip).read_bytes():
             raise SystemExit('Source/archive byte mismatch: ' + name_in_zip)
         manifest[name_in_zip] = hashlib.sha256(content).hexdigest()
-    for required in ['LICENSE', 'README.md', 'composer.json', 'dist/manifest.json', 'dist/licenses/figtree.txt', 'dist/licenses/heroicons.txt', 'dist/licenses/vue.txt', 'dist/licenses/vue-router.txt', 'docs/configuration-reference.md', 'docs/telescope-source-capture.md', 'docs/technical-architecture-v1.md', 'docs/operations-guide-v1.md', 'docs/webhook-contract-v1.md', 'docs/release-notes-v1.0.0-rc.1.md', 'docs/release-verification-v1.0.0-rc.1.md']:
+    for required in ['LICENSE', 'README.md', 'composer.json', 'dist/manifest.json', 'dist/licenses/figtree.txt', 'dist/licenses/heroicons.txt', 'dist/licenses/vue.txt', 'dist/licenses/vue-router.txt', 'docs/configuration-reference.md', 'docs/telescope-source-capture.md', 'docs/technical-architecture-v1.md', 'docs/operations-guide-v1.md', 'docs/webhook-contract-v1.md', 'docs/reproduce.md', 'docs/slack-notification-example.json', f'docs/release-notes-v{args.version}.md', f'docs/release-verification-v{args.version}.md']:
         if required not in manifest:
             raise SystemExit('Missing required artifact: ' + required)
     asset_manifest = json.loads(package.read('dist/manifest.json'))

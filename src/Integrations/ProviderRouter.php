@@ -5,7 +5,7 @@ namespace TelescopeMonitor\Integrations;
 use Carbon\CarbonImmutable;
 use Illuminate\Validation\ValidationException;
 use Laravel\Telescope\Telescope;
-use TelescopeMonitor\Alerts\Envelope;
+use TelescopeMonitor\Alerts\SlackPresentation;
 use TelescopeMonitor\Alerts\HostEmailProvider;
 use TelescopeMonitor\Alerts\NotificationProvider;
 use TelescopeMonitor\Alerts\Outcome;
@@ -14,9 +14,10 @@ final class ProviderRouter implements NotificationProvider
 {
     public function __construct(private HostEmailProvider $mail, private DestinationPolicy $policy, private HttpTransport $http) {}
 
-    public function request(string $method, string $url, string $provider, array $headers = [], string $body = ''): HttpResult
+    public function request(string $method, string $url, string $provider, array $headers = [], string $body = '', int $maxResponseBytes = 65536): HttpResult
     {
         $destination = $this->policy->pin($url, $provider);
+        $destination['max_response_bytes'] = max(1024, min(1048576, $maxResponseBytes));
         try {
             return Telescope::withoutRecording(fn () => $this->http->request($method, $destination, $headers + ['User-Agent' => 'Telescope-Monitor/1', 'Accept' => 'application/json'], $body));
         } catch (\Throwable) {
@@ -120,16 +121,7 @@ final class ProviderRouter implements NotificationProvider
                 $body = $envelope['webhook_body'];
                 $headers = WebhookPayload::headers($body, $envelope, $target['signing_key_id'], $target['signing_secret'], now('UTC')->timestamp);
             } else {
-                $text = Envelope::text($envelope);
-                $text = str_replace(['&', '<', '>'], ['&amp;', '&lt;', '&gt;'], $text);
-                $body = json_encode([
-                    'text' => $text,
-                    'mrkdwn' => false,
-                    'parse' => 'none',
-                    'link_names' => false,
-                    'unfurl_links' => false,
-                    'unfurl_media' => false,
-                ], JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
+                $body = json_encode((new SlackPresentation)->payload($envelope), JSON_THROW_ON_ERROR | JSON_UNESCAPED_UNICODE);
                 $headers = ['Content-Type' => 'application/json'];
             }
             $r = $this->request('POST', $target['url'], $target['provider'], $headers, $body);

@@ -20,6 +20,31 @@ Signed-in users retain their provider-backed identity. Authorized visits without
 
 Queued manual work re-resolves the saved user (or uses an actual guest context for a shared operator) and calls the current `Telescope::check()` policy. There is no separate guest-job opt-in. The legacy `allow_guest_jobs` setting is ignored and can be removed from published configuration. The worker scope supplies no browser cookies, authorization headers or invented loopback address, and restores the host request/auth/gate state afterward. Default local and gate-based policies work without a separate login; revoked/throwing policies fail closed before provider I/O. Request-only policies must explicitly support the marked `telescope-monitor.worker` context through the host's Telescope policy rather than relying on replayed browser credentials. Restart workers after policy/code changes.
 
+### Request-restricted Telescope policies
+
+If `viewTelescope` checks HTTP server fields, a queue worker has no address/port, session or browser credentials. Explicitly opt trusted monitoring workers into that policy using the package's scoped helper. For example, preserve an existing `127.0.0.1:8081` browser restriction:
+
+```php
+use Illuminate\Contracts\Auth\Authenticatable;
+use Illuminate\Support\Facades\Gate;
+use TelescopeMonitor\Auth\QueuedTelescopeAuthorization;
+
+Gate::define('viewTelescope', function (?Authenticatable $user = null): bool {
+    $request = request();
+
+    if (app(QueuedTelescopeAuthorization::class)->isWorkerContext($request)) {
+        return true;
+    }
+
+    return $request->server('SERVER_ADDR') === '127.0.0.1'
+        && (string) $request->server('SERVER_PORT') === '8081';
+});
+```
+
+The helper requires an active, package-owned isolated CLI authorization scope and the exact scoped request object. A header, query parameter, copied request or forged `telescope-monitor.worker` attribute cannot activate it. Scope is restored after successful or failed policy evaluation. No fake HTTP server values are supplied. This is an explicit host opt-in for trusted server workers; retain any per-user restrictions your worker policy also requires.
+
+Install the package version containing this helper before deploying a gate that calls it, and restart monitoring queue workers/importers afterward. Previously cancelled checks remain cancelled; generate a new sample. Normal browser authorization and queued installation/generation checks remain enforced.
+
 For applications needing separate viewer/operator/admin roles, opt into `authorization.driver = 'gates'` and define the existing capability gates:
 
 ```php
@@ -97,6 +122,10 @@ Current policy is applied again during ingestion and evidence reads. Disabling r
 
 Restart capture/delivery workers after updating this code before testing new captures. No database migration is required. Existing envelopes without SQL/activity fields remain readable; older workers must be restarted to recognize new fields. No retrospective source enrichment or automatic rewrite of old evidence occurs.
 
+
+## Reproduce evidence
+
+Context & activity includes an operator-only, collapsed Reproduce section. Deployment-managed redacted/selected-values/full-payload policies apply to exact routes and commands. Credentials remain excluded. Replay evidence is encrypted before Telescope storage, sanitized again on import/processing/read, and follows occurrence evidence retention. No host capture database queries or additional migrations are introduced. See the [replay guide](reproduce.md) for configuration and supported payloads.
 
 ## Investigation and lifecycle
 
@@ -285,12 +314,12 @@ Userinfo, fragments, unsupported schemes/ports and unapproved private/reserved a
 
 ### GitHub Issues
 
-Configure a public GitHub owner/repository and a repository-scoped fine-grained token. The connection check queues read-only repository metadata and up to 100 existing labels; it creates no ticket and cannot conclusively prove write access. Creation requires the token's repository Issues write permission. Tokens can be replaced for the same repository; the repository cannot be redirected through token replacement. GitHub App authentication and Enterprise/custom API origins are deferred. Requests use `api.github.com` and the supported `2026-03-10` API contract. See [GitHub issue endpoints](https://docs.github.com/en/rest/issues/issues) and [provider failure/rate-limit guidance](https://docs.github.com/en/rest/using-the-rest-api/troubleshooting-the-rest-api).
+Enter a repository-scoped fine-grained personal access token, load its accessible repositories, and select a repository with Issues enabled. Repository discovery is a bounded, paginated read from github.com; it does not save the token until the connection is saved or prove Issues write access. Archived/disabled repositories are omitted. Deployment credential references and manual owner/repository entry remain available. GitHub organization policies may require token approval. The connection check queues read-only repository metadata and up to 100 existing labels; it creates no ticket and cannot conclusively prove write access. Creation requires the token's repository Issues write permission. Tokens can be replaced for the same repository; the repository cannot be redirected through token replacement. GitHub App authentication and Enterprise/custom API origins are deferred. Requests use `api.github.com` and the supported `2026-03-10` API contract. See [GitHub issue endpoints](https://docs.github.com/en/rest/issues/issues) and [provider failure/rate-limit guidance](https://docs.github.com/en/rest/using-the-rest-api/troubleshooting-the-rest-api).
 
 From an error's **Linked issues** tab:
 
 1. Choose Create GitHub issue, a configured repository, optional title and observed existing labels.
-2. Preview the exact sanitized title/body, including a stable installation/error/operation marker and an investigation link. Context, stack traces and notes are excluded. This preview sends nothing.
+2. Preview the exact sanitized title/body, including a stable installation/error/operation marker and an investigation link. The export includes occurrence count, first/last seen UTC timestamps, status at export, and permitted retained release/execution details and bounded application stack frames. Request bodies, headers, cookies, SQL, user identities and notes are excluded. `integrations.github.include_context`, `include_stack_trace` and `max_frames` control this optional evidence independently of email; capture privacy still applies. Missing evidence falls back to the summary. Existing tickets are snapshots and are not automatically updated. This preview sends nothing.
 3. Explicitly confirm. The preview's digest/current policy are rechecked, its bytes freeze, and one durable repository reservation prevents duplicate clicks/workers from scheduling independent creation.
 4. Refresh local status or open the creation delivery. Validated acceptance stores the remote number, canonical URL and last-known state. Local Resolve/Ignore never closes/reopens a ticket.
 
@@ -319,3 +348,12 @@ Deployment-managed credentials use an allowlisted reference, not an arbitrary en
 ```
 
 The dashboard selects an approved reference. Its value is loaded at execution, not copied into ciphertext or serialized into a job. A changed Slack reference cannot redirect old work because the runtime endpoint must still match its immutable target fingerprint. A GitHub reference may rotate its token for the same repository.
+
+## Dashboard theme
+
+Monitor reads `Laravel\Telescope\Telescope::$useDarkTheme` when rendering the
+page. Enable dark mode with `Telescope::night()` in the host Telescope service
+provider. When the flag is `false` (the Telescope default), Monitor uses its light
+palette. This applies to all dashboard routes, including setup, forms, charts and
+investigation views. Reload the page after changing the host theme. No separate
+Monitor configuration key, environment variable, or browser preference is used.

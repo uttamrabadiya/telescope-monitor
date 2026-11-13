@@ -37,6 +37,17 @@ final class IntegrationController
         return $this->run(fn () => $service->configuration());
     }
 
+    public function repositories(Request $request, \TelescopeMonitor\Integrations\GitHubRepositories $repositories): JsonResponse
+    {
+        $values = $request->validate([
+            'credential' => ['nullable', 'required_without:credential_reference', 'string', 'max:4096'],
+            'credential_reference' => ['nullable', 'string', 'max:191'],
+            'page' => ['sometimes', 'integer', 'min:1', 'max:100'],
+        ]);
+
+        return $this->run(fn () => $repositories->discover($values));
+    }
+
     public function links(string $issue, GitHubIssues $github): JsonResponse
     {
         return $this->run(fn () => $github->links($issue));

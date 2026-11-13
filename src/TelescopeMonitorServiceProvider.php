@@ -14,6 +14,7 @@ use Laravel\Telescope\Telescope;
 use TelescopeMonitor\Alerts\NotificationProvider;
 use TelescopeMonitor\Auth\ActorResolver;
 use TelescopeMonitor\Auth\HostActorResolver;
+use TelescopeMonitor\Auth\QueuedTelescopeAuthorization;
 use TelescopeMonitor\Capture\CaptureContext;
 use TelescopeMonitor\Collaboration\Assignments;
 use TelescopeMonitor\Collaboration\Identity;
@@ -73,6 +74,7 @@ final class TelescopeMonitorServiceProvider extends ServiceProvider
             $this->app->scoped($contract, $implementation);
         }
         $this->app->scoped(CaptureContext::class);
+        $this->app->scoped(QueuedTelescopeAuthorization::class);
         $this->app->bind(NotificationProvider::class, ProviderRouter::class);
         $this->app->bind(DnsResolver::class, NativeDnsResolver::class);
         $this->app->bind(HttpTransport::class, CurlTransport::class);

@@ -28,6 +28,14 @@ return [
         'source_link_template' => null,
         'allowed_tags' => [],
     ],
+    // Replay modes are deployment-managed; full payloads require exact route/command opt-in.
+    'reproduce' => [
+        'enabled' => true,
+        'max_bytes' => 8192,
+        'sensitive_fields' => [],
+        'routes' => [],
+        'commands' => [],
+    ],
     'capabilities' => [
         'view' => 'viewTelescopeMonitor',
         'operate' => 'operateTelescopeMonitor',
@@ -47,7 +55,11 @@ return [
         'max_threshold_count' => 100000,
         'pending_seconds' => 86400,
     ],
-    'integrations' => ['credentials' => [], 'webhooks' => ['ports' => [443], 'private_targets' => []]],
+    'integrations' => [
+        'credentials' => [],
+        'webhooks' => ['ports' => [443], 'private_targets' => []],
+        'github' => ['include_context' => true, 'include_stack_trace' => true, 'max_frames' => 8, 'allowed_tags' => []],
+    ],
     'operations' => ['freshness_seconds' => 300, 'maintenance_seconds' => 3600, 'preview_limit' => 10000],
     'retention_limits' => [],
     'actor_label' => null,

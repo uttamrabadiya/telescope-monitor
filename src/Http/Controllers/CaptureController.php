@@ -30,7 +30,7 @@ final class CaptureController
     public function evidence(string $occurrence, EvidenceReader $reader, CaptureInboxRepository $inbox): JsonResponse
     {
         abort_unless($inbox->ready(), 409);
-        $data = $reader->read($occurrence);
+        $data = $reader->read($occurrence, app(\TelescopeMonitor\Auth\Capabilities::class)->allows('operate'));
         abort_unless($data !== null, 404);
 
         return response()->json(['telescope_monitor_private' => $data])->header('Cache-Control', 'private, no-store');

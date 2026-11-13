@@ -4,6 +4,7 @@ namespace TelescopeMonitor\Tests\Feature;
 
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
+use Laravel\Telescope\Telescope;
 use TelescopeMonitor\Foundation\DashboardAssets;
 use TelescopeMonitor\Repositories\Contracts\InstallationRepository;
 use TelescopeMonitor\Tests\TestCase;
@@ -15,6 +16,25 @@ final class FoundationTest extends TestCase
         $this->get('/telescope-monitor')->assertForbidden();
         $this->getJson('/telescope-monitor/api/v1/bootstrap')->assertForbidden();
         $this->get('/telescope-monitor/assets/unknown/monitor.js')->assertForbidden();
+    }
+
+    public function test_shell_follows_the_existing_telescope_theme_on_every_request(): void
+    {
+        $this->authorize();
+        $original = Telescope::$useDarkTheme;
+
+        try {
+            Telescope::$useDarkTheme = false;
+            $this->get('/telescope-monitor/overview')->assertOk()->assertSee('data-theme="light"', false);
+
+            Telescope::night();
+            $this->get('/telescope-monitor/settings/privacy')->assertOk()->assertSee('data-theme="dark"', false);
+
+            Telescope::$useDarkTheme = false;
+            $this->get('/telescope-monitor/errors')->assertOk()->assertSee('data-theme="light"', false);
+        } finally {
+            Telescope::$useDarkTheme = $original;
+        }
     }
 
     public function test_viewer_can_read_bootstrap_but_cannot_inspect_or_mutate_settings(): void

@@ -268,3 +268,17 @@ Each route renders inside one white 6px-radius page surface with Telescope's sof
 Text fields and single selects use 38px height, 6px 12px padding, 16px Figtree, 4px corners and Telescope gray borders (#d1d5db; hover #9ca3af). Search fields use pill corners, matching Telescope's header search treatment. Textareas retain their readable minimum height; multiple selects retain at least 112px rather than collapsing to a single row. Checkbox/radio sizing is 16px. Disabled, invalid and visible keyboard-focus states remain explicit.
 
 The whole application stylesheet detector also reports existing tab underlines and historical palette/type advisories. The 3px/4px borders are selected navigation indicators, not card accent borders. The two new control gray values and the page shadow intentionally follow the user's Telescope reference; they are not an invitation to restyle unrelated components.
+
+## Telescope dark theme — 13 November 2026
+
+The dashboard follows the host's `Laravel\Telescope\Telescope::$useDarkTheme`
+flag on the server-rendered root element. `Telescope::night()` enables the dark
+palette without adding a Monitor setting. The light palette and layout remain
+unchanged. The source of truth for both palettes is `resources/css/app.css`.
+
+Dark mode follows Telescope's gray-900 canvas (`#111827`), gray-800 surfaces
+(`#1f2937`), gray-100 body text (`#f3f4f6`) and gray-400 helper text (`#9ca3af`).
+Indigo links and active states use `#a5b4fc`; filled primary controls retain
+`#4040c8` and white text. Borders, notices, status badges, code evidence, chart
+fills/lines, focus, text selection, dropdowns and native controls use themed
+colors. Theme selection is independent of OS preferences and local storage.

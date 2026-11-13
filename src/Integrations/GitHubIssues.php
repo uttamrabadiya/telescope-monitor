@@ -65,6 +65,7 @@ final class GitHubIssues
             'count' => (string) $issue->lifetime_count,
             'occurred_at' => $issue->last_seen_at->toISOString(),
             'url' => rtrim($g['dashboard_url'], '/').'/errors/'.$issue->public_id,
+            'github_context' => app(GitHubContext::class)->build($issue, \TelescopeMonitor\Models\Occurrence::query()->where('issue_id', $issue->id)->orderByDesc('occurred_at')->orderByDesc('id')->first(), $g, true),
         ]);
     }
 

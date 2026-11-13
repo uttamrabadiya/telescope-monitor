@@ -7,10 +7,10 @@ final class CurlTransport implements HttpTransport
     public function request(string $method, array $destination, array $headers, string $body): HttpResult
     {
         if (! function_exists('curl_init')) {
-            return new HttpResult;
+            return new HttpResult(failure: 'curl_unavailable');
         }
         $handle = curl_init();
-        $resultBody = '';
+        $buffer = new ResponseBuffer(max(1024, min(1048576, (int) ($destination['max_response_bytes'] ?? 65536))));
         $responseHeaders = [];
         $raw = [];
         foreach ($headers as $key => $value) {
@@ -40,13 +40,7 @@ final class CurlTransport implements HttpTransport
 
                     return strlen($line);
                 },
-                CURLOPT_WRITEFUNCTION => function ($h, $chunk) use (&$resultBody) {
-                    if (strlen($resultBody) + strlen($chunk) > 65536) {
-                        return 0;
-                    }$resultBody .= $chunk;
-
-                    return strlen($chunk);
-                },
+                CURLOPT_WRITEFUNCTION => fn ($h, $chunk) => $buffer->append($chunk),
             ]);
             if (defined('CURLOPT_PROTOCOLS_STR')) {
                 curl_setopt($handle, CURLOPT_PROTOCOLS_STR, 'https');
@@ -59,7 +53,17 @@ final class CurlTransport implements HttpTransport
             $ok = curl_exec($handle);
             $status = (int) curl_getinfo($handle, CURLINFO_RESPONSE_CODE);
 
-            return $ok === false ? new HttpResult : new HttpResult($status, $resultBody, $responseHeaders);
+            if ($ok === false) {
+                $failure = $buffer->exceeded ? 'response_too_large' : match (curl_errno($handle)) {
+                    CURLE_OPERATION_TIMEDOUT => 'timeout',
+                    CURLE_SSL_CACERT, CURLE_SSL_CONNECT_ERROR => 'tls',
+                    default => 'connection_failed',
+                };
+
+                return new HttpResult(failure: $failure);
+            }
+
+            return new HttpResult($status, $buffer->body, $responseHeaders);
         } catch (\Throwable) {
             return new HttpResult;
         } finally {

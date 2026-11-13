@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import ReproducePanel from './ReproducePanel.vue'
 import type { Evidence } from '../types'
 import { activityDescription, contextActivity, milliseconds, sqlAvailability } from '../composables/contextActivity'
 const props = defineProps<{ evidence: Evidence; telescopeUrl?: string | null }>()
@@ -13,6 +14,7 @@ const state: Record<string, string> = { available:'Retained',excluded:'Excluded 
 </script>
 <template>
   <div class="context-activity">
+    <ReproducePanel :reproduce="evidence.reproduce"/>
     <section aria-label="Execution context">
       <h3>Execution context</h3>
       <dl v-if="execution.length" class="context-list"><div v-for="[key,value] in execution" :key="key"><dt>{{labels[key]??key}}</dt><dd>{{value}}</dd></div></dl>
@@ -38,6 +40,6 @@ const state: Record<string, string> = { available:'Retained',excluded:'Excluded 
     </section>
     <section aria-label="Related logs"><h3>Related logs</h3><ul v-if="activity.logs.length" class="related-logs"><li v-for="(log,index) in activity.logs" :key="index"><span class="badge">{{log.level||'Log'}}</span><p>{{log.message||'Log message unavailable'}}</p></li></ul><p v-else class="help">No related logs were retained.</p></section>
     <section v-if="Object.keys(evidence.tags).length"><h3>Tags</h3><dl class="context-list"><div v-for="(value,key) in evidence.tags" :key="key"><dt>{{key}}</dt><dd>{{value}}</dd></div></dl></section>
-    <details class="data-availability"><summary>Data availability</summary><p class="help">Request bodies, headers, cookies, SQL bindings and arbitrary log context are excluded. SQL templates keep schema identifiers and mask supported literals.</p><dl class="context-list"><div v-for="(value,key) in evidence.coverage" :key="key"><dt>{{availability[key]??key}}</dt><dd>{{state[value]??'Not retained or unavailable'}}</dd></div></dl></details>
+    <details class="data-availability"><summary>Data availability</summary><p class="help">Cookies, authentication credentials, SQL bindings and arbitrary log context are excluded. Replay fields follow their capture mode and current deployment/privacy policy. SQL templates keep schema identifiers and mask supported literals.</p><dl class="context-list"><div v-for="(value,key) in evidence.coverage" :key="key"><dt>{{availability[key]??key}}</dt><dd>{{state[value]??'Not retained or unavailable'}}</dd></div></dl></details>
   </div>
 </template>

@@ -23,7 +23,7 @@
 
 Telescope Monitor groups exceptions, preserves sanitized investigation evidence, and helps your team resolve errors and receive useful alerts. It uses your application's Telescope access policy, mailer and queue configuration. The dashboard ships with compiled assets: no frontend setup is needed in your app.
 
-**Release candidate:** available on [Packagist](https://packagist.org/packages/telescope-monitor/telescope-monitor). Use the explicit RC constraint below for evaluation. Verified combinations and remaining stable-release gates are recorded in the [verification report](docs/release-verification-v1.0.0-rc.1.md).
+**Release candidate: `1.0.0-rc.2`.** Published versions are listed on [Packagist](https://packagist.org/packages/telescope-monitor/telescope-monitor). Use the explicit RC constraint below for evaluation. Verified combinations and remaining stable-release gates are recorded in the [verification report](docs/release-verification-v1.0.0-rc.2.md).
 
 ## What you get
 
@@ -41,6 +41,11 @@ Your app → Telescope storage → Importer → Error dashboard
 ```
 
 Telescope is the initial durable buffer. Keep its records long enough for the importer to catch up; evidence becomes independent of Telescope after successful buffering.
+
+The dashboard follows `Laravel\Telescope\Telescope::$useDarkTheme`. Calling
+`Telescope::night()` in your host Telescope service provider enables dark mode for
+both Telescope and Monitor. The default is light; no Monitor theme setting or
+additional environment variable is needed.
 
 ## Requirements
 
@@ -105,6 +110,8 @@ https://your-app.test/telescope-monitor/setup
 ```
 
 Access follows your existing Telescope authorization policy. No separate monitoring login is added. With Laravel's default Telescope policy, local access is permitted and non-local access uses `viewTelescope`.
+
+If your Telescope gate relies on HTTP server fields, explicitly support queued monitoring actions with the scoped `QueuedTelescopeAuthorization::isWorkerContext()` helper. See the [worker-policy example](docs/configuration-reference.md#request-restricted-telescope-policies); keep your existing browser restrictions.
 
 All Telescope-authorized visitors receive monitoring view, operate and manage access by default. Anonymous authorized visitors share one operator identity, including ownership of personal views and notes. See [access configuration](docs/configuration-reference.md#dashboard-access) for separate roles and worker authorization.
 
@@ -258,6 +265,8 @@ SQL templates are off by default. Enable **Settings → Capture & privacy → Sa
 
 Use **Integrations** to configure Slack, signed webhooks and GitHub Issues, then choose notification destinations in alert rules. GitHub creation/linking is explicit by default. Optional assignments require a host directory adapter and are disabled until configured.
 
+Slack alerts use Block Kit with event headings, exception summaries, source locations, captured occurrence counts, event and first-seen times in the configured application timezone, and a button to open the investigation at the selected occurrence. Route templates, job or command names, and release identifiers appear when retained evidence is available; request bodies, raw paths, headers and user details are excluded. Context freezes with the first delivery attempt and current privacy restrictions are checked again before retries. Synthetic tests are labeled separately. Paste the [synthetic example payload](docs/slack-notification-example.json) into [Slack's Block Kit Builder](https://app.slack.com/block-kit-builder) to preview the layout.
+
 See the [configuration reference](docs/configuration-reference.md) for role gates, separate databases, deployment locks, SQL behavior, assignments, email settings and integration contracts. Keep previous signing/encryption keys during rotation as described in the [capture](docs/telescope-source-capture.md#signing-and-rotation) and [operations](docs/operations-guide-v1.md) guides.
 
 ### Retain context only for failed batches
@@ -335,6 +344,12 @@ A caught exception that is never reported cannot trigger this filter. To also re
 
 After deploying these changes, refresh cached configuration and restart long-running host workers/Octane processes so the new filters and watcher settings take effect. Test one successful execution and one reported failure: only the failure batch should remain in Telescope in production, then appear with available context after import.
 
+### Reproduce requests and commands
+
+The **Context & activity → Reproduce** section provides collapsed, operator-only **Copy cURL** and **Copy command** templates. New captures default to redacted values. Configure exact routes/commands under the root `reproduce` deployment setting to allow selected field values or explicitly opt into full payloads. Credentials remain excluded in every mode; replay evidence is encrypted before entering Telescope and host capture still issues zero package database queries.
+
+Supported JSON/form fields and parsed command arguments/options are bounded; uploads and job payloads are not serialized. Older snapshots explain that replay evidence is unavailable. Templates do not execute automatically and cannot restore database/external-service state. See [replay configuration, exclusions and testing](docs/reproduce.md).
+
 ## Troubleshooting
 
 | Symptom | Check |
@@ -359,10 +374,11 @@ After code or deployment configuration changes, refresh cached configuration as 
 | Guide | Covers |
 | --- | --- |
 | [Configuration reference](docs/configuration-reference.md) | Access, storage, privacy, investigation, collaboration and integrations |
+| [Reproduce evidence](docs/reproduce.md) | Capture modes, credential exclusions, cURL/command templates and testing |
 | [Capture and importer](docs/telescope-source-capture.md) | Signing, process boundaries, recovery, key rotation and purge safety |
 | [Operations guide](docs/operations-guide-v1.md) | Retention, maintenance, purge and encryption-key rotation |
 | [Webhook receiver contract](docs/webhook-contract-v1.md) | Payloads, signatures and receiver deduplication |
-| [Release verification](docs/release-verification-v1.0.0-rc.1.md) | Tested environments, acceptance evidence and remaining release gates |
+| [Release verification](docs/release-verification-v1.0.0-rc.2.md) | Tested environments, acceptance evidence and remaining release gates |
 | [Architecture](docs/technical-architecture-v1.md) | Design decisions and storage boundaries |
 
 ## Developing the package
@@ -387,7 +403,7 @@ npm run test:unit
 npm run build
 ```
 
-Use only a disposable database for engine/concurrency tests; the suite creates and rolls back package and Telescope tables. See [verification notes](docs/release-verification-v1.0.0-rc.1.md) for the engine matrix and limitations. Do not commit credentials or real exception data in examples, fixtures or screenshots.
+Use only a disposable database for engine/concurrency tests; the suite creates and rolls back package and Telescope tables. See [verification notes](docs/release-verification-v1.0.0-rc.2.md) for the engine matrix and limitations. Do not commit credentials or real exception data in examples, fixtures or screenshots.
 
 ## License
 

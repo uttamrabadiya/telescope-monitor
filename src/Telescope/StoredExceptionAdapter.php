@@ -15,6 +15,7 @@ use TelescopeMonitor\Capture\CaptureBuffer;
 use TelescopeMonitor\Capture\CaptureContext;
 use TelescopeMonitor\Capture\CapturePolicy;
 use TelescopeMonitor\Capture\Sanitizer;
+use TelescopeMonitor\Capture\Reproduce;
 use TelescopeMonitor\Capture\SourceMarker;
 use TelescopeMonitor\Capture\SourceSnapshot;
 use TelescopeMonitor\Capture\SourceStamp;
@@ -43,7 +44,7 @@ final class StoredExceptionAdapter
             if (! $exception instanceof Throwable) {
                 return [];
             }
-            unset($entry->content['telescope_monitor_trace'], $entry->content['telescope_monitor_capture'], $entry->content['telescope_monitor_source'], $entry->content['telescope_monitor_origin'], $entry->content['telescope_monitor_route']);
+            unset($entry->content['telescope_monitor_reproduce'], $entry->content['telescope_monitor_trace'], $entry->content['telescope_monitor_capture'], $entry->content['telescope_monitor_source'], $entry->content['telescope_monitor_origin'], $entry->content['telescope_monitor_route']);
             $entry->content['telescope_monitor_source'] = app(SourceSnapshot::class)->capture();
             $entry->content['telescope_monitor_trace'] = array_map(function ($frame) {
                 $out = [];
@@ -68,6 +69,16 @@ final class StoredExceptionAdapter
                 $entry->content['telescope_monitor_origin'] = $this->context->failedJobOrigin;
             } elseif ($command = $this->context->commandOrigin($exception)) {
                 $entry->content['telescope_monitor_origin'] = ['kind' => 'command', 'command' => $command];
+            }
+            // Only in-memory request/input state and deployment configuration are read here.
+            try {
+                $reproduce = app(Reproduce::class);
+                $origin = $entry->content['telescope_monitor_origin']['kind'] ?? null;
+                $entry->content['telescope_monitor_reproduce'] = $origin === 'command'
+                    ? $reproduce->command($entry->content['telescope_monitor_origin']['command'], $this->context->commandInput($exception))
+                    : ($origin === 'job' ? $reproduce->unsupported() : $reproduce->capture(app('request')));
+            } catch (Throwable) {
+                // Replay failure must not prevent ordinary exception capture.
             }
             return app(SourceStamp::class)->tags($entry->uuid, $entry->recordedAt, $entry->content, $this->context->probeException === ($entry->exception ?? null) ? $this->context->probeId : null);
         } catch (Throwable) {
@@ -142,7 +153,15 @@ final class StoredExceptionAdapter
             if (isset($content['telescope_monitor_capture']['grouping_file'])) {
                 $content['file'] = $content['telescope_monitor_capture']['grouping_file'];
             }
-            $payload = $this->sanitizer->envelope($content, $marker, $contexts[$batch], $row['tags'], $content['telescope_monitor_trace'] ?? null);
+            $payload = $this->sanitizer->envelope(
+                $content,
+                $marker,
+                $contexts[$batch],
+                $row['tags'],
+                $content['telescope_monitor_trace'] ?? null,
+                isset($content['telescope_monitor_reproduce']) && array_filter($row['tags'], fn ($tag) => str_starts_with($tag, 'tm3|'))
+                    ? app(Reproduce::class)->import($content['telescope_monitor_reproduce'], $policy['privacy']) : null
+            );
             $item = $this->buffer->enqueue($payload['marker'], $row['uuid'], $batch, $row['sequence'], $payload, $marker['probe_id'] ? 'synthetic_test' : ($mode === 'live' && ! isset($row['content']['telescope_monitor_capture']) ? 'reconciliation' : $mode));
             if (! $item) {
                 throw new CaptureFailure('installation_fenced');

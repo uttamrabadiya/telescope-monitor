@@ -32,7 +32,7 @@ export interface InboxResult { items:ErrorGroup[]; page:number; per_page:number;
 export interface TrendBucket { at:string; occurrences:string; new_groups:string; regressions:string }
 export interface OverviewResult { window:WindowInfo; totals:{occurrences:string;new_groups:string;regressions:string}; buckets:TrendBucket[]; errors:InboxResult; delivery:{state:string;detail:string;observations?:{pending:number;failed:number;needs_review:number;last_accepted_at:string|null}}; activity:{type:string;issue_id:string;summary:string;at:string}[] }
 export interface Frame { file:string;line:number;class?:string;function?:string;source_url?:string|null;telescope_url?:string }
-export interface Evidence { exception:{class:string;message:string;file:string;line:number;trace:Frame[]}; execution:Record<string,string|number>; logs:Record<string,string|number>[]; queries:Record<string,string|number>[]; timeline:Record<string,string|number>[]; tags:Record<string,string>; coverage:Record<string,string>; source?:{release:string;template:string|null}|null }
+export interface Evidence { reproduce?:ReproduceEvidence; exception:{class:string;message:string;file:string;line:number;trace:Frame[]}; execution:Record<string,string|number>; logs:Record<string,string|number>[]; queries:Record<string,string|number>[]; timeline:Record<string,string|number>[]; tags:Record<string,string>; coverage:Record<string,string>; source?:{release:string;template:string|null}|null }
 export interface SelectedOccurrence { id:string;source_uuid:string;occurred_at:string;origin:string;mode:string;evidence_state:string;evidence:Evidence|null;source_url?:string|null;telescope_url?:string }
 export interface DetailResult { issue:ErrorGroup; window:WindowInfo; selected:SelectedOccurrence|null; occurrences:{items:{id:string;at:string;origin:string;mode:string;release:string|null}[];page:number;last_page:number;total:string}; insights:{retained_count:string;from:string|null;to:string|null;coverage:string;breakdowns:{origin:{value:string;count:string}[];route:{value:string;count:string}[];release:{value:string;count:string}[];tags:{value:string;count:string}[];users:number}}; activity:{id:string;type:string;actor:string;at:string;metadata:Record<string,string|null>}[] }
 
@@ -65,3 +65,24 @@ export interface SetupStatus {requirements:Record<string,boolean>;can_finish:boo
 export interface OperationObservation {key:string;label:string;state:Check['state'];last_started_at:string|null;last_success_at:string|null;last_failure_at:string|null;observed_at:string|null;fresh:boolean;freshness_seconds:number;detail:string;history:{id:string;started_at:string;completed_at:string;state:string;counts:Record<string,number>}[]}
 export interface PurgeStatus {id:string;state:string;step:string;from_generation:number;to_generation:number;counts:Record<string,number>;started_at:string;completed_at:string|null;error:string|null;source_floor:number;cutoff:string|null}
 export interface OperationsStatus {installation:string;state:string;generation:number;schema:{ready:boolean;version:number;missing:string[]};source:{state:string;epoch?:string;checkpoint?:number;floor?:number;maximum?:number;cutoff?:string|null;detail:string};credentials:{state:string;checked:number;unreadable:number;bounded:boolean;detail:string};observations:OperationObservation[];setup:SetupStatus;purge:PurgeStatus|null;retention:SettingsGroup;limits:Record<string,{min:number;max:number}>;as_of:string;commands:Record<string,string>;offline_note:string}
+
+export type ReproduceValue = string | number | boolean | null | ReproduceValue[] | { [key: string]: ReproduceValue }
+export interface ReproduceEvidence {
+  version: number
+  state: 'ready' | 'excluded' | 'unavailable' | 'unsupported' | 'too_large' | 'restricted'
+  kind?: 'http' | 'command'
+  selector?: string
+  mode?: 'redacted' | 'selected-values' | 'full-payload'
+  method?: string
+  origin?: string
+  route?: string
+  parameters?: Record<string, ReproduceValue>
+  query?: Record<string, ReproduceValue>
+  headers?: Record<string, string>
+  body?: Record<string, ReproduceValue>
+  encoding?: 'none' | 'json' | 'form'
+  objects?: string[]
+  arguments?: Record<string, ReproduceValue>
+  options?: Record<string, ReproduceValue>
+  omissions?: string[]
+}

@@ -86,6 +86,10 @@ final class SourceStamp
         ] as $key) {
             $selected[$key] = $content[$key] ?? null;
         }
+        // Preserve verification of older proofs that predate replay capture.
+        if (array_key_exists('telescope_monitor_reproduce', $content)) {
+            $selected['telescope_monitor_reproduce'] = $content['telescope_monitor_reproduce'];
+        }
         $json = json_encode($selected, JSON_THROW_ON_ERROR | JSON_INVALID_UTF8_SUBSTITUTE);
         if (strlen($json) > 2097152) {
             throw new CaptureFailure('source_stamp_too_large');

@@ -1,0 +1,92 @@
+{
+    "text": "New error · Demo App [production]\nApp\\Exceptions\\WidgetNotFoundException: Widget could not be loaded from the catalog.\napp/Services/WidgetService.php:42\nCaptured occurrences: 3 · 13 Nov 2026, 11:38:56 IST\n*Request*  `GET /api/widgets/{widget}`\n*Release*  `v1.2.3`\nTelescope Monitor · DEMO-APP-1H · Counts reflect captured events, not total traffic\nhttps://monitor.example.test/telescope-monitor/errors/demo?occurrence=sample",
+    "blocks": [
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": "🔴 New error · Demo App",
+                "emoji": false
+            }
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "plain_text",
+                "text": "App\\Exceptions\\WidgetNotFoundException\nWidget could not be loaded from the catalog.",
+                "emoji": false
+            }
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "*Source*\n`app/Services/WidgetService.php:42`",
+                "verbatim": true
+            }
+        },
+        {
+            "type": "section",
+            "fields": [
+                {
+                    "type": "plain_text",
+                    "text": "Environment\nproduction",
+                    "emoji": false
+                },
+                {
+                    "type": "plain_text",
+                    "text": "Captured occurrences\n3",
+                    "emoji": false
+                },
+                {
+                    "type": "plain_text",
+                    "text": "Event time\n13 Nov 2026, 11:38:56 IST",
+                    "emoji": false
+                },
+                {
+                    "type": "plain_text",
+                    "text": "First seen\n13 Nov 2026, 11:30:00 IST",
+                    "emoji": false
+                }
+            ]
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": "*Request*  `GET /api/widgets/{widget}`\n*Release*  `v1.2.3`",
+                "verbatim": true
+            }
+        },
+        {
+            "type": "actions",
+            "elements": [
+                {
+                    "type": "button",
+                    "text": {
+                        "type": "plain_text",
+                        "text": "Open investigation",
+                        "emoji": false
+                    },
+                    "action_id": "open_investigation",
+                    "url": "https://monitor.example.test/telescope-monitor/errors/demo?occurrence=sample"
+                }
+            ]
+        },
+        {
+            "type": "context",
+            "elements": [
+                {
+                    "type": "plain_text",
+                    "text": "Telescope Monitor · DEMO-APP-1H · Counts reflect captured events, not total traffic",
+                    "emoji": false
+                }
+            ]
+        }
+    ],
+    "mrkdwn": false,
+    "parse": "none",
+    "link_names": false,
+    "unfurl_links": false,
+    "unfurl_media": false
+}

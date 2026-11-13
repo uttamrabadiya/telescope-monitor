@@ -97,6 +97,6 @@ jobs:
           extensions: curl, mbstring
           coverage: none
       - run: composer validate --strict
-      - run: python3 scripts/prepare-release.py --version 1.0.0-rc.1 --output /tmp/composer-package
-      - run: python3 scripts/prepare-release.py --version 1.0.0-rc.1 --git-ref HEAD --output /tmp/git-package
+      - run: python3 scripts/prepare-release.py --version 1.0.0-rc.2 --output /tmp/composer-package
+      - run: python3 scripts/prepare-release.py --version 1.0.0-rc.2 --git-ref HEAD --output /tmp/git-package
       - run: diff /tmp/composer-package/FILES.sha256 /tmp/git-package/FILES.sha256

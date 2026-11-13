@@ -132,11 +132,15 @@ final class EloquentDeliveryLedger implements DeliveryLedger
         if ($c->provider === 'email') {
             $result['email_context'] = app(\TelescopeMonitor\Alerts\EmailContext::class)->build($issue, $occ, $general, \TelescopeMonitor\Alerts\EventCatalog::occurrence($result['event']));
         }
+        if ($c->provider === 'slack') {
+            $result['slack_context'] = app(\TelescopeMonitor\Alerts\SlackContext::class)->build($issue, $occ, $general, EventCatalog::occurrence($result['event']));
+        }
         if ($c->provider === 'webhook') {
             $result['webhook_body'] = WebhookPayload::bytes($result);
         }
         if ($c->provider === 'github' && ! $result['test']) {
             $link = LinkedIssue::query()->where('create_delivery_id', $d->id)->firstOrFail();
+            $result['github_context'] = app(\TelescopeMonitor\Integrations\GitHubContext::class)->build($issue, $occ, $general, true);
             $result = GitHubPayload::render($result, $link->getAttribute('operation_public_id'), null, $c->options['labels'] ?? []);
         }
 

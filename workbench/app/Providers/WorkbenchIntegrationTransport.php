@@ -19,6 +19,9 @@ final class WorkbenchIntegrationTransport implements DnsResolver, HttpTransport
             return new HttpResult;
         }
         $url = $destination['url'];
+        if (str_contains($url, 'api.github.com/user/repos')) {
+            return new HttpResult(200, '[{"owner":{"login":"acme"},"name":"app","private":false,"archived":false,"disabled":false,"has_issues":true},{"owner":{"login":"acme"},"name":"uncertain","private":true,"archived":false,"disabled":false,"has_issues":true}]');
+        }
         if (str_contains($url, 'api.github.com')) {
             if (! preg_match('~/repos/([^/]+)/([^/?]+)(.*)$~', $url, $m)) {
                 return new HttpResult(404);

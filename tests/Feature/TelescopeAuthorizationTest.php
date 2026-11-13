@@ -16,6 +16,7 @@ use TelescopeMonitor\Alerts\DeliverySender;
 use TelescopeMonitor\Auth\ActorResolver;
 use TelescopeMonitor\Auth\Capabilities;
 use TelescopeMonitor\Auth\HostActorResolver;
+use TelescopeMonitor\Auth\QueuedTelescopeAuthorization;
 use TelescopeMonitor\Auth\TelescopeAccess;
 use TelescopeMonitor\Capture\CaptureProbes;
 use TelescopeMonitor\Data\Actor;
@@ -259,6 +260,75 @@ final class TelescopeAuthorizationTest extends TestCase
         $this->assertFalse(app(\TelescopeMonitor\Auth\QueuedTelescopeAuthorization::class)->allows(null));
         $this->assertNotNull(Auth::user());
         $this->assertSame($original, app('request'));
+    }
+
+    public function test_worker_aware_loopback_policy_allows_guest_probe_and_email_without_http_credentials(): void
+    {
+        Gate::define(
+            'viewTelescope',
+            fn (?Authenticatable $user = null) =>
+            app(QueuedTelescopeAuthorization::class)->isWorkerContext(request()) ||
+            (request()->server('SERVER_ADDR') === '127.0.0.1' && (string) request()->server('SERVER_PORT') === '8081')
+        );
+        $this->withServerVariables(['SERVER_ADDR' => '127.0.0.1', 'SERVER_PORT' => '8081']);
+        $probe = $this->postJson('http://localhost:8081/telescope-monitor/api/v1/capture/probes', ['client_key' => (string) Str::uuid()])->assertStatus(202)->json('data');
+        $connection = $this->postJson('http://localhost:8081/telescope-monitor/api/v1/alerting/email', ['client_key' => (string) Str::uuid(), 'name' => 'Array destination', 'email' => 'test@example.test', 'enabled' => true])->assertOk()->json('telescope_monitor_private.id');
+        $this->postJson('http://localhost:8081/telescope-monitor/api/v1/alerting/tests', ['client_key' => (string) Str::uuid(), 'connections' => [$connection]])->assertStatus(202);
+        $this->app->instance('request', Request::create('/'));
+        app(CaptureProbes::class)->execute($probe['id'], 1);
+        $this->process();
+        $this->assertSame('completed', app(CaptureProbes::class)->status($probe['id'])['state']);
+        $delivery = DB::table('telescope_monitor_deliveries')->first();
+        $this->assertTrue(app(DeliverySender::class)->send($delivery->id, $delivery->generation));
+        $this->assertSame('sent', DB::table('telescope_monitor_deliveries')->value('status'));
+        $this->assertFalse(app(QueuedTelescopeAuthorization::class)->isWorkerContext());
+        $this->assertNull(Auth::user());
+        $this->assertDatabaseCount('users', 0);
+    }
+
+    public function test_worker_context_cannot_be_spoofed_or_reused_after_policy_evaluation(): void
+    {
+        $authorization = app(QueuedTelescopeAuthorization::class);
+        $this->assertSame($authorization, app(QueuedTelescopeAuthorization::class));
+        $spoof = Request::create('/?telescope-monitor.worker=1', 'CLI', server: ['HTTP_TELESCOPE_MONITOR_WORKER' => 'true']);
+        $spoof->attributes->set('telescope-monitor.worker', true);
+        $this->app->instance('request', $spoof);
+        $this->assertFalse($authorization->isWorkerContext($spoof));
+        $retained = null;
+        Telescope::auth(function ($request) use (&$retained, $authorization) {
+            $retained = $request;
+            $this->assertTrue($authorization->isWorkerContext($request));
+            $this->assertNull($request->server('SERVER_ADDR'));
+            $this->assertNull($request->server('SERVER_PORT'));
+            $this->assertFalse($authorization->isWorkerContext(Request::create('/')));
+            return true;
+        });
+        $this->assertTrue($authorization->allows(null));
+        $this->assertFalse($authorization->isWorkerContext($retained));
+        $this->app->instance('request', $retained);
+        $this->assertFalse($authorization->isWorkerContext($retained));
+        Telescope::auth(fn () => throw new \RuntimeException('Policy failed'));
+        $this->assertFalse($authorization->allows(null));
+        $this->assertFalse($authorization->isWorkerContext());
+    }
+
+    public function test_worker_context_opt_in_does_not_bypass_revocation_or_real_http_context(): void
+    {
+        $authorization = app(QueuedTelescopeAuthorization::class);
+        Telescope::auth(fn ($request) => $authorization->isWorkerContext($request));
+        $this->assertTrue($authorization->allows(null));
+        Telescope::auth(fn () => false);
+        $this->assertFalse($authorization->allows(null));
+        $console = new \ReflectionProperty($this->app, 'isRunningInConsole');
+        $previous = $console->getValue($this->app);
+        $console->setValue($this->app, false);
+        try {
+            Telescope::auth(fn ($request) => $authorization->isWorkerContext($request));
+            $this->assertFalse($authorization->allows(null));
+        } finally {
+            $console->setValue($this->app, $previous);
+        }
+        $this->assertFalse($authorization->isWorkerContext());
     }
 
 }

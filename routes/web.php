@@ -48,6 +48,7 @@ Route::prefix(config('telescope-monitor.path'))->name('telescope-monitor.')
                     }
                 });
                 Route::middleware(Authorize::class.':manage')->group(function () use ($integrations) {
+                    Route::post('/integrations/github/repositories', [$integrations, 'repositories']);
                     Route::post('/integrations', [$integrations, 'command'])->defaults('integration_operation', 'connection.create');
                     Route::patch('/integrations/{connection}', [$integrations, 'command'])->whereUuid('connection')->defaults('integration_operation', 'connection.update');
                     Route::delete('/integrations/{connection}', [$integrations, 'command'])->whereUuid('connection')->defaults('integration_operation', 'connection.disconnect');

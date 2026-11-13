@@ -257,6 +257,29 @@ final class IntegrationManagement
                     $once = ['secret' => $generated, 'key_id' => $key->key_id, 'state' => 'active'];
                 }
             }
+            if (! $c->wasRecentlyCreated && $c->disconnected_at !== null) {
+                // Reuse canonical identity/history without reviving cancelled work.
+                $c = Connection::query()->whereKey($c->id)->lockForUpdate()->firstOrFail();
+                Secret::query()->where('connection_id', $c->id)->where('secret_name', $purpose)->where('state', 'active')->update([
+                    'state' => 'retiring',
+                    'retire_after' => CarbonImmutable::now('UTC')->addMinutes(2)->format('Y-m-d H:i:s.u'),
+                ]);
+                $this->credentials->store($c, $purpose, $secret, $actor, 'active', $ref);
+                $c->display_name = trim($v['name']);
+                $c->enabled = (bool) $v['enabled'];
+                $c->disconnected_at = null;
+                $c->last_test_at = null;
+                $c->last_test_outcome = null;
+                $c->options = [
+                    'automatic' => (bool) ($v['automatic'] ?? false),
+                    'environments' => $v['environments'] ?? [],
+                    'labels' => [],
+                    'known_labels' => [],
+                    'events' => $v['events'] ?? array_keys(EventCatalog::LABELS),
+                ];
+                $c->row_version++;
+                $c->save();
+            }
             if ($v['replaces'] ?? null) {
                 $old = $this->current($v['replaces']);
                 $this->version($old, (int) $v['replaces_version']);
@@ -281,6 +304,10 @@ final class IntegrationManagement
                 }
                 $c->display_name = trim($v['name']);
                 $c->enabled = (bool) $v['enabled'];
+                if ($c->enabled && $c->disconnected_at !== null) {
+                    $this->credentials->target($c);
+                    $c->disconnected_at = null;
+                }
                 $opts = $c->options;
                 if ($c->provider === 'webhook') {
                     $opts['events'] = $v['events'] ?? ($opts['events'] ?? array_keys(EventCatalog::LABELS));

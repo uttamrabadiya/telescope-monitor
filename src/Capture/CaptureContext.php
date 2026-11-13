@@ -47,6 +47,17 @@ final class CaptureContext
 
     public function commandOrigin(Throwable $exception): ?string
     {
+        return $this->commandFrame($exception)['command'] ?? $this->command;
+    }
+
+    public function commandInput(Throwable $exception): ?InputInterface
+    {
+        return $this->commandFrame($exception)['input'] ?? null;
+    }
+
+    /** @return array{command: string, input: InputInterface}|null */
+    private function commandFrame(Throwable $exception): ?array
+    {
         if ($this->finishedCommands !== null && count($this->finishedCommands)) {
             // Laravel emits CommandFinished before Kernel reports a rethrown error.
             // Match the live reporting call and its exact input, never a last-command
@@ -58,12 +69,15 @@ final class CaptureContext
                         $reportingKernel = $frame['object'];
                     } elseif ($frame['function'] === 'handle' && $reportingKernel === $frame['object']) {
                         $input = $frame['args'][0] ?? null;
-                        return $input instanceof InputInterface ? ($this->finishedCommands[$input] ?? $this->command) : $this->command;
+                        if ($input instanceof InputInterface && isset($this->finishedCommands[$input])) {
+                            return ['command' => $this->finishedCommands[$input], 'input' => $input];
+                        }
+                        return $this->commands ? $this->commands[array_key_last($this->commands)] : null;
                     }
                 }
             }
         }
-        return $this->command;
+        return $this->commands ? $this->commands[array_key_last($this->commands)] : null;
     }
 
     public ?Throwable $failedJobException = null;
