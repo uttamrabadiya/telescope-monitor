@@ -14,6 +14,7 @@
 </p>
 
 <p align="center">
+  <a href="#see-it-in-action">Showcase</a> ·
   <a href="#installation">Installation</a> ·
   <a href="#running-in-production">Running in production</a> ·
   <a href="#your-first-error">Your first error</a> ·
@@ -32,6 +33,23 @@ Telescope Monitor groups exceptions, preserves sanitized investigation evidence,
 | Grouped errors, occurrences and trends | Resolve, reopen, ignore and snooze | Email and Slack alerts |
 | Stack frames, request/job context and activity | Notes, saved views and optional assignments | Signed webhooks |
 | Optional sanitized SQL templates | New-error, regression, frequency and activity rules | Create or link GitHub Issues |
+
+## See it in action
+
+See what you get before configuring the package: a dashboard to spot recurring errors, an investigation view to understand each occurrence, and alerts that bring your team back to the evidence.
+
+[![Telescope Monitor dashboard showing captured exceptions, trends and errors needing attention](art/showcase/dashboard.png)](docs/showcase.md)
+
+| Email alerts | Slack notifications |
+| --- | --- |
+| Exception details, retained context and application stack frames through your Laravel mailer. | Event summary, captured counts and an investigation button in your team's channel. |
+| [![Email alert rendered from the package template with synthetic data](art/showcase/email.png)](docs/showcase.md#receive-email-alerts) | [![Offline illustration of the example Slack Block Kit payload](art/showcase/slack.png)](docs/showcase.md#notify-a-slack-channel) |
+
+**[Take the product tour →](docs/showcase.md)** Explore [error investigation](docs/showcase.md#investigate-and-respond), [alert rules](docs/showcase.md#choose-when-alerts-fire), and [GitHub and webhook integrations](docs/showcase.md#connect-your-workflow).
+
+Dashboard screenshots use synthetic errors in a local workbench. Email uses the actual package template; the Slack image is an offline illustration of the [example Block Kit payload](docs/slack-notification-example.json). No notifications were sent.
+
+## How it works
 
 **Zero monitoring database queries in host capture.** Hooks prepare signed metadata in memory. Telescope performs its existing storage work; a separate importer handles monitoring reads, writes, sanitization and alert planning. The monitoring dashboard and explicit monitoring commands intentionally query storage.
 
@@ -373,6 +391,7 @@ After code or deployment configuration changes, refresh cached configuration as 
 
 | Guide | Covers |
 | --- | --- |
+| [Product tour](docs/showcase.md) | Dashboard, investigation, email and Slack previews before setup |
 | [Configuration reference](docs/configuration-reference.md) | Access, storage, privacy, investigation, collaboration and integrations |
 | [Reproduce evidence](docs/reproduce.md) | Capture modes, credential exclusions, cURL/command templates and testing |
 | [Capture and importer](docs/telescope-source-capture.md) | Signing, process boundaries, recovery, key rotation and purge safety |

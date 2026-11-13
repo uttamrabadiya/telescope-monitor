@@ -6,6 +6,9 @@
 /tests export-ignore
 /workbench export-ignore
 /docs/* export-ignore
+/docs/showcase.md -export-ignore
+/docs/examples -export-ignore
+/docs/examples/email-notification.json -export-ignore
 /docs/configuration-reference.md -export-ignore
 /docs/reproduce.md -export-ignore
 /docs/slack-notification-example.json -export-ignore

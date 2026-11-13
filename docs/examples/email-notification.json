@@ -1,0 +1,33 @@
+{
+  "test": false,
+  "event": "error.created",
+  "label": "New error",
+  "application": "Demo App",
+  "environment": "production",
+  "class": "App\\Exceptions\\WidgetNotFoundException",
+  "message": "Widget could not be loaded from the catalog.",
+  "file": "app/Services/WidgetService.php",
+  "line": 42,
+  "count": "3",
+  "occurred_at": "2026-11-13T06:08:56Z",
+  "url": "https://monitor.example.test/telescope-monitor/errors/demo?occurrence=sample",
+  "delivery_id": "00000000-0000-4000-8000-000000000001",
+  "email_context": {
+    "version": 1,
+    "reference": "DEMO-APP-1H",
+    "timezone": "Asia/Kolkata",
+    "occurrence_id": "00000000-0000-4000-8000-000000000002",
+    "first_seen_at": "2026-11-13T06:00:00Z",
+    "last_seen_at": "2026-11-13T06:08:56Z",
+    "snapshot_state": "available",
+    "status": "unresolved",
+    "release": "v1.2.3",
+    "execution": {"method": "GET", "path_template": "/api/widgets/{widget}"},
+    "frames": [
+      {"file": "app/Services/WidgetService.php", "line": 42, "class": "App\\Services\\WidgetService", "function": "show"},
+      {"file": "app/Http/Controllers/WidgetController.php", "line": 28, "class": "App\\Http\\Controllers\\WidgetController", "function": "show"}
+    ],
+    "omitted_frames": 0,
+    "tags": []
+  }
+}
