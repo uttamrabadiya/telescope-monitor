@@ -6,18 +6,35 @@
 
 | Mode | What is retained |
 | --- | --- |
-| `redacted` | Default for routes and commands without an override. Parameter/body structure with value placeholders. Safe protocol headers and actual boolean command switches remain useful. |
+| `redacted` | Shipped default when no global or exact policy selects another mode. Parameter/body structure with value placeholders. Safe protocol headers and actual boolean command switches remain useful. |
 | `selected-values` | Exact scalar values only for configured field paths; remaining values become `[REDACTED]`. |
-| `full-payload` | Supported parsed values for one explicitly configured route or command, except credentials, sensitive fields, mandatory credential-pattern masking and capture limits. |
+| `full-payload` | Supported parsed values for all captured routes/commands using this mode, except credentials, sensitive fields, mandatory credential-pattern masking and capture limits. |
 
-There is no global full-payload switch. Configure exact named routes (or `/`-prefixed URI templates for unnamed routes) and command names in the **root** `reproduce` array of `config/telescope-monitor.php`. Settings are deployment-managed so host capture never queries package settings or storage.
+Set `default_mode` in the **root** `reproduce` array of `config/telescope-monitor.php` to apply a mode to every captured route and command. The shipped default remains `redacted`; opt into `full-payload` globally with:
+
+```php
+'default_mode' => env('TELESCOPE_MONITOR_REPRODUCE_MODE', 'redacted'),
+```
+
+```dotenv
+TELESCOPE_MONITOR_REPRODUCE_MODE=full-payload
+```
+
+Existing published configurations must add that `default_mode` entry before the environment variable takes effect. You can also set `'default_mode' => 'full-payload'` directly. Credentials, sensitive-field exclusions, watcher/privacy restrictions, access controls and size limits remain enforced. Jobs remain unsupported; this does not retain successful executions filtered out by Telescope.
+
+Exact named routes (or `/`-prefixed URI templates for unnamed routes) and command policies override the global mode. For example, keep a sensitive endpoint redacted even with a global full-payload default. A global `fields` list supplies defaults for `selected-values`; a policy's own `fields` list replaces it. Settings remain deployment-managed so host capture never queries package settings or storage.
 
 ```php
 'reproduce' => [
     'enabled' => true,
+    'default_mode' => env('TELESCOPE_MONITOR_REPRODUCE_MODE', 'redacted'),
+    'fields' => [],
     'max_bytes' => 8192,
     'sensitive_fields' => ['body.customer.tax_id', 'options.internal-key'],
     'routes' => [
+        'customers.update' => [
+            'mode' => 'redacted',
+        ],
         'groups.settlements.store' => [
             'mode' => 'selected-values',
             'fields' => [

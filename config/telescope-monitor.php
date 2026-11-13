@@ -28,9 +28,11 @@ return [
         'source_link_template' => null,
         'allowed_tags' => [],
     ],
-    // Replay modes are deployment-managed; full payloads require exact route/command opt-in.
+    // Replay modes are deployment-managed; exact route/command policies override the global mode.
     'reproduce' => [
         'enabled' => true,
+        'default_mode' => env('TELESCOPE_MONITOR_REPRODUCE_MODE', 'redacted'),
+        'fields' => [],
         'max_bytes' => 8192,
         'sensitive_fields' => [],
         'routes' => [],

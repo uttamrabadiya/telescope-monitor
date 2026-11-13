@@ -125,7 +125,7 @@ Restart capture/delivery workers after updating this code before testing new cap
 
 ## Reproduce evidence
 
-Context & activity includes an operator-only, collapsed Reproduce section. Deployment-managed redacted/selected-values/full-payload policies apply to exact routes and commands. Credentials remain excluded. Replay evidence is encrypted before Telescope storage, sanitized again on import/processing/read, and follows occurrence evidence retention. No host capture database queries or additional migrations are introduced. See the [replay guide](reproduce.md) for configuration and supported payloads.
+Context & activity includes an operator-only, collapsed Reproduce section. Deployment-managed `reproduce.default_mode` selects redacted/selected-values/full-payload capture globally; exact route/command policies override it. Credentials remain excluded. Replay evidence is encrypted before Telescope storage, sanitized again on import/processing/read, and follows occurrence evidence retention. No host capture database queries or additional migrations are introduced. See the [replay guide](reproduce.md) for configuration and supported payloads.
 
 ## Investigation and lifecycle
 

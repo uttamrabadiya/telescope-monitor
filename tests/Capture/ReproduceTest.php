@@ -233,4 +233,62 @@ final class ReproduceTest extends TestCase
         $this->assertArrayNotHasKey('reproduce', $data);
     }
 
+    public function test_global_full_payload_covers_unlisted_routes_and_commands_with_mandatory_exclusions(): void
+    {
+        config(['telescope-monitor.reproduce.default_mode' => 'full-payload']);
+        DB::connection()->enableQueryLog();
+        DB::connection()->flushQueryLog();
+        $http = $this->replay($this->differentRoute());
+        $input = new ArrayInput(['command' => 'reports:run', 'group' => '42', '--token' => 'COMMAND-CREDENTIAL'], new InputDefinition([
+            new InputArgument('command', InputArgument::REQUIRED),
+            new InputArgument('group', InputArgument::REQUIRED),
+            new InputOption('token', null, InputOption::VALUE_REQUIRED),
+        ]));
+        $command = app(Reproduce::class)->import(app(Reproduce::class)->command('reports:run', $input), ['retain_execution_context' => true]);
+        $this->assertSame([], DB::connection()->getQueryLog());
+        DB::connection()->disableQueryLog();
+        $this->assertSame('full-payload', $http['mode']);
+        $this->assertSame('customer@example.test', $http['body']['email']);
+        $this->assertCredentialsExcluded($http);
+        $this->assertSame('full-payload', $command['mode']);
+        $this->assertSame('42', $command['arguments']['group']);
+        $this->assertSame('[REDACTED]', $command['options']['token']);
+        config(['telescope-monitor.reproduce.sensitive_fields' => ['body.email']]);
+        $this->assertSame('[REDACTED]', app(Reproduce::class)->restrict($http, ['retain_execution_context' => true])['body']['email']);
+    }
+
+    public function test_exact_policies_override_global_mode_and_stricter_defaults_restrict_old_values(): void
+    {
+        config([
+            'telescope-monitor.reproduce.default_mode' => 'full-payload',
+            'telescope-monitor.reproduce.routes' => ['groups.store' => ['mode' => 'redacted']],
+            'telescope-monitor.reproduce.commands' => ['groups:process' => ['mode' => 'redacted']],
+        ]);
+        $redacted = $this->replay($this->request());
+        $this->assertSame('[REDACTED]', $redacted['body']['amount']);
+        $input = new ArrayInput(['command' => 'groups:process', 'group' => '42'], new InputDefinition([
+            new InputArgument('command', InputArgument::REQUIRED),
+            new InputArgument('group', InputArgument::REQUIRED),
+        ]));
+        $command = app(Reproduce::class)->import(app(Reproduce::class)->command('groups:process', $input), ['retain_execution_context' => true]);
+        $this->assertSame('redacted', $command['mode']);
+        $this->assertSame('[REDACTED]', $command['arguments']['group']);
+        $full = $this->replay($this->differentRoute());
+        config(['telescope-monitor.reproduce.default_mode' => 'redacted']);
+        $restricted = app(Reproduce::class)->restrict($full, ['retain_execution_context' => true]);
+        $this->assertSame('redacted', $restricted['mode']);
+        $this->assertSame('[REDACTED]', $restricted['body']['amount']);
+        config(['telescope-monitor.reproduce.default_mode' => 'full-payload']);
+        $this->assertSame('[REDACTED]', app(Reproduce::class)->restrict($redacted, ['retain_execution_context' => true])['body']['amount']);
+        config([
+            'telescope-monitor.reproduce.default_mode' => 'selected-values',
+            'telescope-monitor.reproduce.fields' => ['body.amount'],
+        ]);
+        $selected = $this->replay($this->differentRoute());
+        $this->assertSame(129.5, $selected['body']['amount']);
+        $this->assertSame('[REDACTED]', $selected['body']['email']);
+        config(['telescope-monitor.reproduce.default_mode' => 'invalid-mode']);
+        $this->assertSame('redacted', $this->replay($this->differentRoute())['mode']);
+    }
+
 }

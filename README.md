@@ -364,7 +364,7 @@ After deploying these changes, refresh cached configuration and restart long-run
 
 ### Reproduce requests and commands
 
-The **Context & activity → Reproduce** section provides collapsed, operator-only **Copy cURL** and **Copy command** templates. New captures default to redacted values. Configure exact routes/commands under the root `reproduce` deployment setting to allow selected field values or explicitly opt into full payloads. Credentials remain excluded in every mode; replay evidence is encrypted before entering Telescope and host capture still issues zero package database queries.
+The **Context & activity → Reproduce** section provides collapsed, operator-only **Copy cURL** and **Copy command** templates. New captures default to redacted values. Set `reproduce.default_mode` (or `TELESCOPE_MONITOR_REPRODUCE_MODE` with its published config entry) to choose a global capture mode. Exact route/command policies override that default; `selected-values` uses configured field paths. Credentials remain excluded in every mode; replay evidence is encrypted before entering Telescope and host capture still issues zero package database queries.
 
 Supported JSON/form fields and parsed command arguments/options are bounded; uploads and job payloads are not serialized. Older snapshots explain that replay evidence is unavailable. Templates do not execute automatically and cannot restore database/external-service state. See [replay configuration, exclusions and testing](docs/reproduce.md).
 

@@ -239,10 +239,10 @@ final class Reproduce
     {
         $all = config('telescope-monitor.reproduce', []);
         $entry = ($all[$kind === 'http' ? 'routes' : 'commands'] ?? [])[$selector] ?? [];
-        $mode = is_array($entry) ? ($entry['mode'] ?? 'redacted') : 'redacted';
+        $mode = is_array($entry) ? ($entry['mode'] ?? $all['default_mode'] ?? 'redacted') : 'redacted';
         return [
             'mode' => in_array($mode, ['redacted', 'selected-values', 'full-payload'], true) ? $mode : 'redacted',
-            'fields' => is_array($entry['fields'] ?? null) ? $entry['fields'] : [],
+            'fields' => is_array($entry['fields'] ?? null) ? $entry['fields'] : (is_array($all['fields'] ?? null) ? $all['fields'] : []),
             'headers' => array_values(array_filter(is_array($entry['headers'] ?? null) ? array_map('strtolower', array_values(array_filter($entry['headers'], 'is_string'))) : ['accept', 'content-type'], 'is_string')),
         ];
     }
