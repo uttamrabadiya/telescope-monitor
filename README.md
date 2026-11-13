@@ -5,11 +5,11 @@
   </picture>
 </p>
 
-<p align="center">Turn Telescope exceptions into an error-monitoring workflow, inside your Laravel application.</p>
+<p align="center">Turn Laravel Telescope into an error-monitoring workflow.</p>
 
 <p align="center">
   <img src="https://img.shields.io/badge/PHP-8.3%2B-777BB4" alt="Requires PHP 8.3 or newer">
-  <img src="https://img.shields.io/badge/Laravel-13-FF2D20" alt="Requires Laravel 13">
+  <img src="https://img.shields.io/badge/Laravel-13.42%2B-FF2D20" alt="Requires Laravel 13.42 or newer within 13.x">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-4040C8" alt="MIT license"></a>
 </p>
 
@@ -22,21 +22,15 @@
   <a href="#documentation">Documentation</a>
 </p>
 
-Telescope Monitor groups exceptions, preserves sanitized investigation evidence, and helps your team resolve errors and receive useful alerts. It uses your application's Telescope access policy, mailer and queue configuration. The dashboard ships with compiled assets: no frontend setup is needed in your app.
+**Group recurring exceptions, investigate failures, and receive Slack or email alerts inside your Laravel application.** Telescope Monitor adds error tracking and a team response workflow to the exceptions Telescope already records.
+
+Built for Laravel developers and teams using Telescope who want to follow an error from its first occurrence through investigation, resolution and regression. It uses your application's Telescope access policy, mailer and queue configuration. The dashboard ships with compiled assets: no frontend setup is needed in your app.
 
 **Release candidate: `1.0.0-rc.3`.** Published versions are listed on [Packagist](https://packagist.org/packages/telescope-monitor/telescope-monitor). Use the explicit RC constraint below for evaluation. Verified combinations and remaining stable-release gates are recorded in the [verification report](docs/release-verification-v1.0.0-rc.3.md).
 
-## What you get
-
-| Investigate | Respond | Connect |
-| --- | --- | --- |
-| Grouped errors, occurrences and trends | Resolve, reopen, ignore and snooze | Email and Slack alerts |
-| Stack frames, request/job context and activity | Notes, saved views and optional assignments | Signed webhooks |
-| Optional sanitized SQL templates | New-error, regression, frequency and activity rules | Create or link GitHub Issues |
-
 ## See it in action
 
-See what you get before configuring the package: a dashboard to spot recurring errors, an investigation view to understand each occurrence, and alerts that bring your team back to the evidence.
+An exception is captured by Telescope, grouped by Monitor, and surfaced in the dashboard. Configured alert rules can notify your team; open the investigation, resolve the error, and receive a regression alert if it returns.
 
 [![Telescope Monitor dashboard showing captured exceptions, trends and errors needing attention](art/showcase/dashboard.png)](docs/showcase.md)
 
@@ -48,6 +42,16 @@ See what you get before configuring the package: a dashboard to spot recurring e
 **[Take the product tour →](docs/showcase.md)** Explore [error investigation](docs/showcase.md#investigate-and-respond), [alert rules](docs/showcase.md#choose-when-alerts-fire), and [GitHub and webhook integrations](docs/showcase.md#connect-your-workflow).
 
 Dashboard screenshots use synthetic errors in a local workbench. Email uses the actual package template; the Slack image is an offline illustration of the [example Block Kit payload](docs/slack-notification-example.json). No notifications were sent.
+
+## What you get
+
+| Investigate | Respond | Connect |
+| --- | --- | --- |
+| Grouped errors, occurrences and trends | Resolve, reopen, ignore and snooze | Email and Slack alerts |
+| Stack frames, request/job context and activity | Notes, saved views and optional assignments | Signed webhooks |
+| Optional sanitized SQL templates | New-error, regression, frequency and activity rules | Create or link GitHub Issues |
+
+**Ready to try it?** Follow the [installation guide](#installation), then [capture your first error](#your-first-error). Production monitoring requires Telescope to record exceptions, an importer, queue workers and Laravel's scheduler; see [requirements](#requirements) and [production setup](#running-in-production).
 
 ## How it works
 
