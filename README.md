@@ -24,7 +24,7 @@
 
 Telescope Monitor groups exceptions, preserves sanitized investigation evidence, and helps your team resolve errors and receive useful alerts. It uses your application's Telescope access policy, mailer and queue configuration. The dashboard ships with compiled assets: no frontend setup is needed in your app.
 
-**Release candidate: `1.0.0-rc.2`.** Published versions are listed on [Packagist](https://packagist.org/packages/telescope-monitor/telescope-monitor). Use the explicit RC constraint below for evaluation. Verified combinations and remaining stable-release gates are recorded in the [verification report](docs/release-verification-v1.0.0-rc.2.md).
+**Release candidate: `1.0.0-rc.3`.** Published versions are listed on [Packagist](https://packagist.org/packages/telescope-monitor/telescope-monitor). Use the explicit RC constraint below for evaluation. Verified combinations and remaining stable-release gates are recorded in the [verification report](docs/release-verification-v1.0.0-rc.3.md).
 
 ## What you get
 
@@ -397,7 +397,7 @@ After code or deployment configuration changes, refresh cached configuration as 
 | [Capture and importer](docs/telescope-source-capture.md) | Signing, process boundaries, recovery, key rotation and purge safety |
 | [Operations guide](docs/operations-guide-v1.md) | Retention, maintenance, purge and encryption-key rotation |
 | [Webhook receiver contract](docs/webhook-contract-v1.md) | Payloads, signatures and receiver deduplication |
-| [Release verification](docs/release-verification-v1.0.0-rc.2.md) | Tested environments, acceptance evidence and remaining release gates |
+| [Release verification](docs/release-verification-v1.0.0-rc.3.md) | Tested environments, acceptance evidence and remaining release gates |
 | [Architecture](docs/technical-architecture-v1.md) | Design decisions and storage boundaries |
 
 ## Developing the package
@@ -422,7 +422,7 @@ npm run test:unit
 npm run build
 ```
 
-Use only a disposable database for engine/concurrency tests; the suite creates and rolls back package and Telescope tables. See [verification notes](docs/release-verification-v1.0.0-rc.2.md) for the engine matrix and limitations. Do not commit credentials or real exception data in examples, fixtures or screenshots.
+Use only a disposable database for engine/concurrency tests; the suite creates and rolls back package and Telescope tables. See [verification notes](docs/release-verification-v1.0.0-rc.3.md) for the engine matrix and limitations. Do not commit credentials or real exception data in examples, fixtures or screenshots.
 
 ## License
 
