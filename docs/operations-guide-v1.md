@@ -68,6 +68,11 @@ An explicit baseline creates a new source epoch, excludes every currently stored
 
 Configure the host's current and previous keys according to [Laravel encryption](https://laravel.com/framework/docs/13.x/encryption#gracefully-rotating-encryption-keys). Keep recoverable backups; the package cannot decrypt without a valid current/previous key. The health check reports unreadable active revisions without deleting them.
 
+Laravel 8–10 do not provide the newer native previous-key API. For key rotation,
+the host must bind an encrypter that reads ciphertext with the previous key and
+writes with the new key before running rewrap. Monitor uses the host encrypter
+binding throughout; it does not replace the application's encryption service.
+
 ```sh
 php artisan telescope-monitor:rewrap INSTALLATION_UUID secrets --confirm=INSTALLATION_UUID --limit=100 --after=0
 ```

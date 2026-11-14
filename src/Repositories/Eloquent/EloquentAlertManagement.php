@@ -133,7 +133,7 @@ final class EloquentAlertManagement implements AlertManagement
             'status' => $d->status,
             'action' => $d->action,
             'event' => $e ? EventCatalog::canonical($e->event_type) : 'unavailable',
-            'environment' => $issue->environment ?? 'test',
+            'environment' => $issue->environment ?? (str_starts_with($d->action, 'report_') ? 'Report selection' : 'test'),
             'issue_id' => $issue?->public_id,
             'destination' => $c?->target_public['display'] ?? 'Unavailable target',
             'destination_name' => $c->display_name ?? 'Unavailable target',
@@ -148,8 +148,8 @@ final class EloquentAlertManagement implements AlertManagement
             'completed_at' => $d->completed_at?->toISOString(),
             'created_at' => $d->created_at->toISOString(),
             'reason' => $d->cancellation_reason ?? $d->last_error_code,
-            'can_retry' => $this->caps->allows('operate') && ($d->action !== 'connection_test' || $this->caps->allows('manage')) && $d->status === 'failed',
-            'can_review_resend' => ! str_starts_with($d->action, 'github_') && $this->caps->allows('operate') && ($d->action !== 'connection_test' || $this->caps->allows('manage')) && ($d->status === 'failed' || $d->cancellation_reason === 'export_policy_changed'),
+            'can_retry' => $this->caps->allows('operate') && (($d->action !== 'connection_test' && ! str_starts_with($d->action, 'report_')) || $this->caps->allows('manage')) && $d->status === 'failed',
+            'can_review_resend' => ! str_starts_with($d->action, 'github_') && $this->caps->allows('operate') && (($d->action !== 'connection_test' && ! str_starts_with($d->action, 'report_')) || $this->caps->allows('manage')) && ($d->status === 'failed' || $d->cancellation_reason === 'export_policy_changed'),
         ];
     }
 
@@ -160,7 +160,11 @@ final class EloquentAlertManagement implements AlertManagement
         if ($f['status'] ?? null) {
             $q->where('status', $f['status']);
         }if (isset($f['test'])) {
-            $q->where('action', (bool) $f['test'] ? '=' : '!=', 'connection_test');
+            if ((bool) $f['test']) {
+                $q->where(fn ($q) => $q->where('action', 'connection_test')->orWhere('action', 'like', 'report_preview_%'));
+            } else {
+                $q->where('action', '!=', 'connection_test')->where('action', 'not like', 'report_preview_%');
+            }
         }
         if ($f['issue'] ?? null) {
             $q->where('issue_id', Issue::query()->where('installation_id', $i)->where('public_id', $f['issue'])->value('id') ?? 0);
@@ -578,7 +582,7 @@ final class EloquentAlertManagement implements AlertManagement
         $d = Delivery::query()->whereKey($d->id)->lockForUpdate()->firstOrFail();
         $c = Connection::query()->findOrFail($d->connection_id);
         $issue = $d->issue_id ? Issue::query()->find($d->issue_id) : null;
-        if ($d->action === 'connection_test') {
+        if ($d->action === 'connection_test' || str_starts_with($d->action, 'report_')) {
             abort_unless($this->caps->allows('manage'), 403);
         }
         if (! $c->enabled || $c->disconnected_at || $d->generation !== $generation || ! $this->ledger->support($d, $issue)['valid']) {

@@ -49,23 +49,20 @@ final class CaptureInbox extends Model
 
     protected $hidden = ['payload_ciphertext'];
 
-    protected function casts(): array
-    {
-        return [
-            'installation_id' => 'integer',
-            'generation' => 'integer',
-            'source_sequence' => 'integer',
-            'occurred_at' => 'immutable_datetime',
-            'received_at' => 'immutable_datetime',
-            'grouping_version' => 'integer',
-            'privacy_revision' => 'integer',
-            'envelope_version' => 'integer',
-            'plaintext_bytes' => 'integer',
-            'attempt_count' => 'integer',
-            'eligible_at' => 'immutable_datetime',
-            'lease_until' => 'immutable_datetime',
-            'processed_at' => 'immutable_datetime',
-            'completed_at' => 'immutable_datetime',
-        ];
-    }
+    protected $casts = [
+        'installation_id' => 'integer',
+        'generation' => 'integer',
+        'source_sequence' => 'integer',
+        'occurred_at' => 'immutable_datetime',
+        'received_at' => 'immutable_datetime',
+        'grouping_version' => 'integer',
+        'privacy_revision' => 'integer',
+        'envelope_version' => 'integer',
+        'plaintext_bytes' => 'integer',
+        'attempt_count' => 'integer',
+        'eligible_at' => 'immutable_datetime',
+        'lease_until' => 'immutable_datetime',
+        'processed_at' => 'immutable_datetime',
+        'completed_at' => 'immutable_datetime',
+    ];
 }

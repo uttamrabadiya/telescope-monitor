@@ -24,12 +24,12 @@
     "src": "node_modules/@fontsource/figtree/files/figtree-latin-600-normal.woff2"
   },
   "resources/js/main.ts": {
-    "file": "assets/monitor-BdZTXaAX.js",
+    "file": "assets/monitor-C3CgOZiW.js",
     "name": "main",
     "src": "resources/js/main.ts",
     "isEntry": true,
     "css": [
-      "assets/main-uOn7y28c.css"
+      "assets/main-DUf0ZgB0.css"
     ],
     "assets": [
       "assets/figtree-latin-400-normal-g7Dtegnw.woff2",

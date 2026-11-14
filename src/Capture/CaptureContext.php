@@ -55,6 +55,28 @@ final class CaptureContext
         return $this->commandFrame($exception)['input'] ?? null;
     }
 
+    public function reported(Throwable $exception): void
+    {
+        // Laravel 8/9 can report a failed command without CommandFinished.
+        // Clear only the invocation being reported, preserving an outer command.
+        $kernel = null;
+        foreach (debug_backtrace(DEBUG_BACKTRACE_PROVIDE_OBJECT, 64) as $frame) {
+            if (($frame['object'] ?? null) instanceof Kernel) {
+                if ($frame['function'] === 'reportException' && ($frame['args'][0] ?? null) === $exception) {
+                    $kernel = $frame['object'];
+                } elseif ($frame['function'] === 'handle' && $kernel === $frame['object']) {
+                    foreach ($this->commands as $index => $command) {
+                        if ($command['input'] === ($frame['args'][0] ?? null)) {
+                            $this->commands = array_slice($this->commands, 0, $index);
+                            $this->command = $this->commands ? $this->commands[array_key_last($this->commands)]['command'] : null;
+                            return;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     /** @return array{command: string, input: InputInterface}|null */
     private function commandFrame(Throwable $exception): ?array
     {

@@ -194,7 +194,9 @@ final class ReproduceTest extends TestCase
             'telescope-monitor.reproduce.commands' => ['replay:process' => ['mode' => 'selected-values', 'fields' => ['arguments.group']]],
         ]);
         $kernel = new \Illuminate\Foundation\Console\Kernel($this->app, $this->app['events']);
-        $kernel->rerouteSymfonyCommandEvents();
+        if (method_exists($kernel, 'rerouteSymfonyCommandEvents')) {
+            $kernel->rerouteSymfonyCommandEvents();
+        }
         $kernel->command('replay:process {group} {--token=} {--dry-run}', fn () => throw new \RuntimeException('Command replay failure'));
         $active = true;
         $queries = [];

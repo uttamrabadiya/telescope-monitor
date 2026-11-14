@@ -16,8 +16,9 @@
 /docs/operations-guide-v1.md -export-ignore
 /docs/webhook-contract-v1.md -export-ignore
 /docs/technical-architecture-v1.md -export-ignore
-/docs/release-notes-v1.0.0-rc.3.md -export-ignore
-/docs/release-verification-v1.0.0-rc.3.md -export-ignore
+/docs/framework-compatibility.md -export-ignore
+/docs/release-notes-v1.0.0-rc.4.md -export-ignore
+/docs/release-verification-v1.0.0-rc.4.md -export-ignore
 /node_modules export-ignore
 /PRODUCT.md export-ignore
 /DESIGN.md export-ignore
@@ -39,3 +40,6 @@
 /.php-cs-fixer.dist.php export-ignore
 /.php-cs-fixer.php export-ignore
 /.php-cs-fixer.cache export-ignore
+
+/design-qa.md export-ignore
+/.phpunit.result.cache export-ignore

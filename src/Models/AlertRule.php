@@ -33,19 +33,16 @@ final class AlertRule extends Model
 
     protected $attributes = ['row_version' => 1, 'definition_version' => 1];
 
-    protected function casts(): array
-    {
-        return [
-            'installation_id' => 'integer',
-            'enabled' => 'boolean',
-            'event_types' => 'array',
-            'conditions' => 'array',
-            'threshold_count' => 'integer',
-            'window_seconds' => 'integer',
-            'cooldown_seconds' => 'integer',
-            'row_version' => 'integer',
-            'definition_version' => 'integer',
-            'deleted_at' => 'immutable_datetime',
-        ];
-    }
+    protected $casts = [
+        'installation_id' => 'integer',
+        'enabled' => 'boolean',
+        'event_types' => 'array',
+        'conditions' => 'array',
+        'threshold_count' => 'integer',
+        'window_seconds' => 'integer',
+        'cooldown_seconds' => 'integer',
+        'row_version' => 'integer',
+        'definition_version' => 'integer',
+        'deleted_at' => 'immutable_datetime',
+    ];
 }

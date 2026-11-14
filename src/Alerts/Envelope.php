@@ -20,6 +20,10 @@ final class Envelope
             $data[$key] = mb_strcut($this->redactor->text((string) ($data[$key] ?? ''), $patterns), 0, $max, 'UTF-8');
         }
 
+        if (isset($data['report'])) {
+            $data['report'] = app(\TelescopeMonitor\Reports\ReportPresentation::class)->sanitize($data['report'], $patterns);
+        }
+
         if (isset($data['github_context'])) {
             $data['github_context'] = app(\TelescopeMonitor\Integrations\GitHubContext::class)->sanitize($data['github_context']);
         }
@@ -41,6 +45,9 @@ final class Envelope
 
     public static function text(array $e): string
     {
+        if (isset($e['report'])) {
+            return app(\TelescopeMonitor\Reports\ReportPresentation::class)->text($e);
+        }
         return ($e['test'] ? "TEST NOTIFICATION — no real incident\n\n" : '').$e['label'].' · '.$e['application']."\nEnvironment: ".$e['environment']."\n".$e['class']."\n".$e['message']."\n".($e['file'] !== '' ? $e['file'].':'.$e['line']."\n" : '').'Occurred: '.$e['occurred_at']."\nCaptured count: ".$e['count']."\n\nOpen investigation: ".$e['url']."\n\nTransport acceptance is not proof of inbox delivery.";
     }
 }

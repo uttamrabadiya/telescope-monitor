@@ -103,7 +103,7 @@ final class InvestigationController
         $key = $keys->key()['value'];
         $digest = hash_hmac('sha256', json_encode(['issue' => $issue, 'request' => $data], JSON_THROW_ON_ERROR), $key);
         try {
-            return $this->response(Telescope::withoutRecording(fn () => $lifecycle->act($issue, $actor->key, hash_hmac('sha256', 'lifecycle:'.$actor->key, $key), $r->string('client_key')->toString(), $digest, $data)));
+            return $this->response(Telescope::withoutRecording(fn () => $lifecycle->act($issue, $actor->key, hash_hmac('sha256', 'lifecycle:'.$actor->key, $key), $r->validated()['client_key'], $digest, $data)));
         } catch (LifecycleConflict $e) {
             return response()->json(['error' => ['code' => 'lifecycle_conflict', 'message' => $e->getMessage(), 'current' => $e->current]], 409)->header('Cache-Control', 'private, no-store');
         } catch (HttpExceptionInterface|ModelNotFoundException $e) {

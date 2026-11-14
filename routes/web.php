@@ -62,6 +62,7 @@ Route::prefix(config('telescope-monitor.path'))->name('telescope-monitor.')
                 Route::post('/deliveries/{delivery}/review', [$alerts, 'review'])->whereUuid('delivery')->middleware(Authorize::class.':operate');
                 Route::post('/deliveries/{delivery}/resend', [$alerts, 'command'])->whereUuid('delivery')->middleware(Authorize::class.':operate')->defaults('alert_operation', 'resend');
                 Route::middleware(Authorize::class.':manage')->group(function () use ($alerts) {
+                    Route::post('/reports/{kind}/preview', [\TelescopeMonitor\Http\Controllers\ReportController::class, 'preview'])->where('kind', 'daily|weekly');
                     Route::get('/alerting', [$alerts, 'configuration']);
                     Route::post('/alerting/preview', [$alerts, 'preview']);
                     Route::post('/alerting/rules', [$alerts, 'command'])->defaults('alert_operation', 'rule.create');
@@ -81,8 +82,8 @@ Route::prefix(config('telescope-monitor.path'))->name('telescope-monitor.')
             Route::get('/bootstrap', [ApiController::class, 'bootstrap'])->name('bootstrap');
             Route::get('/capture/occurrences/{occurrence}', [CaptureController::class, 'evidence'])->whereUuid('occurrence')->middleware(RequireStorage::class);
             Route::middleware(Authorize::class.':manage')->group(function () {
-                Route::get('/settings/{group}', [ApiController::class, 'settings'])->whereIn('group', ['general', 'privacy', 'retention'])->middleware(RequireStorage::class);
-                Route::patch('/settings/{group}', [ApiController::class, 'update'])->whereIn('group', ['general', 'privacy', 'retention'])->middleware(RequireStorage::class);
+                Route::get('/settings/{group}', [ApiController::class, 'settings'])->where('group', 'general|privacy|retention|reports')->middleware(RequireStorage::class);
+                Route::patch('/settings/{group}', [ApiController::class, 'update'])->where('group', 'general|privacy|retention|reports')->middleware(RequireStorage::class);
                 Route::post('/privacy/preview', [ApiController::class, 'redaction'])->middleware(RequireStorage::class);
                 Route::post('/capture/probes', [CaptureController::class, 'probe'])->middleware(RequireStorage::class);
                 Route::get('/capture/probes/{operation}', [CaptureController::class, 'status'])->whereUuid('operation')->middleware(RequireStorage::class);
@@ -97,5 +98,5 @@ Route::prefix(config('telescope-monitor.path'))->name('telescope-monitor.')
             Route::any('/{missing?}', [ApiController::class, 'notFound'])->where('missing', '.*');
         });
         Route::get('/{page?}', DashboardController::class)
-            ->where('page', '(?:setup|overview|errors(?:/[0-9a-fA-F-]{36})?|alerts(?:/history(?:/[0-9a-fA-F-]{36})?)?|integrations|settings(?:/(?:general|privacy|retention|access|health|email|operations))?)')->name('dashboard');
+            ->where('page', '(?:setup|overview|errors(?:/[0-9a-fA-F-]{36})?|alerts(?:/history(?:/[0-9a-fA-F-]{36})?)?|integrations|settings(?:/(?:general|privacy|retention|access|health|email|reports|operations))?)')->name('dashboard');
     });

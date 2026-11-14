@@ -2,6 +2,7 @@
 
 namespace TelescopeMonitor\Storage;
 
+use Closure;
 use Illuminate\Database\Connection;
 use Illuminate\Database\Schema\Builder;
 use Illuminate\Support\Facades\DB;
@@ -29,5 +30,24 @@ final class Database
     public static function schema(): Builder
     {
         return self::connection()->getSchemaBuilder();
+    }
+
+    public static function rollbackSchema(Closure $rollback): void
+    {
+        $connection = self::connection();
+        // Older SQLite grammars rebuild tables to remove columns. Referencing
+        // tables must not prevent that rebuild during an explicit rollback.
+        $restore = $connection->getDriverName() === 'sqlite'
+            && ($connection->selectOne('PRAGMA foreign_keys')->foreign_keys ?? 0);
+        if ($restore) {
+            self::schema()->disableForeignKeyConstraints();
+        }
+        try {
+            $rollback();
+        } finally {
+            if ($restore) {
+                self::schema()->enableForeignKeyConstraints();
+            }
+        }
     }
 }

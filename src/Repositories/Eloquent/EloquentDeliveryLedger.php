@@ -56,6 +56,9 @@ final class EloquentDeliveryLedger implements DeliveryLedger
 
     public function support(Delivery $d, ?Issue $issue): array
     {
+        if (str_starts_with($d->action, 'report_')) {
+            return ['valid' => app(\TelescopeMonitor\Reports\ReportScheduler::class)->supports($d), 'cooldown' => 0];
+        }
         $destination = Connection::query()->find($d->connection_id);
         if ($d->action !== 'connection_test' && $destination && ! ConnectionEvents::allows($destination, AlertEvent::query()->findOrFail($d->event_id)->event_type)) {
             return ['valid' => false, 'cooldown' => 0];
@@ -97,6 +100,13 @@ final class EloquentDeliveryLedger implements DeliveryLedger
         if (! hash_equals($event->payload_digest, hash('sha256', $json))) {
             throw new \RuntimeException('event_integrity');
         }$snapshot = json_decode($json, true, 512, JSON_THROW_ON_ERROR);
+        if (str_starts_with($d->action, 'report_')) {
+            return $this->envelopes->sanitize($snapshot + [
+                'delivery_id' => $d->public_id,
+                'event_id' => $event->public_id,
+                'installation_id' => $this->installations->current()->public_id,
+            ]);
+        }
         $issue = $d->issue_id ? Issue::query()->where('installation_id', $d->installation_id)->findOrFail($d->issue_id) : null;
         $general = $this->settings->group('general')['values'];
         $url = rtrim($general['dashboard_url'], '/').($issue ? '/errors/'.$issue->public_id : '/setup');

@@ -36,11 +36,13 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_purge_runs');
-        if (Schema::connection(Database::connectionName())->hasColumn('telescope_monitor_installations', 'retention_cutoffs')) {
-            Schema::connection(Database::connectionName())->table('telescope_monitor_installations', fn (Blueprint $t) => $t->dropColumn('retention_cutoffs'));
-        }if (Schema::connection(Database::connectionName())->hasTable('telescope_monitor_installations')) {
-            Database::connection()->table('telescope_monitor_installations')->update(['schema_version' => 5]);
-        }
+        Database::rollbackSchema(function () {
+            Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_purge_runs');
+            if (Schema::connection(Database::connectionName())->hasColumn('telescope_monitor_installations', 'retention_cutoffs')) {
+                Schema::connection(Database::connectionName())->table('telescope_monitor_installations', fn (Blueprint $t) => $t->dropColumn('retention_cutoffs'));
+            }if (Schema::connection(Database::connectionName())->hasTable('telescope_monitor_installations')) {
+                Database::connection()->table('telescope_monitor_installations')->update(['schema_version' => 5]);
+            }
+        });
     }
 };

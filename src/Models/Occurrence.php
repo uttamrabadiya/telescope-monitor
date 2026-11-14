@@ -31,15 +31,12 @@ final class Occurrence extends Model
 
     protected $guarded = [];
 
-    protected function casts(): array
-    {
-        return [
-            'installation_id' => 'integer',
-            'issue_id' => 'integer',
-            'source_sequence' => 'integer',
-            'occurred_at' => 'immutable_datetime',
-            'received_at' => 'immutable_datetime',
-            'is_test' => 'boolean',
-        ];
-    }
+    protected $casts = [
+        'installation_id' => 'integer',
+        'issue_id' => 'integer',
+        'source_sequence' => 'integer',
+        'occurred_at' => 'immutable_datetime',
+        'received_at' => 'immutable_datetime',
+        'is_test' => 'boolean',
+    ];
 }

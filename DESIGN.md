@@ -152,7 +152,7 @@ The accepted Telescope light direction uses Figtree, indigo actions, a pale gray
 
 This document records the implemented Phase 1 foundation only: the Vue application shell, setup, persisted preferences, privacy preview, access information and configuration health. Overview reports readiness. Errors, alert rules, integrations, exception capture, evidence pruning and assignments are not connected in this build. Their navigation and explanatory states are not evidence of working workflows.
 
-The source of truth is `resources/css/app.css`, `resources/js/App.vue` and the current settings components. The approved visual reference is `docs/design/mockups-v1/settings.png`; the reviewed desktop and mobile implementation captures are `foundation-settings-reviewed-desktop.png` and `foundation-settings-reviewed-mobile.png` from the current design review. Review disposition: ship for Phase 1 only. PRODUCT.md describes broader product intent and still contains historical implementation status; this document does not promote that intended scope to shipped behavior.
+The source of truth is the Tailwind theme in `resources/css/app.css`, shared utility recipes in `resources/js/ui.ts`, the document theme classes in `resources/views/shell.blade.php`, `resources/js/App.vue`, and the current settings components. The approved visual reference is `docs/design/mockups-v1/settings.png`; the reviewed desktop and mobile implementation captures are `foundation-settings-reviewed-desktop.png` and `foundation-settings-reviewed-mobile.png` from the current design review. Review disposition: ship for Phase 1 only. PRODUCT.md describes broader product intent and still contains historical implementation status; this document does not promote that intended scope to shipped behavior.
 
 **Key Characteristics:**
 
@@ -216,11 +216,11 @@ Controls, badges and settings links use 5px corners. Buttons, panels, notices an
 
 ### Buttons
 
-Primary saves use indigo fill with white text, 9px 16px padding, 6px radius and 40px minimum height (42px on mobile). Hover darkens the fill. Secondary actions are white with control borders; hover uses a pale fill and stronger border. Disabled buttons show a not-allowed cursor and 0.55 opacity. Text actions are underlined indigo links. Icon buttons have 6px padding and 20px SVGs. All interactive controls retain the global visible focus outline.
+Primary saves use indigo fill with white text, vertically centered labels, 16px horizontal padding, .25rem radius and a fixed 38px outer height at every breakpoint. Hover darkens the fill. Secondary actions are white with control borders; hover uses a pale fill and stronger border. Disabled buttons show a not-allowed cursor and 0.55 opacity. Text actions are underlined indigo links. Icon buttons share the 38px height and use 20px SVGs. All buttons, including icon buttons, step buttons, and action-menu items, use the Tailwind `--radius-sm: .25rem` token. All interactive controls retain the global visible focus outline.
 
 ### Inputs and checkbox rows
 
-Text fields, selects and textareas use white backgrounds, control borders, 5px corners, 10px 13px padding and 42px minimum height. Textareas have 120px minimum height, or 130px in large-screen settings. Labels are stacked above controls. Deployment-locked fields use gray fills, muted text and lock explanations. Validation text is red; invalid display-name inputs have red borders. Checkbox targets are 18px by default and 22px in large-screen settings.
+Text fields, selects and textareas use white backgrounds, control borders and .25rem corners. Single-line fields and selects have a fixed 38px outer height; multiline controls retain their readable padding and sizing. Textareas have 120px minimum height, or 130px in large-screen settings. Labels are stacked above controls. Deployment-locked fields use gray fills, muted text and lock explanations. Validation text is red; invalid display-name inputs have red borders. Checkbox targets are 18px by default and 22px in large-screen settings.
 
 ### Navigation
 
@@ -265,7 +265,7 @@ The shell uses a centered 1440px maximum container with 16px horizontal gutters,
 
 Each route renders inside one white 6px-radius page surface with Telescope's soft downward shadow. Shared page titles are 20px inside its header, with a divider separating the body. Settings no longer uses negative margins to escape its container. Setup's outer panel is flattened into the page surface. Feedback and operational warnings remain outside the card, with the quiet footer below it.
 
-Text fields and single selects use 38px height, 6px 12px padding, 16px Figtree, 4px corners and Telescope gray borders (#d1d5db; hover #9ca3af). Search fields use pill corners, matching Telescope's header search treatment. Textareas retain their readable minimum height; multiple selects retain at least 112px rather than collapsing to a single row. Checkbox/radio sizing is 16px. Disabled, invalid and visible keyboard-focus states remain explicit.
+Text fields and single selects use 38px height, 6px 12px padding, 16px Figtree, .25rem corners and Telescope gray borders (#d1d5db; hover #9ca3af). All text inputs, search fields, selects, textareas and dropdown triggers share the Tailwind `--radius-sm: .25rem` token, including search controls with an icon wrapper. Textareas retain their readable minimum height; multiple selects retain at least 112px rather than collapsing to a single row. Checkbox/radio sizing is 16px. Disabled, invalid and visible keyboard-focus states remain explicit.
 
 The whole application stylesheet detector also reports existing tab underlines and historical palette/type advisories. The 3px/4px borders are selected navigation indicators, not card accent borders. The two new control gray values and the page shadow intentionally follow the user's Telescope reference; they are not an invitation to restyle unrelated components.
 
@@ -274,7 +274,7 @@ The whole application stylesheet detector also reports existing tab underlines a
 The dashboard follows the host's `Laravel\Telescope\Telescope::$useDarkTheme`
 flag on the server-rendered root element. `Telescope::night()` enables the dark
 palette without adding a Monitor setting. The light palette and layout remain
-unchanged. The source of truth for both palettes is `resources/css/app.css`.
+unchanged. The light palette is defined in the Tailwind theme in `resources/css/app.css`; dark overrides are Tailwind variable utilities on the document shell in `resources/views/shell.blade.php`. Shared component recipes live in `resources/js/ui.ts`.
 
 Dark mode follows Telescope's gray-900 canvas (`#111827`), gray-800 surfaces
 (`#1f2937`), gray-100 body text (`#f3f4f6`) and gray-400 helper text (`#9ca3af`).
@@ -282,3 +282,120 @@ Indigo links and active states use `#a5b4fc`; filled primary controls retain
 `#4040c8` and white text. Borders, notices, status badges, code evidence, chart
 fills/lines, focus, text selection, dropdowns and native controls use themed
 colors. Theme selection is independent of OS preferences and local storage.
+
+
+## Errors list workspace
+
+The accepted focused-table concept uses one status-tab row (Unresolved, Resolved,
+Ignored, Snoozed, All) and one compact toolbar: search, Filters, sort, Saved views,
+and Save view. Environment, relative range, and refresh remain in the page header.
+Test-event inclusion lives in the expanded Filters panel alongside origin, class,
+permitted tags, optional assignment, date boundaries, and page size. Search submits
+on Enter; its focus ring surrounds the icon and input together.
+
+The full inbox groups range and lifetime counts in an Occurrences column, keeping
+Error, Environment, optional Assignee, Occurrences, and Last seen readable. Error
+rows contain the message, class/origin, and source location; special badges remain
+visible. All-status results additionally show lifecycle status beside each title.
+The overview retains its compact table. Timestamps remain relative with the full
+AM/PM date in the native title. Button and input radii stay .25rem.
+
+Saved views use a compact dropdown for selection, favorites, copies, and shortcut
+preferences. Editing/repair/ownership feedback remains available without a second
+permanent filter row. The dropdown is a positioned overlay clamped to the viewport;
+it never expands a table row or extends beyond the mobile screen edge.
+
+
+## Tailwind dashboard implementation
+
+Every dashboard surface uses Tailwind utility classes. The CSS entry contains only
+framework imports, source registration, the dark-mode variant, and theme tokens.
+Typography, spacing, state colors, focus, responsive rules, chart presentation,
+and control geometry are expressed as utilities in the Vue components and shared
+`ui()` recipes. Complete utility strings keep build-time detection deterministic;
+semantic hook classes are retained alongside the merged utilities. Components
+have no style blocks, inline style bindings, or runtime CSS mutations.
+
+The package uses Tailwind's theme and utility layers while preserving the
+existing browser defaults; the former reset and typography rules are utility
+recipes. Dark mode continues to follow Telescope's document theme. Menu placement
+uses native popovers/CSS anchors through Tailwind arbitrary-property utilities,
+with viewport fallbacks. The dashboard stylesheet has no handwritten selectors or
+`@apply` component aliases. Frontend tests enforce this contract across all Vue
+files. Email notification templates remain outside this dashboard migration.
+
+
+## Shared control height
+
+Single-line inputs, buttons (including link/icon/menu buttons), single-selects,
+and dropdown triggers use the Tailwind `--spacing-control: 38px` token at every
+breakpoint. Search wrappers own the 38px outer height; their borderless input fills
+the remaining inner height. Checkboxes, radio buttons, textareas and multi-select
+lists retain their appropriate compact or multiline sizing. Control height is not
+increased on mobile or in empty states.
+
+
+## View preferences
+
+The Saved views dropdown opens a dedicated View preferences dialog. Its Default
+error view selector is independent of the current filters and favorite membership.
+Favorite views appear as one ordered list with explicit add, remove, move-up and
+move-down actions. The add selector includes available built-in and saved views,
+with additional catalog pages loadable on demand.
+
+All edits remain local until Save changes persists default and favorite order in
+one versioned request. Cancel and Escape discard edits. Controls retain the 38px
+height and .25rem radius; the dialog body scrolls within the viewport and its
+footer remains available on mobile. Native dialog focus containment is used, and
+focus returns to the Saved views trigger on close. Reordering keeps keyboard
+focus on the moved row. Removing a favorite does not delete the saved view.
+
+
+## Shared dashboard tables
+
+All native dashboard tables use the same `$table`, `$th` and `$td` Tailwind recipes
+from `resources/js/ui.ts`, based on the approved Errors list. Page-specific styles
+retain column widths, minimum scroll widths and content hierarchy.
+
+Headers follow the refined Telescope treatment: a 40px row, 14px semibold labels,
+8px vertical/20px horizontal padding, a flat canvas-tinted background and one
+subtle bottom divider. There is no surrounding outline or rounded header frame.
+Range labels stay inline, such as Occurrences (24h). Mobile horizontal padding
+is 12px. Body cells use 15px text, 20px vertical padding (16px on mobile), matching
+horizontal gutters, subtle row dividers and a quiet row-hover tint. Count and
+timestamp headers and their data cells align right; descriptive columns align
+left. Automatic table layout respects intrinsic single-line header widths.
+
+Every table has a descriptive screen-reader caption and column-header scope.
+The error occurrence header spells out Occurrences with its selected range in
+parentheses on one line, including on the Overview. Tailwind-only styling and the
+existing 38px control height remain in force.
+
+## Triage overview
+
+The Overview uses four flat summary metrics, a grouped occurrence bar chart beside
+an origin breakdown, a three-row attention table, and a compact capture/delivery
+observations strip. Recent activity remains available through a disclosure.
+Metrics use 30px numerals, section headings 21px, observation headings 17px and
+secondary error metadata 13px. These are intentional dashboard hierarchy steps.
+The shared `table-dense` variant uses 12px vertical body-cell padding for the
+overview's short summary table, retaining the common 40px header and gutters.
+
+Selected-period bars use the primary color; previous-period bars use 25% opacity.
+The current partial bar uses 60% opacity. Previous bars and percentage changes
+compare complete intervals only. Missing retention, installation history, or a
+purge boundary produces an unavailable comparison rather than an assumed zero.
+Every data-bearing bar has a keyboard-accessible description and native title;
+exact values remain available in hover and focus descriptions. Axis labels show
+12-hour times, and hover details include dates in the application time zone. On mobile the chart and table scroll within their own regions.
+
+Origin percentages use captured identities, with a coverage note if their total
+differs from retained aggregates. Capture and delivery observations refresh with
+the overview and are explicitly installation-wide, independent of page filters.
+
+Chart comparison tooltips use three compact lines: date, 12-hour time, and a row
+with a primary-colored square and current count, then a lighter square and previous count.
+Unavailable previous counts show a dash; full dates and comparison explanations
+remain available to assistive technology. Bars support pointer/touch,
+roving keyboard focus, arrow navigation and Escape dismissal. The tooltip stays in the chart’s top-right corner using Tailwind utilities,
+within the chart width.

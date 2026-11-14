@@ -54,6 +54,27 @@ abstract class TestCase extends Orchestra
     {
         $this->loadMigrationsFrom(__DIR__.'/../database/migrations');
         $this->loadMigrationsFrom(__DIR__.'/../vendor/laravel/telescope/database/migrations');
+        if (version_compare($this->app->version(), '11.0.0', '<')) {
+            $this->loadMigrationsFrom(__DIR__.'/Fixtures/migrations');
+        }
+    }
+
+    protected function enforceCsrf(): void
+    {
+        $middleware = class_exists(\Illuminate\Foundation\Http\Middleware\PreventRequestForgery::class)
+            ? \TelescopeMonitor\Tests\Fixtures\StrictRequestForgery::class
+            : \TelescopeMonitor\Tests\Fixtures\StrictCsrf::class;
+        $this->app->make(\Illuminate\Contracts\Http\Kernel::class)->appendMiddlewareToGroup('web', $middleware);
+    }
+
+    protected function useConfigDirectory(string $path): void
+    {
+        if (version_compare($this->app->version(), '10.0.0', '>=')) {
+            $this->app->useConfigPath($path);
+        } else {
+            // Older Application::configPath is fixed relative to the base path.
+            $this->app->setBasePath(dirname($path));
+        }
     }
 
     protected function setUp(): void

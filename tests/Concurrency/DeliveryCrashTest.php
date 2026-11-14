@@ -29,6 +29,7 @@ final class DeliveryCrashTest extends TestCase
         return $cases;
     }
 
+    /** @dataProvider crashPoints */
     #[DataProvider('crashPoints')]
     public function test_process_death_preserves_recoverable_work_and_never_recreates_github(string $provider, string $point): void
     {

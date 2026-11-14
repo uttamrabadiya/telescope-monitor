@@ -2,7 +2,6 @@
 
 namespace TelescopeMonitor\Tests\Alerts;
 
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use TelescopeMonitor\Alerts\EmailContext;
@@ -20,6 +19,17 @@ use TelescopeMonitor\Tests\TestCase;
 final class RichEmailTest extends TestCase
 {
     use CapturesExceptions;
+    use \TelescopeMonitor\Tests\Fixtures\ReadsMail;
+
+    public function test_cancelled_host_mail_is_not_reported_as_transport_acceptance(): void
+    {
+        config(['mail.default' => 'array']);
+        $this->app['events']->listen(\Illuminate\Mail\Events\MessageSending::class, fn () => false);
+        $envelope = app(Envelope::class)->sanitize($this->envelope());
+
+        $this->assertSame('permanent', app(HostEmailProvider::class)->send($envelope, ['email' => 'fixture@example.test'])->kind);
+        $this->assertCount(0, $this->sentEmails());
+    }
     private function envelope(array $extra = []): array
     {
         return array_replace([
@@ -64,9 +74,9 @@ final class RichEmailTest extends TestCase
         config(['mail.default' => 'array']);
         $e = app(Envelope::class)->sanitize($this->envelope());
         $this->assertSame('accepted', app(HostEmailProvider::class)->send($e, ['email' => 'fixture@example.test'])->kind);
-        $message = Mail::mailer('array')->getSymfonyTransport()->messages()->last()->getOriginalMessage();
-        $this->assertSame('DEMO-APP-1H - App\\Exceptions\\WidgetNotFoundException: Widget not found', $message->getSubject());
-        $html = $message->getHtmlBody();
+        $message = $this->sentEmails()[array_key_last($this->sentEmails())];
+        $this->assertSame('DEMO-APP-1H - App\\Exceptions\\WidgetNotFoundException: Widget not found', $message['subject']);
+        $html = $message['html'];
         foreach ([
             'Telescope Monitor',
             '#4040c8',
@@ -81,8 +91,8 @@ final class RichEmailTest extends TestCase
         ] as $expected) {
             $this->assertStringContainsString($expected, $html);
         }
-        $this->assertStringContainsString('Open investigation:', $message->getTextBody());
-        $this->assertStringContainsString('showWidget', $message->getTextBody());
+        $this->assertStringContainsString('Open investigation:', $message['text']);
+        $this->assertStringContainsString('showWidget', $message['text']);
         $this->assertStringNotContainsString('SENTRY', $html);
         $this->assertStringNotContainsString('fonts.googleapis', $html);
     }
@@ -96,14 +106,14 @@ final class RichEmailTest extends TestCase
             'url' => 'javascript:alert(1)',
         ]));
         $this->assertSame('accepted', app(HostEmailProvider::class)->send($e, ['email' => 'fixture@example.test'])->kind);
-        $message = Mail::mailer('array')->getSymfonyTransport()->messages()->last()->getOriginalMessage();
-        $this->assertStringNotContainsString('<img src=x', $message->getHtmlBody());
-        $this->assertStringContainsString('&lt;img', $message->getHtmlBody());
-        $this->assertStringNotContainsString('EMAIL-SECRET', $message->getHtmlBody());
-        $this->assertStringNotContainsString('javascript:', $message->getHtmlBody());
-        $this->assertStringNotContainsString('javascript:', $message->getTextBody());
-        $this->assertStringNotContainsString("\n", $message->getSubject());
-        $this->assertCount(1, $message->getTo());
+        $message = $this->sentEmails()[array_key_last($this->sentEmails())];
+        $this->assertStringNotContainsString('<img src=x', $message['html']);
+        $this->assertStringContainsString('&lt;img', $message['html']);
+        $this->assertStringNotContainsString('EMAIL-SECRET', $message['html']);
+        $this->assertStringNotContainsString('javascript:', $message['html']);
+        $this->assertStringNotContainsString('javascript:', $message['text']);
+        $this->assertStringNotContainsString("\n", $message['subject']);
+        $this->assertCount(1, $message['to']);
     }
 
     public function test_context_obeys_current_privacy_and_explicit_email_tag_allowlist(): void

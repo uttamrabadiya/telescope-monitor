@@ -44,24 +44,21 @@ final class Issue extends Model
 
     protected $guarded = [];
 
-    protected function casts(): array
-    {
-        return [
-            'installation_id' => 'integer',
-            'is_test' => 'boolean',
-            'grouping_version' => 'integer',
-            'line' => 'integer',
-            'lifetime_count' => 'integer',
-            'first_seen_at' => 'immutable_datetime',
-            'last_seen_at' => 'immutable_datetime',
-            'resolved_at' => 'immutable_datetime',
-            'resolution_cutoff_at' => 'immutable_datetime',
-            'snoozed_at' => 'immutable_datetime',
-            'snoozed_until' => 'immutable_datetime',
-            'notification_cutoff_at' => 'immutable_datetime',
-            'alert_generation' => 'integer',
-            'state_version' => 'integer',
-            'recovered_only' => 'boolean',
-        ];
-    }
+    protected $casts = [
+        'installation_id' => 'integer',
+        'is_test' => 'boolean',
+        'grouping_version' => 'integer',
+        'line' => 'integer',
+        'lifetime_count' => 'integer',
+        'first_seen_at' => 'immutable_datetime',
+        'last_seen_at' => 'immutable_datetime',
+        'resolved_at' => 'immutable_datetime',
+        'resolution_cutoff_at' => 'immutable_datetime',
+        'snoozed_at' => 'immutable_datetime',
+        'snoozed_until' => 'immutable_datetime',
+        'notification_cutoff_at' => 'immutable_datetime',
+        'alert_generation' => 'integer',
+        'state_version' => 'integer',
+        'recovered_only' => 'boolean',
+    ];
 }

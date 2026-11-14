@@ -118,7 +118,7 @@ final class Sanitizer
         $policy = $marker['policy'];
         unset($marker['policy']);
         $origin = $content['telescope_monitor_origin'] ?? [];
-        $kind = ($batch['origin'] ?? 'unknown') !== 'unknown' ? $batch['origin'] : (in_array($origin['kind'] ?? null, ['job', 'command', 'web'], true) ? $origin['kind'] : 'unknown');
+        $kind = in_array($origin['kind'] ?? null, ['job', 'command', 'web'], true) ? $origin['kind'] : ($batch['origin'] ?? 'unknown');
         $coverage = [
             'trace' => $policy['privacy']['retain_stack_trace'] ? 'available' : 'excluded',
             'message' => strlen((string) ($content['message'] ?? '')) > 16384 ? 'truncated' : 'available',

@@ -79,7 +79,10 @@ Each installation monitors its host application. Separate deployments normally m
 
 Each installation has a persistent generated identifier independent of its display name. Each event records that installation and its capture environment. An error group cannot merge occurrences across environments. The interface always shows the active application, environment selection, time range, and display timezone where those affect the result.
 
-Proposed initial compatibility remains Laravel 13 and its supported PHP requirements, with a Telescope 5 minimum established by integration testing. The final release must identify tested database engines and supported queue drivers. Prototype compatibility results are evidence for planning, not a substitute for testing the replacement.
+The initial implementation targeted Laravel 13. The current source expands
+compatibility to tested Laravel 8–13 releases while retaining PHP 8.3 as the
+minimum. See the [framework compatibility report](framework-compatibility.md) for
+exact framework floors, database results and legacy dependency advisories.
 
 ## Product vocabulary and retained records
 

@@ -96,8 +96,8 @@ final class InvestigationTest extends TestCase
         $key = (string) Str::uuid();
         $this->action('resolve', 1, $key)->assertOk();
         $this->action('resolve', 1, $key)->assertOk()->assertJsonPath('telescope_monitor_private.replayed', true);
-        $this->action('ignore', 1, $key)->assertConflict();
-        $this->action('reopen', 1)->assertConflict();
+        $this->action('ignore', 1, $key)->assertStatus(409);
+        $this->action('reopen', 1)->assertStatus(409);
         $this->assertSame(1, DB::table('telescope_monitor_activity')->where('event_type', 'error.resolve')->count());
         $this->action('reopen', 2)->assertOk();
         $this->action('ignore', 3)->assertOk();

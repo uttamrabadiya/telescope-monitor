@@ -72,7 +72,9 @@ final class OriginsTest extends TestCase
     public function test_console_kernel_exception_reaches_sanitized_evidence(): void
     {
         $kernel = new Kernel($this->app, $this->app['events']);
-        $kernel->rerouteSymfonyCommandEvents();
+        if (method_exists($kernel, 'rerouteSymfonyCommandEvents')) {
+            $kernel->rerouteSymfonyCommandEvents();
+        }
         $kernel->command('phase2:failure', fn () => throw new \RuntimeException('password=console-secret'));
         $this->assertSame(1, $kernel->handle(new ArrayInput(['command' => 'phase2:failure']), new BufferedOutput));
         Telescope::store(app(EntriesRepository::class));
@@ -87,7 +89,9 @@ final class OriginsTest extends TestCase
     {
         Telescope::filter(fn ($entry) => $entry->isException());
         $kernel = new Kernel($this->app, $this->app['events']);
-        $kernel->rerouteSymfonyCommandEvents();
+        if (method_exists($kernel, 'rerouteSymfonyCommandEvents')) {
+            $kernel->rerouteSymfonyCommandEvents();
+        }
         $kernel->command('demo:failure', fn () => throw new \RuntimeException('Synthetic command failure'));
         $input = new ArrayInput(['command' => 'demo:failure']);
         $this->assertSame(1, $kernel->handle($input, new BufferedOutput));
@@ -110,7 +114,9 @@ final class OriginsTest extends TestCase
     {
         Telescope::filter(fn ($entry) => $entry->isException());
         $kernel = new Kernel($this->app, $this->app['events']);
-        $kernel->rerouteSymfonyCommandEvents();
+        if (method_exists($kernel, 'rerouteSymfonyCommandEvents')) {
+            $kernel->rerouteSymfonyCommandEvents();
+        }
         $kernel->command('demo:inner', fn () => 0);
         $kernel->command('demo:outer', function () use ($kernel) {
             $kernel->call('demo:inner', [], new BufferedOutput);
@@ -151,7 +157,9 @@ final class OriginsTest extends TestCase
             Telescope::recordQuery(IncomingEntry::make(['connection' => 'sqlite', 'time' => 1, 'sql' => 'select 1', 'bindings' => []]));
         }
         $kernel = new Kernel($this->app, $this->app['events']);
-        $kernel->rerouteSymfonyCommandEvents();
+        if (method_exists($kernel, 'rerouteSymfonyCommandEvents')) {
+            $kernel->rerouteSymfonyCommandEvents();
+        }
         $kernel->command('phase4:many-queries', fn () => throw new \RuntimeException('Command failed'));
         $this->assertSame(1, $kernel->handle(new ArrayInput(['command' => 'phase4:many-queries']), new BufferedOutput));
         Telescope::store(app(EntriesRepository::class));

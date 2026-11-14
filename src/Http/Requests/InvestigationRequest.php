@@ -48,7 +48,7 @@ final class InvestigationRequest extends FormRequest
                 $v->errors()->add('assignee', 'Assignments are disabled.');
             }
             if ($this->filled('tag')) {
-                $key = explode(':', $this->string('tag')->toString(), 2)[0];
+                $key = explode(':', (string) $this->input('tag'), 2)[0];
                 if (! in_array($key, config('telescope-monitor.capture.allowed_tags', []), true)) {
                     $v->errors()->add('tag', 'This tag is not permitted by deployment policy.');
                 }

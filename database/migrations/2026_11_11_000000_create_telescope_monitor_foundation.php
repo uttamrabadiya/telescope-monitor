@@ -78,9 +78,11 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_action_receipts');
-        Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_health_checks');
-        Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_settings');
-        Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_installations');
+        Database::rollbackSchema(function () {
+            Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_action_receipts');
+            Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_health_checks');
+            Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_settings');
+            Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_installations');
+        });
     }
 };

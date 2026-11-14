@@ -26,16 +26,13 @@ final class MetricBucket extends Model
 
     protected $guarded = [];
 
-    protected function casts(): array
-    {
-        return [
-            'installation_id' => 'integer',
-            'issue_id' => 'integer',
-            'bucket_start_at' => 'immutable_datetime',
-            'occurrence_count' => 'integer',
-            'new_group_count' => 'integer',
-            'regression_count' => 'integer',
-            'expires_at' => 'immutable_datetime',
-        ];
-    }
+    protected $casts = [
+        'installation_id' => 'integer',
+        'issue_id' => 'integer',
+        'bucket_start_at' => 'immutable_datetime',
+        'occurrence_count' => 'integer',
+        'new_group_count' => 'integer',
+        'regression_count' => 'integer',
+        'expires_at' => 'immutable_datetime',
+    ];
 }

@@ -223,23 +223,25 @@ return new class extends Migration
 
     public function down(): void
     {
-        if (Schema::connection(Database::connectionName())->hasColumn('telescope_monitor_action_receipts', 'public_id')) {
-            Schema::connection(Database::connectionName())->table('telescope_monitor_action_receipts', function (Blueprint $t) {
-                $t->dropUnique(['public_id']);
-                $t->dropColumn(['public_id', 'generation']);
-            });
-        }
-        Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_secrets');
-        Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_alert_events');
-        Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_activity');
-        Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_metric_buckets');
-        Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_evidence_tags');
-        Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_occurrence_evidence');
-        Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_occurrences');
-        Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_issues');
-        Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_capture_inbox');
-        if (Schema::connection(Database::connectionName())->hasTable('telescope_monitor_installations')) {
-            Database::connection()->table('telescope_monitor_installations')->update(['schema_version' => 1]);
-        }
+        Database::rollbackSchema(function () {
+            if (Schema::connection(Database::connectionName())->hasColumn('telescope_monitor_action_receipts', 'public_id')) {
+                Schema::connection(Database::connectionName())->table('telescope_monitor_action_receipts', function (Blueprint $t) {
+                    $t->dropUnique(['public_id']);
+                    $t->dropColumn(['public_id', 'generation']);
+                });
+            }
+            Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_secrets');
+            Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_alert_events');
+            Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_activity');
+            Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_metric_buckets');
+            Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_evidence_tags');
+            Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_occurrence_evidence');
+            Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_occurrences');
+            Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_issues');
+            Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_capture_inbox');
+            if (Schema::connection(Database::connectionName())->hasTable('telescope_monitor_installations')) {
+                Database::connection()->table('telescope_monitor_installations')->update(['schema_version' => 1]);
+            }
+        });
     }
 };

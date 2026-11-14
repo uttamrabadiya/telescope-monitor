@@ -61,14 +61,16 @@ return new class extends Migration
 
     public function down(): void
     {
-        if (Schema::connection(Database::connectionName())->hasTable('telescope_monitor_issues') && Schema::connection(Database::connectionName())->hasIndex('telescope_monitor_issues', 'tm_issue_assignee')) {
-            Schema::connection(Database::connectionName())->table('telescope_monitor_issues', fn (Blueprint $t) => $t->dropIndex('tm_issue_assignee'));
-        }
-        Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_view_preferences');
-        Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_saved_views');
-        Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_notes');
-        if (Schema::connection(Database::connectionName())->hasTable('telescope_monitor_installations')) {
-            Database::connection()->table('telescope_monitor_installations')->update(['schema_version' => 2]);
-        }
+        Database::rollbackSchema(function () {
+            if (Schema::connection(Database::connectionName())->hasTable('telescope_monitor_issues')) {
+                Schema::connection(Database::connectionName())->table('telescope_monitor_issues', fn (Blueprint $t) => $t->dropIndex('tm_issue_assignee'));
+            }
+            Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_view_preferences');
+            Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_saved_views');
+            Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_notes');
+            if (Schema::connection(Database::connectionName())->hasTable('telescope_monitor_installations')) {
+                Database::connection()->table('telescope_monitor_installations')->update(['schema_version' => 2]);
+            }
+        });
     }
 };

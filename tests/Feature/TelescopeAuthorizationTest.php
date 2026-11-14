@@ -3,7 +3,6 @@
 namespace TelescopeMonitor\Tests\Feature;
 
 use Illuminate\Contracts\Auth\Authenticatable;
-use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Auth;
@@ -23,7 +22,6 @@ use TelescopeMonitor\Data\Actor;
 use TelescopeMonitor\Foundation\DashboardAssets;
 use TelescopeMonitor\Http\Middleware\Authorize;
 use TelescopeMonitor\Tests\Capture\CapturesExceptions;
-use TelescopeMonitor\Tests\Fixtures\StrictRequestForgery;
 use TelescopeMonitor\Tests\TestCase;
 
 final class TelescopeAuthorizationTest extends TestCase
@@ -114,7 +112,7 @@ final class TelescopeAuthorizationTest extends TestCase
         $id = DB::table('telescope_monitor_issues')->value('public_id');
         $this->postJson('/telescope-monitor/api/v1/issues/'.$id.'/notes', ['client_key' => (string) Str::uuid(), 'telescope_monitor_private' => ['body' => 'Local developer investigation']])->assertOk();
         $this->assertSame(TelescopeAccess::SHARED_KEY, DB::table('telescope_monitor_notes')->value('author_actor_key'));
-        $this->app->bind(PreventRequestForgery::class, StrictRequestForgery::class);
+        $this->enforceCsrf();
         $this->flushHeaders();
         $this->patchJson('/telescope-monitor/api/v1/settings/general', ['version' => 0, 'values' => ['display_name' => 'Rejected']])->assertStatus(419);
         $this->withSession(['_token' => 'csrf-fixture'])->withHeader('X-CSRF-TOKEN', 'csrf-fixture')->patchJson('/telescope-monitor/api/v1/settings/general', ['version' => 0, 'values' => ['display_name' => 'Accepted']])->assertOk();
@@ -132,6 +130,8 @@ final class TelescopeAuthorizationTest extends TestCase
             '--stop-when-empty' => true,
             '--tries' => 1,
             '--sleep' => 0,
+            // The legacy DBAL test process can exceed the worker's 128MB default.
+            '--memory' => 512,
         ]);
         $this->assertSame('completed', app(CaptureProbes::class)->status($probe['id'])['state']);
         $this->withSession(['_token' => 'csrf-fixture'])->withHeader('X-CSRF-TOKEN', 'csrf-fixture');

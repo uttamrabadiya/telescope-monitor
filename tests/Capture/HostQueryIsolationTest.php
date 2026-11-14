@@ -51,7 +51,9 @@ final class HostQueryIsolationTest extends TestCase
     public function test_artisan_exception_has_zero_monitoring_queries_until_separate_import(): void
     {
         $kernel = new Kernel($this->app, $this->app['events']);
-        $kernel->rerouteSymfonyCommandEvents();
+        if (method_exists($kernel, 'rerouteSymfonyCommandEvents')) {
+            $kernel->rerouteSymfonyCommandEvents();
+        }
         $kernel->command('host:zero-query-error', fn () => throw new \RuntimeException('Console monitor isolation'));
         $this->hostOnly(fn () => $this->assertSame(1, $kernel->handle(new ArrayInput(['command' => 'host:zero-query-error']), new BufferedOutput)));
     }

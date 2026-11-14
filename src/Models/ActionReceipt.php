@@ -24,11 +24,8 @@ final class ActionReceipt extends Model
 
     protected $guarded = [];
 
-    protected function casts(): array
-    {
-        return [
-            'generation' => 'integer',
-            'expires_at' => 'immutable_datetime',
-        ];
-    }
+    protected $casts = [
+        'generation' => 'integer',
+        'expires_at' => 'immutable_datetime',
+    ];
 }

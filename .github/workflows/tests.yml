@@ -3,6 +3,59 @@ on: [push, pull_request, workflow_dispatch]
 permissions:
   contents: read
 jobs:
+  frameworks:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        laravel: [8, 9, 10, 11, 12, 13]
+        database: [sqlite, mysql]
+        telescope: ['5.19.0', latest]
+        php: ['8.3']
+        include:
+          - laravel: 13
+            database: sqlite
+            telescope: '5.19.0'
+            php: '8.5'
+    services:
+      database:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: testing
+          MYSQL_DATABASE: telescope_monitor_test
+        ports: ['3306:3306']
+        options: >-
+          --tmpfs /var/lib/mysql:rw,size=2147483648
+          --health-cmd="mysqladmin ping -h localhost -ptesting"
+          --health-interval=10s --health-timeout=5s --health-retries=10
+    env:
+      MONITOR_DB: ${{ matrix.database }}
+      DB_HOST: 127.0.0.1
+      DB_DATABASE: telescope_monitor_test
+      DB_USERNAME: root
+      DB_PASSWORD: testing
+    steps:
+      - uses: actions/checkout@v4
+      - uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php }}
+          extensions: curl, pdo_sqlite, pdo_mysql, mbstring, pcntl, posix
+          tools: composer:v2
+          coverage: none
+      - run: php scripts/configure-framework-tests.php ${{ matrix.laravel }} ${{ matrix.telescope }}
+      - run: composer config platform.php ${{ matrix.php }}.0
+      # Legacy compatibility testing deliberately allows the framework's known
+      # advisories in this disposable job. Package security policy stays enabled.
+      - if: matrix.laravel <= 11
+        run: composer update --no-interaction --prefer-dist --no-scripts --no-security-blocking
+      - if: matrix.laravel >= 12
+        run: composer update --no-interaction --prefer-dist --no-scripts
+      - run: composer test -- --log-junit framework-results.xml
+      - if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: laravel-${{ matrix.laravel }}-telescope-${{ matrix.telescope }}-php-${{ matrix.php }}-${{ matrix.database }}
+          path: framework-results.xml
   sqlite:
     runs-on: ubuntu-latest
     strategy:
@@ -80,6 +133,7 @@ jobs:
           php-version: '8.3'
           extensions: curl, pdo_sqlite, mbstring, pcntl
           coverage: none
+      - run: php scripts/configure-framework-tests.php 13
       - if: matrix.dependencies == 'lowest'
         run: composer update --prefer-lowest --prefer-stable --no-interaction --prefer-dist
       - if: matrix.dependencies == 'latest'
@@ -97,6 +151,6 @@ jobs:
           extensions: curl, mbstring
           coverage: none
       - run: composer validate --strict
-      - run: python3 scripts/prepare-release.py --version 1.0.0-rc.3 --output /tmp/composer-package
-      - run: python3 scripts/prepare-release.py --version 1.0.0-rc.3 --git-ref HEAD --output /tmp/git-package
+      - run: python3 scripts/prepare-release.py --version 1.0.0-rc.4 --output /tmp/composer-package
+      - run: python3 scripts/prepare-release.py --version 1.0.0-rc.4 --git-ref HEAD --output /tmp/git-package
       - run: diff /tmp/composer-package/FILES.sha256 /tmp/git-package/FILES.sha256

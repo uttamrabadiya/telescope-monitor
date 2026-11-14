@@ -19,11 +19,8 @@ final class Setting extends Model
 
     protected $guarded = [];
 
-    protected function casts(): array
-    {
-        return [
-            'values' => 'array',
-            'row_version' => 'integer',
-        ];
-    }
+    protected $casts = [
+        'values' => 'array',
+        'row_version' => 'integer',
+    ];
 }

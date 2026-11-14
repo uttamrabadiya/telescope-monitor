@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ui } from "../ui"
 import { computed, ref, watch } from 'vue'
 import type { ReproduceEvidence } from '../types'
 import { replayState, replayTemplate } from '../composables/reproduce'
@@ -22,15 +23,15 @@ async function copy() {
 }
 </script>
 <template>
-  <section class="reproduce-section" aria-label="Reproduce">
-    <div class="reproduce-heading"><h3>Reproduce</h3><span v-if="reproduce?.mode" class="badge">{{modes[reproduce.mode]}}</span></div>
-    <p class="help">{{replayState(reproduce)}}</p>
-    <details v-if="recipe" ref="details" class="reproduce-details">
-      <summary>{{reproduce?.kind==='http'?'View cURL template':'View Artisan command'}}</summary>
-      <ul class="reproduce-omissions"><li v-for="item in reproduce?.omissions??[]" :key="item">{{omissions[item]??'Some evidence was omitted.'}}</li></ul>
-      <div class="reproduce-actions"><button class="button" type="button" :disabled="copying" @click="copy">{{reproduce?.kind==='http'?'Copy cURL':'Copy command'}}</button><span :role="failed?'alert':'status'" class="help">{{feedback}}</span></div>
-      <pre ref="preview" tabindex="0" aria-label="Replay template"><code>{{recipe}}</code></pre>
-      <p class="help">Replay template only. Database state, permissions, external services and missing values may differ.</p>
+  <section :class="ui('$all', '$section', 'reproduce-section')" aria-label="Reproduce">
+    <div :class="ui('$all', '$div', 'reproduce-heading')"><h3 :class="ui('$all', '$h3')">Reproduce</h3><span v-if="reproduce?.mode" :class="ui('$all', '$span', 'badge')">{{modes[reproduce.mode]}}</span></div>
+    <p :class="ui('$all', '$p', 'help')">{{replayState(reproduce)}}</p>
+    <details v-if="recipe" ref="details" :class="ui('$all', '$details', 'reproduce-details')">
+      <summary :class="ui('$all', '$summary')">{{reproduce?.kind==='http'?'View cURL template':'View Artisan command'}}</summary>
+      <ul :class="ui('$all', '$ul', 'reproduce-omissions')"><li :class="ui('$all', '$li')" v-for="item in reproduce?.omissions??[]" :key="item">{{omissions[item]??'Some evidence was omitted.'}}</li></ul>
+      <div :class="ui('$all', '$div', 'reproduce-actions')"><button :class="ui('$all', '$button', 'button')" type="button" :disabled="copying" @click="copy">{{reproduce?.kind==='http'?'Copy cURL':'Copy command'}}</button><span :role="failed?'alert':'status'" :class="ui('$all', '$span', 'help')">{{feedback}}</span></div>
+      <pre :class="ui('$all', '$pre')" ref="preview" tabindex="0" aria-label="Replay template"><code :class="ui('$all', '$code')">{{recipe}}</code></pre>
+      <p :class="ui('$all', '$p', 'help')">Replay template only. Database state, permissions, external services and missing values may differ.</p>
     </details>
   </section>
 </template>

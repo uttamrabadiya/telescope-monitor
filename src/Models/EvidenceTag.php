@@ -22,11 +22,8 @@ final class EvidenceTag extends Model
 
     protected $guarded = [];
 
-    protected function casts(): array
-    {
-        return [
-            'evidence_id' => 'integer',
-            'installation_id' => 'integer',
-        ];
-    }
+    protected $casts = [
+        'evidence_id' => 'integer',
+        'installation_id' => 'integer',
+    ];
 }

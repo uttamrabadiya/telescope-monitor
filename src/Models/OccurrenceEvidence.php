@@ -36,16 +36,13 @@ final class OccurrenceEvidence extends Model
 
     protected $hidden = ['payload_ciphertext'];
 
-    protected function casts(): array
-    {
-        return [
-            'occurrence_id' => 'integer',
-            'installation_id' => 'integer',
-            'evidence_version' => 'integer',
-            'privacy_revision' => 'integer',
-            'plaintext_bytes' => 'integer',
-            'coverage' => 'array',
-            'expires_at' => 'immutable_datetime',
-        ];
-    }
+    protected $casts = [
+        'occurrence_id' => 'integer',
+        'installation_id' => 'integer',
+        'evidence_version' => 'integer',
+        'privacy_revision' => 'integer',
+        'plaintext_bytes' => 'integer',
+        'coverage' => 'array',
+        'expires_at' => 'immutable_datetime',
+    ];
 }

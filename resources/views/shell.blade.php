@@ -1,5 +1,5 @@
 <!doctype html>
-<html data-theme="{{ \Laravel\Telescope\Telescope::$useDarkTheme ? 'dark' : 'light' }}" lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html class="font-sans text-tm-text bg-tm-canvas font-normal text-[16px] leading-[1.5] [font-synthesis:none] [color-scheme:light] dark:[color-scheme:dark] dark:[--color-tm-text:#f3f4f6] dark:[--color-tm-canvas:#111827] dark:[--color-tm-surface:#1f2937] dark:[--color-tm-muted:#9ca3af] dark:[--color-tm-secondary-text:#9ca3af] dark:[--color-tm-nav-text:#d1d5db] dark:[--color-tm-section-text:#e5e7eb] dark:[--color-tm-primary:#a5b4fc] dark:[--color-tm-border:#374151] dark:[--color-tm-control-border:#6b7280] dark:[--color-tm-control-border-hover:#9ca3af] dark:[--color-tm-input-border:#6b7280] dark:[--color-tm-panel-border:#374151] dark:[--color-tm-shell-border:#374151] dark:[--color-tm-divider:#374151] dark:[--color-tm-nav-hover:#1f2937] dark:[--color-tm-nav-active:#1f2937] dark:[--color-tm-section-active:#312e81] dark:[--color-tm-subtle-surface:#111827] dark:[--color-tm-button-hover:#374151] dark:[--color-tm-policy-bg:#312e81] dark:[--color-tm-policy-border:#6366f1] dark:[--color-tm-policy-text:#c7d2fe] dark:[--color-tm-frame-heading:#c7d2fe] dark:[--color-tm-policy-tag:#3730a3] dark:[--color-tm-policy-divider:#6366f1] dark:[--color-tm-focus:#a5b4fc] dark:[--color-tm-success-bg:#052e16] dark:[--color-tm-success-border:#166534] dark:[--color-tm-success-text:#86efac] dark:[--color-tm-warning-bg:#451a03] dark:[--color-tm-warning-border:#92400e] dark:[--color-tm-warning-text:#fcd34d] dark:[--color-tm-danger-bg:#450a0a] dark:[--color-tm-danger-border:#991b1b] dark:[--color-tm-danger-text:#fca5a5] dark:[--color-tm-error-text:#fca5a5] dark:[--color-tm-badge-border:#6b7280] dark:[--color-tm-passed-bg:#052e16] dark:[--color-tm-passed-text:#86efac] dark:[--color-tm-failed-bg:#450a0a] dark:[--color-tm-warning-badge-bg:#451a03] dark:[--color-tm-task-border:#374151] dark:[--color-tm-step-border:#6b7280] dark:[--color-tm-step-active:#312e81] dark:[--color-tm-summary-border:#374151] dark:[--color-tm-selection-bg:#3730a3] dark:[--color-tm-selection-text:#e0e7ff] dark:[--color-tm-scrollbar:#6b7280] dark:[--color-tm-evidence-border:#374151] dark:[--color-tm-checkbox:#818cf8]" data-theme="{{ \Laravel\Telescope\Telescope::$useDarkTheme ? 'dark' : 'light' }}" lang="{{ str_replace('_', '-', app()->getLocale()) }}">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -12,8 +12,8 @@
     @endforeach
     <script type="module" src="{{ $base }}/assets/{{ $build }}/{{ $entry['file'] }}" @if($nonce) nonce="{{ $nonce }}" @endif></script>
 </head>
-<body>
-    <div id="telescope-monitor-app" data-base="{{ $base }}" data-api="{{ $base }}/api/v1"><p role="status">Loading Telescope Monitor…</p></div>
+<body class="box-border [scrollbar-width:thin] [scrollbar-color:var(--color-tm-scrollbar)_transparent] [&amp;:focus-visible]:[outline:3px_solid_var(--color-tm-focus)] [&amp;:focus-visible]:[outline-offset:3px] [&amp;::selection]:bg-tm-selection-bg [&amp;::selection]:text-tm-selection-text motion-reduce:scroll-auto m-0">
+    <div id="telescope-monitor-app" data-base="{{ $base }}" data-api="{{ $base }}/api/v1"><p class="m-0" role="status">Loading Telescope Monitor…</p></div>
     <noscript>Enable JavaScript to use this dashboard.</noscript>
 </body>
 </html>

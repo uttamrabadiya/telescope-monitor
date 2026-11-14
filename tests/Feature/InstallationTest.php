@@ -17,7 +17,7 @@ final class InstallationTest extends TestCase
         mkdir($temporary.'/migrations', 0777, true);
         mkdir($temporary.'/config', 0777, true);
         $this->app->useDatabasePath($temporary);
-        $this->app->useConfigPath($temporary.'/config');
+        $this->useConfigDirectory($temporary.'/config');
         $this->app->register(TelescopeMonitorServiceProvider::class, true);
         try {
             $this->assertTrue(app(InstallationService::class)->publish());
@@ -38,7 +38,7 @@ final class InstallationTest extends TestCase
             $this->assertCount(1, glob($temporary.'/migrations/*_create_telescope_monitor_operations.php'));
         } finally {
             $this->app->useDatabasePath($database);
-            $this->app->useConfigPath($configuration);
+            $this->useConfigDirectory($configuration);
             foreach (glob($temporary.'/migrations/*') as $path) {
                 unlink($path);
             }

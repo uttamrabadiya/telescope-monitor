@@ -35,7 +35,7 @@ final class ApiController
     public function update(UpdateSettingsRequest $request, string $group, SettingsService $settings): JsonResponse
     {
         try {
-            return $this->response($settings->save($group, $request->validated('values'), $request->integer('version')));
+            return $this->response($settings->save($group, $request->validated()['values'], (int) $request->validated()['version']));
         } catch (ConfigurationConflict $exception) {
             return $this->failure('version_conflict', $exception->getMessage(), 409);
         }
@@ -70,7 +70,7 @@ final class ApiController
 
     public function redaction(RedactionPreviewRequest $request, RedactionService $redaction, SettingsService $settings): JsonResponse
     {
-        $values = $request->validated('telescope_monitor_private');
+        $values = $request->validated()['telescope_monitor_private'];
         $patterns = $values['patterns'] ?? $settings->group('privacy')['values']['redact_patterns'];
 
         return response()->json([

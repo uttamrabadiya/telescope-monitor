@@ -48,6 +48,7 @@ final class TelescopeMonitorServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
+        $this->app->singleton(\TelescopeMonitor\Alerts\LegacyMailAcceptance::class);
         $this->mergeConfigFrom(__DIR__.'/../config/telescope-monitor.php', 'telescope-monitor');
         $this->app->bind(ActorResolver::class, HostActorResolver::class);
         $this->app->bind(Contracts\InstallationRepository::class, Eloquent\EloquentInstallationRepository::class);
@@ -141,6 +142,7 @@ final class TelescopeMonitorServiceProvider extends ServiceProvider
                         'telescope-monitor:expire-snoozes',
                         'telescope-monitor:deliver',
                         'telescope-monitor:recover-deliveries',
+                        'telescope-monitor:reports',
                         'telescope-monitor:prune-deliveries',
                         'telescope-monitor:purge',
                         'telescope-monitor:source-baseline',
@@ -156,13 +158,19 @@ final class TelescopeMonitorServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        if (version_compare($this->app->version(), '9.0.0', '<')) {
+            $this->app['events']->listen(\Illuminate\Mail\Events\MessageSent::class, fn ($event) => $this->app->make(\TelescopeMonitor\Alerts\LegacyMailAcceptance::class)->record($event));
+        }
         $this->loadViewsFrom(__DIR__.'/../resources/views', 'telescope-monitor');
         $this->publishes([
             __DIR__.'/../config/telescope-monitor.php' => config_path('telescope-monitor.php'),
         ], 'telescope-monitor-config');
-        $this->publishesMigrations([
-            __DIR__.'/../database/migrations' => database_path('migrations'),
-        ], 'telescope-monitor-migrations');
+        $migrations = [__DIR__.'/../database/migrations' => database_path('migrations')];
+        if (version_compare($this->app->version(), '11.0.0', '>=')) {
+            $this->publishesMigrations($migrations, 'telescope-monitor-migrations');
+        } else {
+            $this->publishes($migrations, 'telescope-monitor-migrations');
+        }
         $this->app['events']->listen(MessageLogged::class, function ($event) {
             if (($event->context['exception'] ?? null) instanceof \Throwable) {
                 $context = $this->app->make(CaptureContext::class);
@@ -170,6 +178,9 @@ final class TelescopeMonitorServiceProvider extends ServiceProvider
                 if ($context->failedJobException === $event->context['exception']) {
                     $context->failedJobException = null;
                     $context->failedJobOrigin = null;
+                }
+                if (version_compare($this->app->version(), '10.0.0', '<')) {
+                    $context->reported($event->context['exception']);
                 }
             }
         });
@@ -189,6 +200,7 @@ final class TelescopeMonitorServiceProvider extends ServiceProvider
                 PruneCaptureCommand::class,
                 DeliverCommand::class,
                 RecoverDeliveriesCommand::class,
+                \TelescopeMonitor\Console\Commands\ReportsCommand::class,
                 PruneDeliveriesCommand::class,
                 ExpireSnoozesCommand::class,
                 PurgeCommand::class,

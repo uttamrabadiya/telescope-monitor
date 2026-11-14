@@ -28,14 +28,11 @@ final class Installation extends Model
 
     protected $guarded = [];
 
-    protected function casts(): array
-    {
-        return [
-            'retention_cutoffs' => 'array',
-            'setup_state' => 'array',
-            'generation' => 'integer',
-            'config_revision' => 'integer',
-            'purged_through_at' => 'immutable_datetime',
-        ];
-    }
+    protected $casts = [
+        'retention_cutoffs' => 'array',
+        'setup_state' => 'array',
+        'generation' => 'integer',
+        'config_revision' => 'integer',
+        'purged_through_at' => 'immutable_datetime',
+    ];
 }

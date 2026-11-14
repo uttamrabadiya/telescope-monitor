@@ -187,7 +187,7 @@ final class SeparateDatabaseTest extends TestCase
         mkdir($temporary.'/migrations', 0777, true);
         mkdir($temporary.'/config', 0777, true);
         $this->app->useDatabasePath($temporary);
-        $this->app->useConfigPath($temporary.'/config');
+        $this->useConfigDirectory($temporary.'/config');
         $this->app->register(TelescopeMonitorServiceProvider::class, true);
         config([
             'database.connections.fresh_monitor' => config('database.connections.monitor'),
@@ -198,19 +198,19 @@ final class SeparateDatabaseTest extends TestCase
             $service = app(InstallationService::class);
             $this->assertTrue($service->publish());
             $this->assertTrue($service->publish());
-            $this->assertCount(6, glob($temporary.'/migrations/telescope-monitor/*.php'));
+            $this->assertCount(7, glob($temporary.'/migrations/telescope-monitor/*.php'));
             $this->assertCount(1, glob($temporary.'/migrations/*.php'));
             $this->assertSame(0, Artisan::call('telescope-monitor:migrate', ['--force' => true]));
-            $this->assertSame(6, DB::connection('fresh_monitor')->table('migrations')->count());
+            $this->assertSame(7, DB::connection('fresh_monitor')->table('migrations')->count());
             $this->assertSame(0, Artisan::call('telescope-monitor:migrate', ['--force' => true]));
-            $this->assertSame(6, DB::connection('fresh_monitor')->table('migrations')->count());
+            $this->assertSame(7, DB::connection('fresh_monitor')->table('migrations')->count());
             $this->assertSame('ready', app(InstallationRepository::class)->storageState());
             $this->assertSame(6, app(InstallationRepository::class)->current()->schema_version);
             $this->assertHostIsolated();
         } finally {
             config(['telescope-monitor.database.connection' => 'monitor']);
             $this->app->useDatabasePath($oldDatabase);
-            $this->app->useConfigPath($oldConfig);
+            $this->useConfigDirectory($oldConfig);
             foreach (glob($temporary.'/migrations/telescope-monitor/*.php') as $file) {
                 unlink($file);
             }

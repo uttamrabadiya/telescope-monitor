@@ -54,30 +54,27 @@ final class Delivery extends Model
 
     protected $attributes = ['revision' => 1, 'attempt_count_total' => 0, 'cycle_attempts' => 0, 'retry_cycle' => 1, 'payload_version' => 1];
 
-    protected function casts(): array
-    {
-        return [
-            'installation_id' => 'integer',
-            'generation' => 'integer',
-            'issue_id' => 'integer',
-            'event_id' => 'integer',
-            'connection_id' => 'integer',
-            'revision' => 'integer',
-            'parent_delivery_id' => 'integer',
-            'actor_required' => 'boolean',
-            'alert_generation' => 'integer',
-            'attempt_count_total' => 'integer',
-            'cycle_attempts' => 'integer',
-            'retry_cycle' => 'integer',
-            'payload_version' => 'integer',
-            'export_policy_revision' => 'integer',
-            'eligible_at' => 'immutable_datetime',
-            'expires_at' => 'immutable_datetime',
-            'lease_until' => 'immutable_datetime',
-            'payload_frozen_at' => 'immutable_datetime',
-            'sent_at' => 'immutable_datetime',
-            'completed_at' => 'immutable_datetime',
-            'created_at' => 'immutable_datetime',
-        ];
-    }
+    protected $casts = [
+        'installation_id' => 'integer',
+        'generation' => 'integer',
+        'issue_id' => 'integer',
+        'event_id' => 'integer',
+        'connection_id' => 'integer',
+        'revision' => 'integer',
+        'parent_delivery_id' => 'integer',
+        'actor_required' => 'boolean',
+        'alert_generation' => 'integer',
+        'attempt_count_total' => 'integer',
+        'cycle_attempts' => 'integer',
+        'retry_cycle' => 'integer',
+        'payload_version' => 'integer',
+        'export_policy_revision' => 'integer',
+        'eligible_at' => 'immutable_datetime',
+        'expires_at' => 'immutable_datetime',
+        'lease_until' => 'immutable_datetime',
+        'payload_frozen_at' => 'immutable_datetime',
+        'sent_at' => 'immutable_datetime',
+        'completed_at' => 'immutable_datetime',
+        'created_at' => 'immutable_datetime',
+    ];
 }

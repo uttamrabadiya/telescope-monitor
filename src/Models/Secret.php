@@ -35,15 +35,12 @@ final class Secret extends Model
 
     protected $hidden = ['ciphertext'];
 
-    protected function casts(): array
-    {
-        return [
-            'installation_id' => 'integer',
-            'connection_id' => 'integer',
-            'revision' => 'integer',
-            'encryption_version' => 'integer',
-            'activated_at' => 'immutable_datetime',
-            'retire_after' => 'immutable_datetime',
-        ];
-    }
+    protected $casts = [
+        'installation_id' => 'integer',
+        'connection_id' => 'integer',
+        'revision' => 'integer',
+        'encryption_version' => 'integer',
+        'activated_at' => 'immutable_datetime',
+        'retire_after' => 'immutable_datetime',
+    ];
 }

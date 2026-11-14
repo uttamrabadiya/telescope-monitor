@@ -33,15 +33,12 @@ final class Note extends Model
 
     protected $dateFormat = 'Y-m-d H:i:s.u';
 
-    protected function casts(): array
-    {
-        return [
-            'installation_id' => 'integer',
-            'issue_id' => 'integer',
-            'row_version' => 'integer',
-            'body_version' => 'integer',
-            'edited_at' => 'immutable_datetime',
-            'deleted_at' => 'immutable_datetime',
-        ];
-    }
+    protected $casts = [
+        'installation_id' => 'integer',
+        'issue_id' => 'integer',
+        'row_version' => 'integer',
+        'body_version' => 'integer',
+        'edited_at' => 'immutable_datetime',
+        'deleted_at' => 'immutable_datetime',
+    ];
 }

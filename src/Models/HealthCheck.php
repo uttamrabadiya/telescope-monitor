@@ -25,14 +25,11 @@ final class HealthCheck extends Model
 
     protected $guarded = [];
 
-    protected function casts(): array
-    {
-        return [
-            'sanitized_details' => 'array',
-            'observed_at' => 'immutable_datetime',
-            'last_started_at' => 'immutable_datetime',
-            'last_success_at' => 'immutable_datetime',
-            'last_failure_at' => 'immutable_datetime',
-        ];
-    }
+    protected $casts = [
+        'sanitized_details' => 'array',
+        'observed_at' => 'immutable_datetime',
+        'last_started_at' => 'immutable_datetime',
+        'last_success_at' => 'immutable_datetime',
+        'last_failure_at' => 'immutable_datetime',
+    ];
 }

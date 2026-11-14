@@ -27,7 +27,8 @@ final class WorkbenchServiceProvider extends ServiceProvider
         $this->app['config']->set('app.url', 'http://127.0.0.1:8195');
         $this->app['config']->set('app.key', 'base64:'.base64_encode(str_repeat('w', 32)));
         $this->app['config']->set('database.default', 'sqlite');
-        $this->app['config']->set('database.connections.sqlite.database', $controlled ? ($operationalPreview ? '/private/tmp/telescope-monitor-phase7-preview.sqlite' : '/private/tmp/telescope-monitor-phase6-preview.sqlite') : dirname(__DIR__, 2).'/database/database.sqlite');
+        $defaultDatabase = $controlled ? ($operationalPreview ? '/private/tmp/telescope-monitor-phase7-preview.sqlite' : '/private/tmp/telescope-monitor-phase6-preview.sqlite') : dirname(__DIR__, 2).'/database/database.sqlite';
+        $this->app['config']->set('database.connections.sqlite.database', env('TELESCOPE_MONITOR_WORKBENCH_DATABASE', $defaultDatabase));
         $this->app['config']->set('telescope-monitor.workbench_controlled_integrations', $controlled);
         if ($controlled) {
             $this->app->bind(HttpTransport::class, WorkbenchIntegrationTransport::class);

@@ -33,17 +33,14 @@ final class DeliveryAttempt extends Model
 
     public $timestamps = false;
 
-    protected function casts(): array
-    {
-        return [
-            'installation_id' => 'integer',
-            'delivery_id' => 'integer',
-            'sequence_number' => 'integer',
-            'retry_cycle' => 'integer',
-            'provider_status' => 'integer',
-            'started_at' => 'immutable_datetime',
-            'completed_at' => 'immutable_datetime',
-            'retry_after_at' => 'immutable_datetime',
-        ];
-    }
+    protected $casts = [
+        'installation_id' => 'integer',
+        'delivery_id' => 'integer',
+        'sequence_number' => 'integer',
+        'retry_cycle' => 'integer',
+        'provider_status' => 'integer',
+        'started_at' => 'immutable_datetime',
+        'completed_at' => 'immutable_datetime',
+        'retry_after_at' => 'immutable_datetime',
+    ];
 }

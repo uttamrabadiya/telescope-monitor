@@ -19,7 +19,7 @@ final class DeliverySender
             if (! $routing) {
                 return false;
             }
-            $allowed = ! $routing['actor_required'] || ($routing['actor_key'] !== null && $this->caps->allows('view', new Actor($routing['actor_key'], '')) && $this->caps->allows($routing['action'] === 'connection_test' ? 'manage' : 'operate', new Actor($routing['actor_key'], '')));
+            $allowed = ! $routing['actor_required'] || ($routing['actor_key'] !== null && $this->caps->allows('view', new Actor($routing['actor_key'], '')) && $this->caps->allows($routing['action'] === 'connection_test' || str_starts_with($routing['action'], 'report_') ? 'manage' : 'operate', new Actor($routing['actor_key'], '')));
             $claim = $this->ledger->claim($id, $generation, $allowed);
             if (! $claim) {
                 return false;

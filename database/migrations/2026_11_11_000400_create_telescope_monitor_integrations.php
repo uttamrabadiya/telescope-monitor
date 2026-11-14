@@ -43,15 +43,17 @@ return new class extends Migration
 
     public function down(): void
     {
-        Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_linked_issues');
-        if (Schema::connection(Database::connectionName())->hasColumn('telescope_monitor_deliveries', 'credential_key_id')) {
-            Schema::connection(Database::connectionName())->table('telescope_monitor_deliveries', fn (Blueprint $t) => $t->dropColumn('credential_key_id'));
-        }
-        if (Schema::connection(Database::connectionName())->hasColumn('telescope_monitor_connections', 'transport_claim_token')) {
-            Schema::connection(Database::connectionName())->table('telescope_monitor_connections', fn (Blueprint $t) => $t->dropColumn(['transport_claim_token', 'transport_lease_until', 'next_send_at']));
-        }
-        if (Schema::connection(Database::connectionName())->hasTable('telescope_monitor_installations')) {
-            Database::connection()->table('telescope_monitor_installations')->update(['schema_version' => 4]);
-        }
+        Database::rollbackSchema(function () {
+            Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_linked_issues');
+            if (Schema::connection(Database::connectionName())->hasColumn('telescope_monitor_deliveries', 'credential_key_id')) {
+                Schema::connection(Database::connectionName())->table('telescope_monitor_deliveries', fn (Blueprint $t) => $t->dropColumn('credential_key_id'));
+            }
+            if (Schema::connection(Database::connectionName())->hasColumn('telescope_monitor_connections', 'transport_claim_token')) {
+                Schema::connection(Database::connectionName())->table('telescope_monitor_connections', fn (Blueprint $t) => $t->dropColumn(['transport_claim_token', 'transport_lease_until', 'next_send_at']));
+            }
+            if (Schema::connection(Database::connectionName())->hasTable('telescope_monitor_installations')) {
+                Database::connection()->table('telescope_monitor_installations')->update(['schema_version' => 4]);
+            }
+        });
     }
 };

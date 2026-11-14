@@ -9,13 +9,16 @@ use TelescopeMonitor\Collaboration\Identity;
 use TelescopeMonitor\Investigation\Window;
 use TelescopeMonitor\Models\Activity;
 use TelescopeMonitor\Models\Issue;
+use TelescopeMonitor\Models\Installation;
 use TelescopeMonitor\Models\MetricBucket;
 use TelescopeMonitor\Models\Occurrence;
 use TelescopeMonitor\Models\OccurrenceEvidence;
 use TelescopeMonitor\Operations\RetentionPolicy;
 use TelescopeMonitor\Repositories\Contracts\AlertPlanning;
+use TelescopeMonitor\Repositories\Contracts\CaptureInboxRepository;
 use TelescopeMonitor\Repositories\Contracts\DeliveryLedger;
 use TelescopeMonitor\Repositories\Contracts\InvestigationRepository;
+use TelescopeMonitor\Telescope\StoredExceptionAdapter;
 
 final class EloquentInvestigationRepository implements InvestigationRepository
 {
@@ -29,10 +32,13 @@ final class EloquentInvestigationRepository implements InvestigationRepository
         return "CASE WHEN status = 'snoozed' AND snoozed_until <= '".now('UTC')->format('Y-m-d H:i:s.u')."' THEN 'unresolved' ELSE status END";
     }
 
-    private function groups(int $installation, array $f, Window $w)
+    private function groups(int $installation, array $f, Window $w, bool $withCounts = true)
     {
-        $counts = app(RetentionPolicy::class)->metrics(MetricBucket::query())->select('issue_id')->selectRaw('SUM(occurrence_count) AS range_count, SUM(regression_count) AS range_regressions')->where('installation_id', $installation)->where('resolution', $w->resolution)->where('bucket_start_at', '>=', $w->sql($w->start))->where('bucket_start_at', '<', $w->sql($w->end))->where('expires_at', '>', now('UTC')->format('Y-m-d H:i:s.u'))->groupBy('issue_id');
-        $q = Issue::query()->select('telescope_monitor_issues.*')->selectRaw('COALESCE(window_counts.range_count,0) AS range_count, COALESCE(window_counts.range_regressions,0) AS range_regressions')->selectRaw($this->effective().' AS effective_status')->leftJoinSub($counts, 'window_counts', 'window_counts.issue_id', '=', 'telescope_monitor_issues.id')->where('telescope_monitor_issues.installation_id', $installation);
+        $q = Issue::query()->select('telescope_monitor_issues.*')->selectRaw($this->effective().' AS effective_status')->where('telescope_monitor_issues.installation_id', $installation);
+        if ($withCounts) {
+            $counts = app(RetentionPolicy::class)->metrics(MetricBucket::query())->select('issue_id')->selectRaw('SUM(occurrence_count) AS range_count, SUM(regression_count) AS range_regressions')->where('installation_id', $installation)->where('resolution', $w->resolution)->where('bucket_start_at', '>=', $w->sql($w->start))->where('bucket_start_at', '<', $w->sql($w->end))->where('expires_at', '>', now('UTC')->format('Y-m-d H:i:s.u'))->groupBy('issue_id');
+            $q->selectRaw('COALESCE(window_counts.range_count,0) AS range_count, COALESCE(window_counts.range_regressions,0) AS range_regressions')->leftJoinSub($counts, 'window_counts', 'window_counts.issue_id', '=', 'telescope_monitor_issues.id');
+        }
         if (! ($f['include_tests'] ?? false)) {
             $q->where('is_test', false);
         }
@@ -127,20 +133,8 @@ final class EloquentInvestigationRepository implements InvestigationRepository
 
     public function overview(int $installation, array $filters, Window $window): array
     {
-        $groups = $this->groups($installation, array_merge($filters, ['status' => 'all']), $window)->select('telescope_monitor_issues.id');
-        $rows = app(RetentionPolicy::class)->metrics(MetricBucket::query())->where('installation_id', $installation)->whereIn('issue_id', $groups)->where('resolution', $window->resolution)->where('bucket_start_at', '>=', $window->sql($window->start))->where('bucket_start_at', '<', $window->sql($window->end))->where('expires_at', '>', now('UTC')->format('Y-m-d H:i:s.u'))->select('bucket_start_at')->selectRaw('SUM(occurrence_count) AS occurrences, SUM(new_group_count) AS groups_count, SUM(regression_count) AS regressions')->groupBy('bucket_start_at')->toBase()->get();
-        $buckets = [];
-        for ($at = $window->start; $at < $window->end; $at = $at->addSeconds($window->step)) {
-            $buckets[$at->timestamp] = ['at' => $at->toISOString(), 'occurrences' => 0, 'new_groups' => 0, 'regressions' => 0];
-        }
-        foreach ($rows as $row) {
-            $key = (int) (floor(CarbonImmutable::parse($row->bucket_start_at, 'UTC')->timestamp / $window->step) * $window->step);
-            if (isset($buckets[$key])) {
-                $buckets[$key]['occurrences'] += (int) $row->occurrences;
-                $buckets[$key]['new_groups'] += (int) $row->groups_count;
-                $buckets[$key]['regressions'] += (int) $row->regressions;
-            }
-        }
+        $groups = $this->groups($installation, array_merge($filters, ['status' => 'all']), $window, false)->select('telescope_monitor_issues.id');
+        $buckets = $this->overviewBuckets($installation, $groups, $window, $window->start, $window->end);
         $totals = ['occurrences' => '0', 'new_groups' => '0', 'regressions' => '0'];
         foreach (array_keys($totals) as $key) {
             $totals[$key] = (string) array_sum(array_column($buckets, $key));
@@ -155,11 +149,18 @@ final class EloquentInvestigationRepository implements InvestigationRepository
         $recent = Activity::query()->where('installation_id', $installation)->whereIn('issue_id', $groups)->where('expires_at', '>', now('UTC')->format('Y-m-d H:i:s.u'))->where('occurred_at', '>', app(RetentionPolicy::class)->floors()['activity'])->orderByDesc('occurred_at')->orderByDesc('id')->limit(10)->get();
         $labels = Issue::query()->where('installation_id', $installation)->whereIn('id', $recent->pluck('issue_id'))->get(['id', 'message', 'exception_class'])->keyBy('id');
 
+        $errors = $this->inbox($installation, array_merge($filters, ['status' => 'unresolved', 'sort' => 'occurrences', 'per_page' => 25, 'page' => 1]), $window);
+        $totals['open_groups'] = $errors['total'];
+        $capture = app(CaptureInboxRepository::class);
+
         return [
             'window' => $window->json(),
             'totals' => $totals,
+            'comparison' => $this->overviewComparison($installation, $groups, $window, $buckets),
+            'origins' => $this->overviewOrigins($installation, $groups, $window, (int) $totals['occurrences']),
+            'capture' => $capture->ready() ? array_merge($capture->status(), ['source_enabled' => app(StoredExceptionAdapter::class)->enabled()]) : null,
             'buckets' => array_values($buckets),
-            'errors' => $this->inbox($installation, array_merge($filters, ['status' => 'unresolved', 'sort' => 'occurrences', 'per_page' => 25, 'page' => 1]), $window),
+            'errors' => $errors,
             'delivery' => app(AlertPlanning::class)->ready() ? [
                 'state' => 'available',
                 'detail' => 'Delivery ledger available. Sent means transport acceptance, not inbox receipt.',
@@ -193,6 +194,89 @@ final class EloquentInvestigationRepository implements InvestigationRepository
             'actor' => $activity->actor_kind === 'user' ? app(Identity::class)->label($activity->actor_key) : 'System',
             'at' => $activity->occurred_at->toISOString(),
             'metadata' => $metadata,
+        ];
+    }
+
+    private function overviewBuckets(int $installation, $groups, Window $window, CarbonImmutable $start, CarbonImmutable $end): array
+    {
+        $rows = app(RetentionPolicy::class)->metrics(MetricBucket::query())->where('installation_id', $installation)->whereIn('issue_id', $groups)->where('resolution', $window->resolution)->where('bucket_start_at', '>=', $window->sql($start))->where('bucket_start_at', '<', $window->sql($end))->where('expires_at', '>', now('UTC')->format('Y-m-d H:i:s.u'))->select('bucket_start_at')->selectRaw('SUM(occurrence_count) AS occurrences, SUM(new_group_count) AS groups_count, SUM(regression_count) AS regressions')->groupBy('bucket_start_at')->toBase()->get();
+        $buckets = [];
+        for ($at = $start; $at < $end; $at = $at->addSeconds($window->step)) {
+            $buckets[$at->timestamp] = ['at' => $at->toISOString(), 'occurrences' => 0, 'new_groups' => 0, 'regressions' => 0];
+        }
+        foreach ($rows as $row) {
+            $key = (int) (floor(CarbonImmutable::parse($row->bucket_start_at, 'UTC')->timestamp / $window->step) * $window->step);
+            if (isset($buckets[$key])) {
+                $buckets[$key]['occurrences'] += (int) $row->occurrences;
+                $buckets[$key]['new_groups'] += (int) $row->groups_count;
+                $buckets[$key]['regressions'] += (int) $row->regressions;
+            }
+        }
+        return $buckets;
+    }
+
+    private function overviewComparison(int $installation, $groups, Window $window, array $current): array
+    {
+        $duration = $window->start->diffInSeconds($window->end);
+        $start = $window->start->subSeconds($duration);
+        $end = $window->start;
+        $floors = app(RetentionPolicy::class)->floors();
+        $floor = CarbonImmutable::parse($floors[$window->resolution === '5m' ? 'five_minute' : 'hourly'], 'UTC');
+        $record = Installation::query()->find($installation);
+        $started = $record?->getRawOriginal('created_at');
+        $reason = null;
+        if ($floor->greaterThan($start)) {
+            $reason = 'The previous period is outside retained aggregate coverage.';
+        } elseif (! is_string($started) || CarbonImmutable::parse($started, 'UTC')->greaterThan($start)) {
+            $reason = 'Monitoring started after the previous period began.';
+        } elseif ($record->purged_through_at?->greaterThanOrEqualTo($start)) {
+            $reason = 'A purge cutoff intersects the previous period.';
+        }
+        $previous = $reason === null ? array_values($this->overviewBuckets($installation, $groups, $window, $start, $end)) : [];
+        // The active interval is partial. Exclude it and its previous-period counterpart
+        // from both the comparison total and previous-period plotted bars.
+        $currentTotal = array_sum(array_column(array_slice(array_values($current), 0, -1), 'occurrences'));
+        $previousTotal = array_sum(array_column(array_slice($previous, 0, -1), 'occurrences'));
+
+        return [
+            'available' => $reason === null,
+            'detail' => $reason ?? 'Complete intervals only; the current interval is partial.',
+            'start' => $start->toISOString(),
+            'end' => $end->toISOString(),
+            'current_occurrences' => $reason === null ? (string) $currentTotal : null,
+            'previous_occurrences' => $reason === null ? (string) $previousTotal : null,
+            'change_percent' => $reason !== null || $previousTotal === 0 ? null : round(($currentTotal - $previousTotal) / $previousTotal * 100, 1),
+            'buckets' => array_map(fn ($bucket, $index) => [
+                'at' => $bucket['at'],
+                'occurrences' => $index === count($previous) - 1 ? null : (string) $bucket['occurrences'],
+            ], $previous, array_keys($previous)),
+        ];
+    }
+
+    private function overviewOrigins(int $installation, $groups, Window $window, int $aggregateTotal): array
+    {
+        $floors = app(RetentionPolicy::class)->floors();
+        $floor = CarbonImmutable::parse($floors[$window->resolution === '5m' ? 'five_minute' : 'hourly'], 'UTC');
+        $resolution = $window->resolution === '5m' ? 300 : 3600;
+        $firstRetainedBucket = CarbonImmutable::createFromTimestampUTC((int) (ceil((float) $floor->format('U.u') / $resolution) * $resolution));
+        $origin = "CASE WHEN origin IN ('web', 'job', 'command') THEN origin ELSE 'unknown' END";
+        $rows = Occurrence::query()->where('installation_id', $installation)->whereIn('issue_id', $groups)
+            ->where('occurred_at', '>=', $window->sql($window->start->max($firstRetainedBucket)))
+            ->where('occurred_at', '<', $window->sql($window->end))
+            ->selectRaw($origin.' AS origin_value, COUNT(*) AS total')->groupByRaw($origin)->toBase()->get();
+        $counts = array_fill_keys(['web', 'job', 'command', 'unknown'], '0');
+        foreach ($rows as $row) {
+            $counts[$row->origin_value] = (string) $row->total;
+        }
+        $total = (int) array_sum($counts);
+
+        return [
+            'items' => array_map(fn ($value, $count) => ['value' => $value, 'count' => $count], array_keys($counts), array_values($counts)),
+            'total' => (string) $total,
+            'matches_aggregates' => $total === $aggregateTotal,
+            'coverage' => $total === $aggregateTotal
+                ? 'Captured occurrence identities in the selected period.'
+                : 'Retained identity counts differ from available aggregates; shares use the identity total.',
         ];
     }
 

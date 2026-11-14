@@ -65,7 +65,7 @@ final class FoundationTest extends TestCase
     {
         $this->authorize();
         $this->patchJson('/telescope-monitor/api/v1/settings/general', ['version' => 0, 'values' => ['display_name' => 'First edit']])->assertOk();
-        $this->patchJson('/telescope-monitor/api/v1/settings/general', ['version' => 0, 'values' => ['display_name' => 'Stale edit']])->assertConflict()->assertJsonPath('error.code', 'version_conflict');
+        $this->patchJson('/telescope-monitor/api/v1/settings/general', ['version' => 0, 'values' => ['display_name' => 'Stale edit']])->assertStatus(409)->assertJsonPath('error.code', 'version_conflict');
         $this->getJson('/telescope-monitor/api/v1/settings/general')->assertJsonPath('data.values.display_name', 'First edit');
     }
 
@@ -105,7 +105,8 @@ final class FoundationTest extends TestCase
         $this->authorize();
         $assets = app(DashboardAssets::class);
         $this->get('/telescope-monitor/settings/privacy')->assertOk()->assertSee('telescope-monitor-app');
-        $this->get('/telescope-monitor/assets/'.$assets->build().'/'.$assets->entry()['file'])->assertOk()->assertHeader('Content-Type', 'text/javascript; charset=UTF-8');
+        $asset = $this->get('/telescope-monitor/assets/'.$assets->build().'/'.$assets->entry()['file'])->assertOk();
+        $this->assertSame('text/javascript; charset=utf-8', strtolower($asset->headers->get('Content-Type')));
         $this->get('/telescope-monitor/assets/'.$assets->build().'/composer.json')->assertNotFound();
         $this->get('/telescope-monitor/assets/old/'.$assets->entry()['file'])->assertNotFound();
         $this->getJson('/telescope-monitor/api/v1/missing')->assertNotFound()->assertJsonPath('error.code', 'not_found');
@@ -129,7 +130,8 @@ final class FoundationTest extends TestCase
     {
         $this->authorize();
         $this->patchJson('/telescope-monitor/api/v1/setup', ['step' => 2])->assertOk();
-        $this->getJson('/telescope-monitor/api/v1/bootstrap')->assertJsonPath('data.installation.setup.current_step', 2)->assertJsonMissingPath('data.installation.setup.completed');
+        $setup = $this->getJson('/telescope-monitor/api/v1/bootstrap')->assertJsonPath('data.installation.setup.current_step', 2)->json('data.installation.setup');
+        $this->assertArrayNotHasKey('completed', $setup);
         $this->patchJson('/telescope-monitor/api/v1/setup', ['step' => 8])->assertUnprocessable();
     }
 
@@ -141,7 +143,7 @@ final class FoundationTest extends TestCase
         $this->patchJson('/telescope-monitor/api/v1/settings/general', [
             'version' => 0,
             'values' => ['display_name' => 'Not saved'],
-        ])->assertConflict()->assertJsonPath('error.code', 'missing_migrations');
+        ])->assertStatus(409)->assertJsonPath('error.code', 'missing_migrations');
     }
 
     public function test_legacy_schema_is_detected_without_adopting_or_deleting_data(): void

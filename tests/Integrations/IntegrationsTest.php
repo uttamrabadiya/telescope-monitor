@@ -260,7 +260,8 @@ final class IntegrationsTest extends TestCase
         $url = '/telescope-monitor/api/v1/integrations/'.$a['id'].'/key.stage';
         $p = ['client_key' => $key, 'version' => 1];
         $stage = $this->postJson($url, $p)->assertOk()->json('telescope_monitor_private');
-        $this->postJson($url, $p)->assertOk()->assertJsonMissingPath('telescope_monitor_private.once');
+        $response = $this->postJson($url, $p)->assertOk()->json('telescope_monitor_private');
+        $this->assertArrayNotHasKey('once', $response);
         $this->command($a['id'], 'test', ['signing_key_id' => $stage['once']['key_id']])->assertStatus(202);
         $this->send();
         $r = $this->http->requests[0];
@@ -376,7 +377,7 @@ final class IntegrationsTest extends TestCase
         $issue = $this->issue();
         $p = $this->preview($issue, $c['id']);
         $p['title'] = 'Different unreviewed title';
-        $this->createTicket($issue, $p)->assertConflict();
+        $this->createTicket($issue, $p)->assertStatus(409);
         $this->assertDatabaseCount('telescope_monitor_deliveries', 0);
     }
 
@@ -464,7 +465,7 @@ final class IntegrationsTest extends TestCase
             'number' => 'https://github.com/other/repo/issues/1',
         ])->assertUnprocessable();
         $this->http->responses = [$this->ticket(42, ['pull_request' => ['url' => 'private']])];
-        $this->postJson($url, ['client_key' => (string) Str::uuid(), 'connection' => $c['id'], 'version' => 0, 'number' => '42'])->assertConflict();
+        $this->postJson($url, ['client_key' => (string) Str::uuid(), 'connection' => $c['id'], 'version' => 0, 'number' => '42'])->assertStatus(409);
         $this->assertDatabaseCount('telescope_monitor_linked_issues', 0);
     }
 
@@ -534,7 +535,7 @@ final class IntegrationsTest extends TestCase
         $this->send();
         $new = $this->preview($issue, $c['id']);
         $url = '/telescope-monitor/api/v1/issues/'.$issue.'/github/recreate';
-        $this->postJson($url, ['client_key' => (string) Str::uuid()] + $new)->assertConflict();
+        $this->postJson($url, ['client_key' => (string) Str::uuid()] + $new)->assertStatus(409);
         $this->postJson($url, ['client_key' => (string) Str::uuid(), 'confirm_no_ticket' => true] + $new)->assertOk();
         $this->http->responses = [$this->ticket(43)];
         $this->send();

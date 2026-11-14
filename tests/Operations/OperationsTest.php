@@ -335,9 +335,9 @@ final class OperationsTest extends TestCase
     {
         $this->captureIssue();
         $this->begin();
-        $this->getJson('/telescope-monitor/api/v1/issues')->assertConflict();
-        $this->postJson('/telescope-monitor/api/v1/alerting/tests', ['client_key' => (string) Str::uuid(), 'connections' => [(string) Str::uuid()]])->assertConflict();
-        $this->patchJson('/telescope-monitor/api/v1/settings/general', ['version' => 0, 'values' => ['display_name' => 'Wrong']])->assertConflict();
+        $this->getJson('/telescope-monitor/api/v1/issues')->assertStatus(409);
+        $this->postJson('/telescope-monitor/api/v1/alerting/tests', ['client_key' => (string) Str::uuid(), 'connections' => [(string) Str::uuid()]])->assertStatus(409);
+        $this->patchJson('/telescope-monitor/api/v1/settings/general', ['version' => 0, 'values' => ['display_name' => 'Wrong']])->assertStatus(409);
         $this->getJson('/telescope-monitor/api/v1/operations')->assertOk()->assertJsonPath('data.state', 'draining');
         $this->getJson('/telescope-monitor/api/v1/bootstrap')->assertOk()->assertJsonPath('data.installation.state', 'draining');
     }
@@ -518,7 +518,7 @@ final class OperationsTest extends TestCase
 
     public function test_setup_requires_current_capture_reviews_and_explicit_notification_choice(): void
     {
-        $this->postJson('/telescope-monitor/api/v1/setup/finish')->assertConflict();
+        $this->postJson('/telescope-monitor/api/v1/setup/finish')->assertStatus(409);
         $i = $this->installation();
         foreach (['application', 'privacy', 'operations'] as $ack) {
             $this->patchJson('/telescope-monitor/api/v1/setup', ['step' => 7, 'acknowledge' => $ack, 'config_revision' => $this->installation()->config_revision])->assertOk();
@@ -610,7 +610,11 @@ final class OperationsTest extends TestCase
         $keys = DB::table('telescope_monitor_secrets')->pluck('key_id', 'id')->all();
         $digest = DB::table('telescope_monitor_deliveries')->value('payload_digest');
         $new = new Encrypter(str_repeat('n', 32), 'AES-256-CBC');
-        $new->previousKeys([str_repeat('t', 32)]);
+        if (version_compare($this->app->version(), '11.0.0', '>=')) {
+            $new->previousKeys([str_repeat('t', 32)]);
+        } else {
+            $new = new \TelescopeMonitor\Tests\Fixtures\RotatingEncrypter(str_repeat('n', 32), 'AES-256-CBC', new Encrypter(str_repeat('t', 32), 'AES-256-CBC'));
+        }
         Crypt::swap($new);
         $i = $this->installation();
         foreach (KeyRewrap::TARGETS as $target => $_) {

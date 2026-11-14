@@ -14,8 +14,8 @@ This is the approved design for the replacement. [Implementation progress](repla
 | Concern | Proposed decision | Reason |
 | --- | --- | --- |
 | Deployment | Embedded Composer package, one installation per package table set | Preserves the agreed host application model |
-| Runtime | Laravel 13, PHP compatible with that Laravel release, Telescope 5 | A narrow compatibility target is testable |
-| Dashboard | Vue 3, TypeScript, a compatible Vue Router release, and package-owned CSS | Supports coordinated investigation panels, rule editors, validation, and reusable UI without requiring host frontend integration |
+| Runtime | Tested Laravel 8–13 releases, PHP 8.3+, Telescope 5 | Separate framework test harnesses verify the compatibility branches |
+| Dashboard | Vue 3, TypeScript, a compatible Vue Router release, and Tailwind CSS 4 utilities | Supports coordinated investigation panels, rule editors, validation, and reusable UI without requiring host frontend integration |
 | Server entry | Small package-owned Blade shell and same-origin JSON endpoints | Keeps authentication/session behavior in Laravel |
 | Build | Vite at package development/release time; committed/versioned distributable assets | Consumers install through Composer without Node |
 | Capture | Telescope adapter followed by a durable database inbox | Survives queue-dispatch failure and moves domain processing off the monitored request |
@@ -29,11 +29,14 @@ This is the approved design for the replacement. [Implementation progress](repla
 
 Vue supports application-oriented usage, and its router supports history-mode navigation when the server handles deep links. This design uses those capabilities without requiring the host application to use Vue. [Vue usage modes](https://vuejs.org/guide/extras/ways-of-using-vue.html), [Vue Router history modes](https://router.vuejs.org/guide/essentials/history-mode.html).
 
-The exact dependency lock and minimum compatible Telescope release must pass the phase-zero matrix. The prototype's Laravel 13.42/Telescope 5.27 observations are useful starting evidence, not proof for every permitted version.
+The original prototype targeted Laravel 13.42/Telescope 5.27. The current source
+expands support through separate Laravel 8–13 test environments; exact framework
+floors, dependency handling and results are recorded in the
+[framework compatibility report](framework-compatibility.md).
 
 ## Package ownership and isolation
 
-The package owns its document shell, routes under a configurable base path, JavaScript mount, compiled assets, styles, models, and tables. It does not extend the host layout or import the host Vite bundle, Tailwind configuration, router, or global JavaScript instance. CSS selectors and theme variables remain package-scoped. Fonts and icons are shipped locally with their redistribution notices; no runtime font CDN is required.
+The package owns its document shell, routes under a configurable base path, JavaScript mount, compiled assets, styles, models, and tables. It does not extend the host layout or import the host Vite bundle, Tailwind configuration, router, or global JavaScript instance. Tailwind utilities and the package theme are compiled by the package Vite build and rendered in its standalone document. Shared utility recipes preserve the current UI and interaction hooks; the dashboard has no handwritten CSS selectors or inline style bindings. The frontend tests enforce that styling boundary across all Vue components. Fonts and icons are shipped locally with their redistribution notices; no runtime font CDN is required.
 
 The initial base path remains `/telescope-monitor`. A different configured path must work for deep links, assets, login return paths, notifications, and reverse-proxy subdirectories. Source repositories, integration destinations, and canonical public URLs are deployment-validated configuration, not values inferred from arbitrary request headers.
 
@@ -54,6 +57,15 @@ Modules expose use cases, not their Eloquent models. Controllers, jobs, and comm
 | Connections and secrets | Connection configuration, immutable target identity, credential revisions, connection tests | Configure/test/disconnect connection, stage/activate secret, resolve runtime credentials |
 | Dashboard queries | Authorized read projections, pagination, filtering, insight coverage | Overview, inbox, detail, deliveries, configuration summary |
 | Operations | Health observations, recovery, retention, source checkpoints, controlled purge | Probe processing, recover work, prune bounded records, drain and purge an installation |
+
+The overview read projection adds current unresolved-group count, retained-period
+comparison buckets, origin identity counts and fresh capture observations. Group
+scopes used for aggregate subqueries omit the inbox's count joins. Previous-period
+availability checks installation start, aggregate retention and purge cutoff.
+Comparison totals omit the partial final interval from both periods; the main
+selected total still includes captured events in that interval. Origin counts use
+the matching aggregate resolution's first retained bucket boundary and explicitly
+report identity/aggregate coverage differences.
 
 Use one repository/interface per persisted model, consistent with the repository conventions in the initial brief. Eloquent stays inside repository implementations. Cross-table reads live in query repositories, not controllers or Vue components. Avoid generating a public generic CRUD layer: the module's callers should not have to orchestrate transactions or coordinate model saves.
 

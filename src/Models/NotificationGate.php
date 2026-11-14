@@ -29,14 +29,11 @@ final class NotificationGate extends Model
 
     protected $attributes = [];
 
-    protected function casts(): array
-    {
-        return [
-            'installation_id' => 'integer',
-            'issue_id' => 'integer',
-            'reserved_delivery_id' => 'integer',
-            'last_sent_at' => 'immutable_datetime',
-            'lease_until' => 'immutable_datetime',
-        ];
-    }
+    protected $casts = [
+        'installation_id' => 'integer',
+        'issue_id' => 'integer',
+        'reserved_delivery_id' => 'integer',
+        'last_sent_at' => 'immutable_datetime',
+        'lease_until' => 'immutable_datetime',
+    ];
 }

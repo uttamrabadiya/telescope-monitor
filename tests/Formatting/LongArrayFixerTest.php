@@ -11,6 +11,7 @@ use SplFileInfo;
 
 final class LongArrayFixerTest extends TestCase
 {
+    /** @dataProvider arrays */
     #[DataProvider('arrays')]
     public function test_array_layout_preserves_values_and_is_stable(string $expression, bool $multiline): void
     {

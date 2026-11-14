@@ -1,6 +1,6 @@
 import { ref, shallowRef, watch, onUnmounted } from 'vue'
 import { useRoute } from 'vue-router'
-import { parseInstant } from './time'
+import { formatDateTime } from './time'
 import { api, bootstrap } from './api'
 export function useInvestigation<T>(endpoint:()=>string) {
  const route=useRoute(), data=shallowRef<T|null>(null), loading=ref(false), error=ref('')
@@ -14,5 +14,5 @@ export function useInvestigation<T>(endpoint:()=>string) {
  return {data,loading,error,reload}
 }
 export function queryString(query:Record<string,unknown>, excluded:string[]=[]):string {const p=new URLSearchParams();for(const[key,value]of Object.entries(query))if(!excluded.includes(key)&&typeof value==='string'&&value!=='')p.set(key,value);return p.toString()}
-export function date(value:string|null|undefined):string {return value?new Intl.DateTimeFormat('en-GB',{dateStyle:'medium',timeStyle:'medium',timeZone:bootstrap.value?.application.timezone??'UTC'}).format(parseInstant(value)):'Unavailable'}
+export function date(value:string|null|undefined):string {return formatDateTime(value,zone())}
 export function zone():string{return bootstrap.value?.application.timezone??'UTC'}

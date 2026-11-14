@@ -23,6 +23,7 @@ final class SettingsService
     public function defaults(string $group): array
     {
         return match ($group) {
+            'reports' => \TelescopeMonitor\Reports\ReportDefinition::defaults(),
             'general' => [
                 'display_name' => (string) config('app.name', 'Laravel'),
                 'dashboard_url' => rtrim((string) config('app.url'), '/').$this->path->base(),
@@ -120,6 +121,9 @@ final class SettingsService
             $installation = $this->installations->lock();
             if ($installation->state !== 'active') {
                 throw new ConfigurationConflict('Maintenance is in progress. Preferences were not changed.');
+            }
+            if ($group === 'reports') {
+                $values = app(\TelescopeMonitor\Reports\ReportDefinition::class)->validate($values, $installation->id);
             }
             foreach ($values as $key => $value) {
                 if ($this->lock($group, $key) !== null) {

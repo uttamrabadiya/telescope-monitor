@@ -20,6 +20,7 @@ final class UpdateSettingsRequest extends FormRequest
         ];
         $group = $this->route('group');
         $specific = match ($group) {
+            'reports' => ['values' => ['required', 'array:daily,weekly', 'min:1']],
             'general' => [
                 'values' => ['required', 'array:display_name,dashboard_url,timezone', 'min:1'],
                 'values.display_name' => ['sometimes', 'required', 'string', 'max:120'],

@@ -37,19 +37,16 @@ final class Connection extends Model
 
     protected $attributes = ['row_version' => 1, 'options_version' => 1];
 
-    protected function casts(): array
-    {
-        return [
-            'installation_id' => 'integer',
-            'target_public' => 'array',
-            'options' => 'array',
-            'enabled' => 'boolean',
-            'row_version' => 'integer',
-            'options_version' => 'integer',
-            'disconnected_at' => 'immutable_datetime',
-            'transport_lease_until' => 'immutable_datetime',
-            'next_send_at' => 'immutable_datetime',
-            'last_test_at' => 'immutable_datetime',
-        ];
-    }
+    protected $casts = [
+        'installation_id' => 'integer',
+        'target_public' => 'array',
+        'options' => 'array',
+        'enabled' => 'boolean',
+        'row_version' => 'integer',
+        'options_version' => 'integer',
+        'disconnected_at' => 'immutable_datetime',
+        'transport_lease_until' => 'immutable_datetime',
+        'next_send_at' => 'immutable_datetime',
+        'last_test_at' => 'immutable_datetime',
+    ];
 }

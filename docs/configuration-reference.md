@@ -357,3 +357,75 @@ provider. When the flag is `false` (the Telescope default), Monitor uses its lig
 palette. This applies to all dashboard routes, including setup, forms, charts and
 investigation views. Reload the page after changing the host theme. No separate
 Monitor configuration key, environment variable, or browser preference is used.
+
+## Scheduled daily and weekly email reports
+
+Configure **Settings → Scheduled reports** (also linked from **Alerts**). Daily and
+weekly reports start disabled and are independent of immediate alert rules.
+Each report supports:
+
+- An enable toggle, up to 25 existing enabled email recipients, and explicit
+  environments from `alerts.allowed_environments`.
+- A local delivery time and IANA timezone; weekly reports also select a delivery
+  weekday (Monday by default).
+- **Skip when no activity**, enabled by default. Activity means captured
+  occurrences, new groups, regressions, or resolutions during the reporting
+  period. An unresolved backlog alone does not trigger an email. Incomplete
+  history is always reported rather than silently treated as no activity.
+- **Send daily/weekly preview**, after saving settings. The confirmation lists
+  recipients. Previews contain actual captured data, carry a `[PREVIEW]` subject,
+  bypass the enable/skip-empty toggles, and do not change automatic subscriptions.
+  A preview requires administrator access again when the worker sends it.
+
+Add this to the host scheduler alongside the existing delivery recovery schedule:
+
+```php
+Schedule::command('telescope-monitor:reports')
+    ->everyMinute()->withoutOverlapping();
+```
+
+Run the existing `telescope-monitor-deliveries` queue worker and
+`recover-deliveries` schedule. The report command prepares durable work; it does
+not send mail inline. Reports use the host mailer selected by `alerts.mailer`, or
+the host default, and appear in delivery history with the existing retry and
+transport-acceptance states. Report previews are included in the test filter.
+
+Daily reports cover the previous complete local calendar day. Weekly reports
+always cover the previous complete Monday–Sunday week, even when delivered on
+another weekday. Timezone changes and daylight-saving transitions use exact UTC
+boundaries derived from those local dates. A late scheduler run catches up after
+the configured time on the scheduled local day; missed delivery days are not
+backfilled automatically. Repeated or concurrent ticks prepare at most one
+scheduled report per installation generation, frequency and reporting period.
+
+Daily emails include occurrences, new error groups, regressions, an hourly trend,
+resolution progress and the three highest-volume currently unresolved errors.
+Weekly emails include a daily trend compared with the previous week, resolution
+progress, current unresolved and aging groups, and recurring errors to prioritize.
+Ignored and currently snoozed errors are excluded from the attention list; expired
+snoozes count as unresolved. Synthetic/test issues and occurrences are excluded.
+Resolution totals count distinct groups resolved during the period, including a
+group that later regressed. Backlog, assignment and attention status reflect report
+preparation time. Links open individual investigations or the monitoring overview.
+
+Reports contain aggregate counts and sanitized exception class names, with no raw
+request payloads, user identities, SQL, or stack traces. Occurrence timestamps
+provide exact local boundaries while respecting the retained analytics floor.
+Resolution/regression totals require retained activity history. Incomplete
+installation history, retention or purge coverage produces a partial-coverage
+notice or an unavailable comparison; a zero previous total has no percentage
+change. Already prepared reports remain snapshots; later imports appear in future
+reports rather than rewriting an email already prepared.
+
+Changing a report's subscription cancels its pending work when the worker next
+checks eligibility. Disconnecting or disabling a recipient, deployment delivery
+policy and installation generation fences also apply. Delivery is at least once:
+uncertain transport acceptance can cause duplicate emails. Editing report settings
+or manually retrying/resending report deliveries requires administrator access.
+
+Existing installations should run `telescope-monitor:install`, then
+`telescope-monitor:migrate --force`, to publish and apply the additive report-range
+indexes. Report preferences use the existing settings table, recipients use the
+existing encrypted destinations, and report snapshots use the existing encrypted
+alert-event and delivery storage. Deployment locks may set `reports.daily` or
+`reports.weekly` to a complete report definition using `telescope-monitor.locked`.

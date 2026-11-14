@@ -32,14 +32,11 @@ final class SavedView extends Model
 
     protected $dateFormat = 'Y-m-d H:i:s.u';
 
-    protected function casts(): array
-    {
-        return [
-            'installation_id' => 'integer',
-            'filters' => 'array',
-            'relative_range' => 'array',
-            'row_version' => 'integer',
-            'filter_schema_version' => 'integer',
-        ];
-    }
+    protected $casts = [
+        'installation_id' => 'integer',
+        'filters' => 'array',
+        'relative_range' => 'array',
+        'row_version' => 'integer',
+        'filter_schema_version' => 'integer',
+    ];
 }

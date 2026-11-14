@@ -6,7 +6,6 @@ use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\Bus;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 use Laravel\Telescope\Telescope;
 use TelescopeMonitor\Alerts\DeliverySender;
@@ -45,6 +44,7 @@ final class FakeMailProvider implements NotificationProvider
 final class EmailAlertsTest extends TestCase
 {
     use CapturesExceptions;
+    use \TelescopeMonitor\Tests\Fixtures\ReadsMail;
 
     private FakeMailProvider $provider;
 
@@ -436,14 +436,14 @@ final class EmailAlertsTest extends TestCase
         $this->capture('Gateway token=private-value');
         $this->process();
         $this->sendAll();
-        $messages = Mail::mailer('array')->getSymfonyTransport()->messages();
+        $messages = $this->sentEmails();
         $this->assertCount(1, $messages);
-        $message = $messages->last()->getOriginalMessage();
-        $this->assertSame('oncall@example.test', $message->getTo()[0]->getAddress());
-        $this->assertStringContainsString('Open investigation:', $message->getTextBody());
-        $this->assertStringNotContainsString('private-value', $message->getTextBody());
-        $this->assertStringContainsString('Telescope Monitor', $message->getHtmlBody());
-        $this->assertStringNotContainsString('private-value', $message->getHtmlBody());
+        $message = $messages[array_key_last($messages)];
+        $this->assertSame('oncall@example.test', $message['to'][0]);
+        $this->assertStringContainsString('Open investigation:', $message['text']);
+        $this->assertStringNotContainsString('private-value', $message['text']);
+        $this->assertStringContainsString('Telescope Monitor', $message['html']);
+        $this->assertStringNotContainsString('private-value', $message['html']);
     }
 
     public function test_reviewed_resend_requires_current_digest_and_creates_a_linked_new_identity(): void
@@ -462,7 +462,7 @@ final class EmailAlertsTest extends TestCase
         $url = '/telescope-monitor/api/v1/deliveries/'.$old->public_id;
         $preview = $this->postJson($url.'/review')->assertOk();
         $this->assertStringNotContainsString('ALPHA', $preview->json('telescope_monitor_private.text'));
-        $this->postJson($url.'/resend', ['client_key' => (string) Str::uuid(), 'preview_digest' => str_repeat('0', 64)])->assertConflict();
+        $this->postJson($url.'/resend', ['client_key' => (string) Str::uuid(), 'preview_digest' => str_repeat('0', 64)])->assertStatus(409);
         $new = $this->postJson($url.'/resend', ['client_key' => (string) Str::uuid(), 'preview_digest' => $preview->json('telescope_monitor_private.digest')])->assertOk()->json('telescope_monitor_private.id');
         $this->assertNotSame($old->public_id, $new);
         $this->assertSame((int) $old->id, (int) $this->delivery()->parent_delivery_id);
@@ -582,7 +582,7 @@ final class EmailAlertsTest extends TestCase
         $this->assertSame($old->connection_id, $this->delivery()->connection_id);
         $this->assertCount(0, $this->provider->calls);
         $this->patchJson('/telescope-monitor/api/v1/alerting/rules/'.$r, ['client_key' => (string) Str::uuid(), 'version' => 1] + $this->definition([$replacement]))->assertOk();
-        $this->patchJson('/telescope-monitor/api/v1/alerting/rules/'.$r, ['client_key' => (string) Str::uuid(), 'version' => 1] + $this->definition([$replacement]))->assertConflict();
+        $this->patchJson('/telescope-monitor/api/v1/alerting/rules/'.$r, ['client_key' => (string) Str::uuid(), 'version' => 1] + $this->definition([$replacement]))->assertStatus(409);
         $this->assertDatabaseCount('telescope_monitor_deliveries', 1);
     }
 

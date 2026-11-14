@@ -2,8 +2,6 @@
 
 namespace TelescopeMonitor\Tests\Feature;
 
-use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
-use TelescopeMonitor\Tests\Fixtures\StrictRequestForgery;
 use TelescopeMonitor\Tests\TestCase;
 
 final class RequestProtectionTest extends TestCase
@@ -11,7 +9,7 @@ final class RequestProtectionTest extends TestCase
     public function test_mutations_require_real_request_forgery_protection(): void
     {
         $this->authorize();
-        $this->app->bind(PreventRequestForgery::class, StrictRequestForgery::class);
+        $this->enforceCsrf();
         $this->withSession(['_token' => 'expected-csrf-token']);
         $this->patchJson('/telescope-monitor/api/v1/settings/general', [
             'version' => 0,

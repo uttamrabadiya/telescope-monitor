@@ -49,7 +49,7 @@ final class BackfillCommand extends Command
     private function summary(array $result, int $after, int $limit): void
     {
         $dry = $result['dry_run'];
-        $this->components->info($dry ? 'Telescope backfill — dry run' : 'Telescope backfill — page processed');
+        $this->info($dry ? 'Telescope backfill — dry run' : 'Telescope backfill — page processed');
         $this->line('Source environment: '.OutputFormatter::escape($result['environment']));
         if ($dry) {
             $this->line('No monitoring data was written.');
@@ -84,7 +84,7 @@ final class BackfillCommand extends Command
             $this->line('  '.OutputFormatter::escape($this->resumeCommand($result, $after, $limit, false)));
         }
         if ($result['failed'] > 0) {
-            $this->components->warn('Review failed capture items before continuing. Existing imports remain committed.');
+            $this->warn('Review failed capture items before continuing. Existing imports remain committed.');
         } elseif ($result['has_more']) {
             $this->newLine();
             $this->line($dry ? 'More exceptions remain. To preview the next page:' : 'More exceptions remain. Continue with:');
@@ -94,7 +94,7 @@ final class BackfillCommand extends Command
             $this->line($dry ? 'No more exceptions in this source snapshot.' : 'Source snapshot scanned.');
         }
         if ($result['pending'] > 0) {
-            $this->components->warn('Some buffered items still need processing. Keep the capture worker and recovery schedule running.');
+            $this->warn('Some buffered items still need processing. Keep the capture worker and recovery schedule running.');
         }
     }
 

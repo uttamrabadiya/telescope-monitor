@@ -148,22 +148,24 @@ return new class extends Migration
 
     public function down(): void
     {
-        if (Schema::connection(Database::connectionName())->hasTable('telescope_monitor_connections') && Schema::connection(Database::connectionName())->hasTable('telescope_monitor_secrets')) {
-            Schema::connection(Database::connectionName())->table('telescope_monitor_secrets', fn (Blueprint $t) => $t->dropForeign(['connection_id']));
-        }
-        foreach ([
-            'notification_gates',
-            'delivery_attempts',
-            'delivery_rules',
-            'deliveries',
-            'rule_connections',
-            'alert_rules',
-            'connections',
-        ] as $table) {
-            Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_'.$table);
-        }
-        if (Schema::connection(Database::connectionName())->hasTable('telescope_monitor_installations')) {
-            Database::connection()->table('telescope_monitor_installations')->update(['schema_version' => 3]);
-        }
+        Database::rollbackSchema(function () {
+            if ((Database::connection()->getDriverName() !== 'sqlite' || version_compare(app()->version(), '11.0.0', '>=')) && Schema::connection(Database::connectionName())->hasTable('telescope_monitor_connections') && Schema::connection(Database::connectionName())->hasTable('telescope_monitor_secrets')) {
+                Schema::connection(Database::connectionName())->table('telescope_monitor_secrets', fn (Blueprint $t) => $t->dropForeign(['connection_id']));
+            }
+            foreach ([
+                'notification_gates',
+                'delivery_attempts',
+                'delivery_rules',
+                'deliveries',
+                'rule_connections',
+                'alert_rules',
+                'connections',
+            ] as $table) {
+                Schema::connection(Database::connectionName())->dropIfExists('telescope_monitor_'.$table);
+            }
+            if (Schema::connection(Database::connectionName())->hasTable('telescope_monitor_installations')) {
+                Database::connection()->table('telescope_monitor_installations')->update(['schema_version' => 3]);
+            }
+        });
     }
 };

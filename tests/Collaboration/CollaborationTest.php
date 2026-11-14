@@ -126,11 +126,11 @@ final class CollaborationTest extends TestCase
         $key = (string) Str::uuid();
         $a = $this->note('Original', $key)->assertOk()->json('telescope_monitor_private.id');
         $this->note('Original', $key)->assertOk()->assertJsonPath('telescope_monitor_private.replayed', true);
-        $this->note('Different', $key)->assertConflict();
+        $this->note('Different', $key)->assertStatus(409);
         $url = $this->notesUrl().'/'.$a;
         $edit = ['client_key' => (string) Str::uuid(), 'version' => 1, 'telescope_monitor_private' => ['body' => 'Edited']];
         $this->patchJson($url, $edit)->assertOk();
-        $this->patchJson($url, array_replace($edit, ['client_key' => (string) Str::uuid()]))->assertConflict();
+        $this->patchJson($url, array_replace($edit, ['client_key' => (string) Str::uuid()]))->assertStatus(409);
         $this->actor('testing:2');
         $this->patchJson($url, ['client_key' => (string) Str::uuid(), 'version' => 2, 'telescope_monitor_private' => ['body' => 'Forbidden']])->assertForbidden();
         $this->authorize(manage: false);
@@ -220,7 +220,7 @@ final class CollaborationTest extends TestCase
         $id = $this->createView()->assertOk()->json('telescope_monitor_private.id');
         DB::table('telescope_monitor_saved_views')->where('public_id', $id)->update(['filter_schema_version' => 99]);
         $this->getJson('/telescope-monitor/api/v1/views/'.$id)->assertJsonPath('telescope_monitor_private.state', 'needs_repair');
-        $this->getJson('/telescope-monitor/api/v1/issues?view='.$id)->assertConflict();
+        $this->getJson('/telescope-monitor/api/v1/issues?view='.$id)->assertStatus(409);
         $this->patchJson('/telescope-monitor/api/v1/views/'.$id, [
             'client_key' => (string) Str::uuid(),
             'version' => 1,
@@ -237,7 +237,7 @@ final class CollaborationTest extends TestCase
     {
         $url = '/telescope-monitor/api/v1/issues/'.$this->issue.'/assignment';
         $payload = ['client_key' => (string) Str::uuid(), 'version' => 1, 'assignee' => 'testing:2'];
-        $this->postJson($url, $payload)->assertConflict();
+        $this->postJson($url, $payload)->assertStatus(409);
         config(['telescope-monitor.assignments' => ['enabled' => true, 'directory' => FakeDirectory::class]]);
         $this->postJson($url, $payload)->assertOk();
         $this->postJson($url, $payload)->assertOk();
@@ -272,7 +272,7 @@ final class CollaborationTest extends TestCase
         $this->getJson('/telescope-monitor/api/v1/issues')->assertJsonPath('telescope_monitor_private.total', '0');
         $this->getJson('/telescope-monitor/api/v1/issues?status=unresolved')->assertJsonPath('telescope_monitor_private.total', '1');
         $payload['client_key'] = (string) Str::uuid();
-        $this->putJson('/telescope-monitor/api/v1/view-preferences', $payload)->assertConflict();
+        $this->putJson('/telescope-monitor/api/v1/view-preferences', $payload)->assertStatus(409);
         $this->actor('testing:2');
         $this->getJson('/telescope-monitor/api/v1/view-preferences')->assertJsonPath('telescope_monitor_private.version', 0)->assertJsonPath('telescope_monitor_private.default_view_ref', null);
     }
@@ -315,7 +315,7 @@ final class CollaborationTest extends TestCase
             'filters' => [],
             'sort' => 'first_seen',
             'range' => '1h',
-        ])->assertConflict();
+        ])->assertStatus(409);
         $this->getJson('/telescope-monitor/api/v1/views/'.$id)->assertJsonPath('telescope_monitor_private.name', 'Renamed')->assertJsonPath('telescope_monitor_private.definition.filters.class', 'RuntimeException')->assertJsonPath('telescope_monitor_private.definition.range', '7d');
     }
 
@@ -361,9 +361,9 @@ final class CollaborationTest extends TestCase
         $key = (string) Str::uuid();
         $this->note('Once', $key)->assertOk();
         DB::table('telescope_monitor_installations')->increment('generation');
-        $this->note('Once', $key)->assertConflict();
+        $this->note('Once', $key)->assertStatus(409);
         DB::table('telescope_monitor_installations')->update(['state' => 'draining']);
-        $this->createView()->assertConflict();
+        $this->createView()->assertStatus(409);
         $this->assertDatabaseCount('telescope_monitor_notes', 1);
     }
 

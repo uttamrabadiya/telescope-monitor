@@ -9,7 +9,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/PHP-8.3%2B-777BB4" alt="Requires PHP 8.3 or newer">
-  <img src="https://img.shields.io/badge/Laravel-13.42%2B-FF2D20" alt="Requires Laravel 13.42 or newer within 13.x">
+  <img src="https://img.shields.io/badge/Laravel-8%E2%80%9313-FF2D20" alt="Supports tested Laravel 8 through 13 releases">
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-4040C8" alt="MIT license"></a>
 </p>
 
@@ -26,7 +26,7 @@
 
 Built for Laravel developers and teams using Telescope who want to follow an error from its first occurrence through investigation, resolution and regression. It uses your application's Telescope access policy, mailer and queue configuration. The dashboard ships with compiled assets: no frontend setup is needed in your app.
 
-**Release candidate: `1.0.0-rc.3`.** Published versions are listed on [Packagist](https://packagist.org/packages/telescope-monitor/telescope-monitor). Use the explicit RC constraint below for evaluation. Verified combinations and remaining stable-release gates are recorded in the [verification report](docs/release-verification-v1.0.0-rc.3.md).
+**Release candidate: `1.0.0-rc.4`.** Published versions are listed on [Packagist](https://packagist.org/packages/telescope-monitor/telescope-monitor). Use the explicit RC constraint below for evaluation. Verified combinations and remaining stable-release gates are recorded in the [verification report](docs/release-verification-v1.0.0-rc.4.md).
 
 ## See it in action
 
@@ -51,6 +51,12 @@ Dashboard screenshots use synthetic errors in a local workbench. Email uses the 
 | Stack frames, request/job context and activity | Notes, saved views and optional assignments | Signed webhooks |
 | Optional sanitized SQL templates | New-error, regression, frequency and activity rules | Create or link GitHub Issues |
 
+The Overview brings together current open groups, captured occurrences, new groups,
+regressions, a grouped bar chart against the previous period, origin shares, and
+the three open groups with the most captures. Capture and delivery observations
+link to their detailed operational pages. Comparisons require retained history
+and exclude the partial current interval.
+
 **Ready to try it?** Follow the [installation guide](#installation), then [capture your first error](#your-first-error). Production monitoring requires Telescope to record exceptions, an importer, queue workers and Laravel's scheduler; see [requirements](#requirements) and [production setup](#running-in-production).
 
 ## How it works
@@ -69,17 +75,27 @@ The dashboard follows `Laravel\Telescope\Telescope::$useDarkTheme`. Calling
 both Telescope and Monitor. The default is light; no Monitor theme setting or
 additional environment variable is needed.
 
+Daily and weekly email reports provide scheduled triage and progress summaries.
+Configure recipients, environments and local delivery schedules in **Settings →
+Scheduled reports**. Both start disabled; see the [report setup guide](docs/configuration-reference.md#scheduled-daily-and-weekly-email-reports).
+
 ## Requirements
 
 | Dependency | Requirement |
 | --- | --- |
 | PHP | 8.3+ with cURL, mbstring and your database PDO driver |
-| Laravel | 13.42+ within the supported 13.x series |
-| Laravel Telescope | 5.27+ within the supported 5.x series, enabled with ExceptionWatcher |
+| Laravel | 8.83.29+, 9.52.23+, 10.50.4+, 11.57.1+, 12.72.0+, or 13.42.0+ within each major |
+| Laravel Telescope | 5.19+ within the supported 5.x series, enabled with ExceptionWatcher |
 | Queue | Laravel database or Redis queue for notifications and queued setup checks |
 | Background processes | A supervised importer, queue workers and Laravel's scheduler |
 
-These are Composer constraints; verified combinations and remaining compatibility gates are documented in the release report. Node.js is needed only when developing this package.
+The current source supports the framework versions above with PHP 8.3 as its
+minimum. See the [framework compatibility report](docs/framework-compatibility.md)
+for test results and legacy dependency advisories. Telescope supplies Laravel
+transitively; Monitor's Composer conflict constraints exclude untested framework
+versions. Laravel is a development dependency for the package's own workbench.
+Published RC artifacts retain their original constraints until a new release is
+published. Node.js is needed only when developing this package.
 
 ## Installation
 
@@ -94,7 +110,7 @@ Telescope's filters still decide what is stored. An exception filtered out by Te
 Run this from your Laravel application directory:
 
 ```bash
-composer require telescope-monitor/telescope-monitor:^1.0@RC
+composer require telescope-monitor/telescope-monitor:1.0.0-rc.4
 ```
 
 The RC stability flag applies only to this package. Consumers do not need a custom repository or a frontend build. For local package development, use a Composer path repository pointing at your checkout.
@@ -205,6 +221,9 @@ Schedule::command('telescope-monitor:recover --limit=100')
     ->hourly()->withoutOverlapping();
 
 Schedule::command('telescope-monitor:recover-deliveries --limit=100')
+    ->everyMinute()->withoutOverlapping();
+
+Schedule::command('telescope-monitor:reports')
     ->everyMinute()->withoutOverlapping();
 
 Schedule::command('telescope-monitor:expire-snoozes --limit=100')
@@ -401,7 +420,7 @@ After code or deployment configuration changes, refresh cached configuration as 
 | [Capture and importer](docs/telescope-source-capture.md) | Signing, process boundaries, recovery, key rotation and purge safety |
 | [Operations guide](docs/operations-guide-v1.md) | Retention, maintenance, purge and encryption-key rotation |
 | [Webhook receiver contract](docs/webhook-contract-v1.md) | Payloads, signatures and receiver deduplication |
-| [Release verification](docs/release-verification-v1.0.0-rc.3.md) | Tested environments, acceptance evidence and remaining release gates |
+| [Release verification](docs/release-verification-v1.0.0-rc.4.md) | Tested environments, acceptance evidence and remaining release gates |
 | [Architecture](docs/technical-architecture-v1.md) | Design decisions and storage boundaries |
 
 ## Developing the package
@@ -417,6 +436,13 @@ php vendor/bin/testbench serve --host=127.0.0.1 --port=8195
 
 Open `http://127.0.0.1:8195/telescope-monitor/setup`. Run importer/workers through `php vendor/bin/testbench` in place of `php artisan`. The workbench uses development configuration and the non-network array mailer; consumers do not install Node.js or Testbench.
 
+Dashboard styling uses Tailwind CSS 4 and its official Vite integration. `resources/css/app.css` contains Tailwind imports and theme configuration; `resources/js/ui.ts` shares complete utility-class recipes across the Vue components. The document shell applies the Telescope-selected dark palette with Tailwind classes. Inputs and buttons use the shared `.25rem` radius. Fonts and all compiled styles are bundled locally.
+
+Author dashboard styles with complete Tailwind utility strings, directly or through `ui()`. Existing semantic class names remain stable DOM hooks. The frontend tests audit every Vue surface and reject handwritten CSS selectors, `@apply` wrappers, component style blocks, inline style bindings, and SVG presentation styling outside utilities. Run `npm run test:unit` and `npm run build` after UI changes. Notification email templates retain their email-compatible styling.
+
+
+For isolated verification, create an empty disposable SQLite file and export `TELESCOPE_MONITOR_WORKBENCH_DATABASE` with its absolute path before running migrations, the server or workers. This overrides the workbench database path, including in controlled integration/operations previews, so existing preview data can be preserved. It is a development-only setting, separate from the consumer's `TELESCOPE_MONITOR_DB_CONNECTION`.
+
 ```bash
 composer test
 composer analyse
@@ -426,7 +452,7 @@ npm run test:unit
 npm run build
 ```
 
-Use only a disposable database for engine/concurrency tests; the suite creates and rolls back package and Telescope tables. See [verification notes](docs/release-verification-v1.0.0-rc.3.md) for the engine matrix and limitations. Do not commit credentials or real exception data in examples, fixtures or screenshots.
+Use only a disposable database for engine/concurrency tests; the suite creates and rolls back package and Telescope tables. See [verification notes](docs/release-verification-v1.0.0-rc.4.md) for the engine matrix and limitations. Do not commit credentials or real exception data in examples, fixtures or screenshots.
 
 ## License
 

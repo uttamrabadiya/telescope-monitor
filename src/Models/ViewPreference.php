@@ -26,8 +26,5 @@ final class ViewPreference extends Model
 
     protected $dateFormat = 'Y-m-d H:i:s.u';
 
-    protected function casts(): array
-    {
-        return ['installation_id' => 'integer', 'shortcuts' => 'array', 'preferences_version' => 'integer', 'row_version' => 'integer'];
-    }
+    protected $casts = ['installation_id' => 'integer', 'shortcuts' => 'array', 'preferences_version' => 'integer', 'row_version' => 'integer'];
 }

@@ -40,20 +40,17 @@ final class AlertEvent extends Model
 
     protected $hidden = ['payload_ciphertext'];
 
-    protected function casts(): array
-    {
-        return [
-            'installation_id' => 'integer',
-            'issue_id' => 'integer',
-            'generation' => 'integer',
-            'event_version' => 'integer',
-            'occurrence_id' => 'integer',
-            'issue_state_version' => 'integer',
-            'alert_generation' => 'integer',
-            'occurred_at' => 'immutable_datetime',
-            'recorded_at' => 'immutable_datetime',
-            'payload_version' => 'integer',
-            'expires_at' => 'immutable_datetime',
-        ];
-    }
+    protected $casts = [
+        'installation_id' => 'integer',
+        'issue_id' => 'integer',
+        'generation' => 'integer',
+        'event_version' => 'integer',
+        'occurrence_id' => 'integer',
+        'issue_state_version' => 'integer',
+        'alert_generation' => 'integer',
+        'occurred_at' => 'immutable_datetime',
+        'recorded_at' => 'immutable_datetime',
+        'payload_version' => 'integer',
+        'expires_at' => 'immutable_datetime',
+    ];
 }

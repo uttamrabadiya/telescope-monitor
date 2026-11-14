@@ -24,6 +24,7 @@ final class BackfillTest extends TestCase
     protected function setUp(): void
     {
         parent::setUp();
+        $this->withoutMockingConsoleOutput();
         $this->authorize();
         $this->travelTo(CarbonImmutable::parse('2026-11-11T10:10:10Z'));
         config(['telescope-monitor.alerts.allowed_environments' => ['testing']]);

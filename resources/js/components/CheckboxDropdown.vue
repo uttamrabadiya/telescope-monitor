@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { ui } from "../ui"
 import { computed, nextTick, onMounted, onUnmounted, ref, useId, watch } from 'vue'
 import { ChevronDownIcon } from '@heroicons/vue/24/outline'
 
@@ -38,18 +39,18 @@ onUnmounted(() => document.removeEventListener('pointerdown', outside, true))
 </script>
 
 <template>
-  <div ref="root" class="field checkbox-dropdown" @focusout="leave" @keydown.esc.stop.prevent="close(true)">
-    <span :id="id + '-label'">{{ label }}</span>
-    <button ref="trigger" type="button" class="checkbox-dropdown-trigger" :disabled="disabled" :aria-expanded="open" :aria-controls="id + '-options'" :aria-labelledby="id + '-label ' + id + '-summary'" @click="open ? close() : show()" @keydown.down.prevent="show">
-      <span :id="id + '-summary'" class="checkbox-dropdown-summary" aria-live="polite">{{ summary }}</span>
-      <ChevronDownIcon aria-hidden="true" />
+  <div ref="root" :class="ui('$all', '$div', 'field checkbox-dropdown')" @focusout="leave" @keydown.esc.stop.prevent="close(true)">
+    <span :class="ui('$all', '$span')" :id="id + '-label'">{{ label }}</span>
+    <button ref="trigger" type="button" :class="ui('$all', '$button', 'checkbox-dropdown-trigger')" :disabled="disabled" :aria-expanded="open" :aria-controls="id + '-options'" :aria-labelledby="id + '-label ' + id + '-summary'" @click="open ? close() : show()" @keydown.down.prevent="show">
+      <span :id="id + '-summary'" :class="ui('$all', '$span', 'checkbox-dropdown-summary')" aria-live="polite">{{ summary }}</span>
+      <ChevronDownIcon :class="ui('$all', '$svg')" aria-hidden="true" />
     </button>
-    <div v-if="open" :id="id + '-options'" class="checkbox-dropdown-options" role="group" :aria-labelledby="id + '-label'">
-      <label v-for="option in choices" :key="option" class="checkbox-dropdown-option">
-        <input type="checkbox" :value="option" :checked="modelValue.includes(option)" :disabled="disabled" @change="toggle(option, ($event.target as HTMLInputElement).checked)">
-        <span>{{ option }}<small v-if="!options.includes(option)"> · unavailable</small></span>
+    <div v-if="open" :id="id + '-options'" :class="ui('$all', '$div', 'checkbox-dropdown-options')" role="group" :aria-labelledby="id + '-label'">
+      <label v-for="option in choices" :key="option" :class="ui('$all', '$label', 'checkbox-dropdown-option')">
+        <input :class="ui('$all', '$input')" type="checkbox" :value="option" :checked="modelValue.includes(option)" :disabled="disabled" @change="toggle(option, ($event.target as HTMLInputElement).checked)">
+        <span :class="ui('$all', '$span')">{{ option }}<small :class="ui('$all', '$small')" v-if="!options.includes(option)"> · unavailable</small></span>
       </label>
-      <p v-if="!choices.length" class="help">No environments available.</p>
+      <p v-if="!choices.length" :class="ui('$all', '$p', 'help')">No environments available.</p>
     </div>
   </div>
 </template>
